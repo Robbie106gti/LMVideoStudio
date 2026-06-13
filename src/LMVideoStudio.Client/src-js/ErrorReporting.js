@@ -1,10 +1,11 @@
 import { FSharpRef, Record } from "./fable_modules/fable-library-js.4.27.0/Types.js";
 import { option_type, record_type, class_type, string_type } from "./fable_modules/fable-library-js.4.27.0/Reflection.js";
+import { installErrorHooks, getActivityTail, detectOs, appendActivityLine, writeErrorReportingConsent, readErrorReportingConsent } from "../errorReporting.js";
 import { decodeFromString, encodeToString, create, SystemSnapshot, appVersion } from "./LMVideoStudio.Domain/ErrorReport.js";
 import { ofArray } from "./fable_modules/fable-library-js.4.27.0/List.js";
-import { ofArray as ofArray_1, empty } from "./fable_modules/fable-library-js.4.27.0/Map.js";
+import { ofSeq, empty } from "./fable_modules/fable-library-js.4.27.0/Map.js";
 import { comparePrimitives } from "./fable_modules/fable-library-js.4.27.0/Util.js";
-import { map } from "./fable_modules/fable-library-js.4.27.0/Array.js";
+import { map } from "./fable_modules/fable-library-js.4.27.0/Seq.js";
 import { FSharpResult$2 } from "./fable_modules/fable-library-js.4.27.0/Result.js";
 
 export class LastErrorSummary extends Record {
@@ -35,30 +36,6 @@ export class CaptureRequest extends Record {
 export function CaptureRequest_$reflection() {
     return record_type("LMVideoStudio.Client.ErrorReporting.CaptureRequest", [], CaptureRequest, () => [["Source", string_type], ["Severity", string_type], ["Message", string_type], ["Stack", option_type(string_type)], ["Context", class_type("Microsoft.FSharp.Collections.FSharpMap`2", [string_type, string_type])]]);
 }
-
-const readErrorReportingConsent = (() => {
-    throw 1;
-})();
-
-const writeErrorReportingConsent = (() => {
-    throw 1;
-})();
-
-const appendActivityLine = (() => {
-    throw 1;
-})();
-
-const getActivityTail = (() => {
-    throw 1;
-})();
-
-const installErrorHooks = (() => {
-    throw 1;
-})();
-
-const detectOs = (() => {
-    throw 1;
-})();
 
 export const consentKey = "lmvs_error_reporting_consent";
 
@@ -122,9 +99,7 @@ export function installHooks(onCaptured) {
                 const ctx = raw.context;
                 return (ctx == null) ? empty({
                     Compare: comparePrimitives,
-                }) : ofArray_1(map((k) => [k, ctx[k]], (() => {
-                    throw 1;
-                })()(ctx)), {
+                }) : ofSeq(map((k) => [k, ctx[k]], Object.keys(ctx)), {
                     Compare: comparePrimitives,
                 });
             }

@@ -1,12 +1,13 @@
 import { FSharpRef, Record, Union } from "../fable_modules/fable-library-js.4.27.0/Types.js";
 import { record_type, bool_type, union_type, string_type, option_type, int32_type, class_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
+import { SharePackPanel_view, SharePackModel_$reflection, SharePackMsg_$reflection } from "./SharePackPanel.js";
 import { ProjectModule_effectiveMockupDuration, Project as Project_1, StoryboardBlock, Project_$reflection } from "../LMVideoStudio.Domain/Types.js";
 import { isEmpty, ofArray, map as map_1, tryFind, findIndex, skip, singleton, take, append, mapIndexed, indexed, choose, item as item_1, length, sortBy } from "../fable_modules/fable-library-js.4.27.0/List.js";
 import { int32ToString, equals, createObj, comparePrimitives } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { filter, orElse, bind, map, defaultArg } from "../fable_modules/fable-library-js.4.27.0/Option.js";
 import { utcNow, toUnixTimeMilliseconds } from "../fable_modules/fable-library-js.4.27.0/DateOffset.js";
 import { exportPremiereXmlUrl, previewMediaUrl } from "../Api.js";
-import { isNullOrWhiteSpace } from "../fable_modules/fable-library-js.4.27.0/String.js";
+import { join, isNullOrWhiteSpace } from "../fable_modules/fable-library-js.4.27.0/String.js";
 import { createElement } from "react";
 import { empty, singleton as singleton_1, append as append_1, delay, toList } from "../fable_modules/fable-library-js.4.27.0/Seq.js";
 import { Interop_reactApi } from "../fable_modules/Feliz.2.6.0/Interop.fs.js";
@@ -20,16 +21,16 @@ export class TimelineMsg extends Union {
         this.fields = fields;
     }
     cases() {
-        return ["ImportImage", "ImportStylePack", "MoveBlockUp", "MoveBlockDown", "DragStart", "DropOnIndex", "SelectBlock", "SetVoiceoverScript", "SetImagePrompt", "SetCrossfadeDuration", "SaveBlockFields", "GenerateThumbnail", "SelectThumbnailVariant", "ImportAudio", "RefreshMockupPreview", "StartBake", "ExportSharePack", "PreviewFailed", "BakeFailed", "Save", "BackToHub"];
+        return ["ImportImage", "ImportStylePack", "MoveBlockUp", "MoveBlockDown", "DragStart", "DropOnIndex", "SelectBlock", "SetVoiceoverScript", "SetImagePrompt", "SetMoodTags", "SetCrossfadeDuration", "SaveBlockFields", "GenerateThumbnail", "SelectThumbnailVariant", "ImportAudio", "RefreshMockupPreview", "StartBake", "ExportSharePack", "SharePackMsg", "PreviewFailed", "BakeFailed", "Save", "BackToHub"];
     }
 }
 
 export function TimelineMsg_$reflection() {
-    return union_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineMsg", [], TimelineMsg, () => [[["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("System.Guid")]], [["Item", class_type("System.Guid")]], [["Item", int32_type]], [["Item", int32_type]], [["Item", option_type(class_type("System.Guid"))]], [["Item", string_type]], [["Item", string_type]], [["Item", int32_type]], [], [], [["Item", string_type]], [["Item", class_type("Browser.Types.File", undefined)]], [], [], [], [["Item", string_type]], [["Item", string_type]], [], []]);
+    return union_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineMsg", [], TimelineMsg, () => [[["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("System.Guid")]], [["Item", class_type("System.Guid")]], [["Item", int32_type]], [["Item", int32_type]], [["Item", option_type(class_type("System.Guid"))]], [["Item", string_type]], [["Item", string_type]], [["Item", string_type]], [["Item", int32_type]], [], [], [["Item", string_type]], [["Item", class_type("Browser.Types.File", undefined)]], [], [], [], [["Item", SharePackMsg_$reflection()]], [["Item", string_type]], [["Item", string_type]], [], []]);
 }
 
 export class TimelineModel extends Record {
-    constructor(Project, Saving, Generating, Previewing, Baking, PreviewUrl, BakeUrl, PreviewJobId, BakeJobId, Error$, DragIndex, SelectedBlockId, VoiceoverDraft, ImagePromptDraft, CrossfadeDurationDraft) {
+    constructor(Project, Saving, Generating, Previewing, Baking, PreviewUrl, BakeUrl, PreviewJobId, BakeJobId, Error$, DragIndex, SelectedBlockId, VoiceoverDraft, ImagePromptDraft, MoodTagsDraft, CrossfadeDurationDraft, SharePack) {
         super();
         this.Project = Project;
         this.Saving = Saving;
@@ -45,16 +46,18 @@ export class TimelineModel extends Record {
         this.SelectedBlockId = SelectedBlockId;
         this.VoiceoverDraft = VoiceoverDraft;
         this.ImagePromptDraft = ImagePromptDraft;
+        this.MoodTagsDraft = MoodTagsDraft;
         this.CrossfadeDurationDraft = (CrossfadeDurationDraft | 0);
+        this.SharePack = SharePack;
     }
 }
 
 export function TimelineModel_$reflection() {
-    return record_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineModel", [], TimelineModel, () => [["Project", Project_$reflection()], ["Saving", bool_type], ["Generating", bool_type], ["Previewing", bool_type], ["Baking", bool_type], ["PreviewUrl", option_type(string_type)], ["BakeUrl", option_type(string_type)], ["PreviewJobId", option_type(class_type("System.Guid"))], ["BakeJobId", option_type(class_type("System.Guid"))], ["Error", option_type(string_type)], ["DragIndex", option_type(int32_type)], ["SelectedBlockId", option_type(class_type("System.Guid"))], ["VoiceoverDraft", string_type], ["ImagePromptDraft", string_type], ["CrossfadeDurationDraft", int32_type]]);
+    return record_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineModel", [], TimelineModel, () => [["Project", Project_$reflection()], ["Saving", bool_type], ["Generating", bool_type], ["Previewing", bool_type], ["Baking", bool_type], ["PreviewUrl", option_type(string_type)], ["BakeUrl", option_type(string_type)], ["PreviewJobId", option_type(class_type("System.Guid"))], ["BakeJobId", option_type(class_type("System.Guid"))], ["Error", option_type(string_type)], ["DragIndex", option_type(int32_type)], ["SelectedBlockId", option_type(class_type("System.Guid"))], ["VoiceoverDraft", string_type], ["ImagePromptDraft", string_type], ["MoodTagsDraft", string_type], ["CrossfadeDurationDraft", int32_type], ["SharePack", option_type(SharePackModel_$reflection())]]);
 }
 
 export function StoryboardTimeline_init(project) {
-    return new TimelineModel(project, false, false, false, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, "", "", 300);
+    return new TimelineModel(project, false, false, false, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, "", "", "", 300, undefined);
 }
 
 function StoryboardTimeline_sortedBlocks(project) {
@@ -138,7 +141,7 @@ function StoryboardTimeline_reorderByIndex(project, fromIdx, toIdx) {
 }
 
 export function StoryboardTimeline_reorderByDrag(model, fromIdx, toIdx) {
-    return new TimelineModel(StoryboardTimeline_reorderByIndex(model.Project, fromIdx, toIdx), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, undefined, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(StoryboardTimeline_reorderByIndex(model.Project, fromIdx, toIdx), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, undefined, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 function StoryboardTimeline_reorder(project, blockId, direction) {
@@ -174,26 +177,26 @@ function StoryboardTimeline_blockCrossfadeMs(block, project) {
 
 export function StoryboardTimeline_selectBlock(model, blockId) {
     if (blockId == null) {
-        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
     }
     else {
         const id = blockId;
         const matchValue = tryFind((b) => (b.Id === id), model.Project.Blocks);
         if (matchValue == null) {
-            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
         }
         else {
             const block = matchValue;
-            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, id, defaultArg(block.VoiceoverScript, ""), defaultArg(block.ImagePrompt, ""), StoryboardTimeline_blockCrossfadeMs(block, model.Project));
+            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, id, defaultArg(block.VoiceoverScript, ""), defaultArg(block.ImagePrompt, ""), join(", ", block.MoodTags), StoryboardTimeline_blockCrossfadeMs(block, model.Project), model.SharePack);
         }
     }
 }
 
 export function StoryboardTimeline_view(model, dispatch) {
-    let elems_23, elems_4, children, elems_3, elems_1, elems_2, value_61, elems_22, elems_12;
+    let elems_24, elems_4, children, elems_3, elems_1, elems_2, value_61, elems_23, elems_12;
     const blocks = StoryboardTimeline_sortedBlocks(model.Project);
     const selected = StoryboardTimeline_selectedBlock(model);
-    return createElement("div", createObj(ofArray([["className", "flex flex-col h-full"], (elems_23 = [createElement("div", createObj(ofArray([["className", "flex items-center justify-between px-6 py-4 border-b border-surface-border"], (elems_4 = [(children = ofArray([createElement("h1", {
+    return createElement("div", createObj(ofArray([["className", "flex flex-col h-full"], (elems_24 = [createElement("div", createObj(ofArray([["className", "flex items-center justify-between px-6 py-4 border-b border-surface-border"], (elems_4 = [(children = ofArray([createElement("h1", {
         className: "text-xl font-bold",
         children: model.Project.Name,
     }), createElement("p", {
@@ -252,10 +255,10 @@ export function StoryboardTimeline_view(model, dispatch) {
         title: "CPU FFmpeg libx264 stitch — not GPU",
         children: model.Previewing ? "Rendering preview…" : "Refresh mockup preview",
         onClick: (_arg) => {
-            dispatch(new TimelineMsg(14, []));
+            dispatch(new TimelineMsg(15, []));
         },
     }), createElement("button", createObj(ofArray([(value_61 = "px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm font-medium disabled:opacity-50", ["className", value_61]), ["disabled", model.Baking ? true : model.Saving], ["children", model.Baking ? "Baking…" : "Bake final MP4"], ["onClick", (_arg_1) => {
-        dispatch(new TimelineMsg(15, []));
+        dispatch(new TimelineMsg(16, []));
     }]]))), createElement("a", {
         className: "px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent inline-block",
         href: exportPremiereXmlUrl(model.Project.Id),
@@ -266,20 +269,20 @@ export function StoryboardTimeline_view(model, dispatch) {
         disabled: model.Saving,
         children: "Export share pack",
         onClick: (_arg_2) => {
-            dispatch(new TimelineMsg(16, []));
+            dispatch(new TimelineMsg(17, []));
         },
     }), createElement("button", {
         className: "px-4 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium disabled:opacity-50",
         disabled: model.Saving,
         children: model.Saving ? "Saving…" : "Save",
         onClick: (_arg_3) => {
-            dispatch(new TimelineMsg(19, []));
+            dispatch(new TimelineMsg(21, []));
         },
     }), createElement("button", {
         className: "px-3 py-2 rounded-md border border-surface-border text-sm",
         children: "Close project",
         onClick: (_arg_4) => {
-            dispatch(new TimelineMsg(20, []));
+            dispatch(new TimelineMsg(22, []));
         },
     })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_3))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_4))])]))), defaultArg(map((url) => {
         let elems_5;
@@ -304,7 +307,9 @@ export function StoryboardTimeline_view(model, dispatch) {
     }, model.BakeUrl), defaultOf()), defaultArg(map((e) => createElement("div", {
         className: "px-6 py-2 text-red-400 text-sm",
         children: e,
-    }), model.Error), defaultOf()), createElement("div", createObj(ofArray([["className", "flex flex-1 min-h-0"], (elems_22 = [createElement("div", createObj(ofArray([["className", "flex-1 overflow-x-auto px-6 py-6"], (elems_12 = toList(delay(() => {
+    }), model.Error), defaultOf()), defaultArg(map((sp_2) => SharePackPanel_view(sp_2, (arg) => {
+        dispatch(new TimelineMsg(18, [arg]));
+    }), model.SharePack), defaultOf()), createElement("div", createObj(ofArray([["className", "flex flex-1 min-h-0"], (elems_23 = [createElement("div", createObj(ofArray([["className", "flex-1 overflow-x-auto px-6 py-6"], (elems_12 = toList(delay(() => {
         let elems_11;
         return isEmpty(blocks) ? singleton_1(createElement("div", {
             className: "text-slate-500 text-center py-16 border border-dashed border-surface-border rounded-lg",
@@ -356,11 +361,11 @@ export function StoryboardTimeline_view(model, dispatch) {
             })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_10))])])));
         }, blocks), ["children", Interop_reactApi.Children.toArray(Array.from(elems_11))])]))));
     })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_12))])]))), defaultArg(map((block_1) => {
-        let elems_21, elems_20, elems_13, elems_17, elems_18, value_278, elems_19, matchValue_3, a_1, value_295;
-        return createElement("aside", createObj(ofArray([["className", "w-80 border-l border-surface-border bg-surface-raised flex flex-col shrink-0"], (elems_21 = [createElement("div", {
+        let elems_22, elems_21, elems_13, elems_17, elems_18, elems_19, value_293, elems_20, matchValue_3, a_1, value_310;
+        return createElement("aside", createObj(ofArray([["className", "w-80 border-l border-surface-border bg-surface-raised flex flex-col shrink-0"], (elems_22 = [createElement("div", {
             className: "px-4 py-3 border-b border-surface-border font-semibold text-sm",
             children: defaultArg(block_1.Title, "Block inspector"),
-        }), createElement("div", createObj(ofArray([["className", "p-4 space-y-4 text-sm overflow-y-auto flex-1"], (elems_20 = [createElement("div", createObj(singleton((elems_13 = toList(delay(() => append_1(singleton_1(createElement("label", {
+        }), createElement("div", createObj(ofArray([["className", "p-4 space-y-4 text-sm overflow-y-auto flex-1"], (elems_21 = [createElement("div", createObj(singleton((elems_13 = toList(delay(() => append_1(singleton_1(createElement("label", {
             className: "block text-xs text-slate-500 mb-1",
             children: "Image prompt",
         })), delay(() => append_1(singleton_1(createElement("textarea", {
@@ -378,7 +383,7 @@ export function StoryboardTimeline_view(model, dispatch) {
             disabled: model.Generating,
             children: model.Generating ? "Generating 3 variants…" : "Generate 3 thumbnail variants",
             onClick: (_arg_6) => {
-                dispatch(new TimelineMsg(11, []));
+                dispatch(new TimelineMsg(12, []));
             },
         }), defaultArg(map((variants) => {
             let elems_16, elems_15;
@@ -386,9 +391,9 @@ export function StoryboardTimeline_view(model, dispatch) {
                 className: "text-xs text-slate-500",
                 children: "Pick a variant",
             }), createElement("div", createObj(ofArray([["className", "grid grid-cols-3 gap-2"], (elems_15 = mapIndexed((vi, path) => {
-                let value_228, elems_14;
-                return createElement("button", createObj(ofArray([["type", "button"], ["className", "aspect-video rounded border overflow-hidden " + (((value_228 = (vi === 0), defaultArg(map((y_1) => (path === y_1), block_1.ThumbnailPath), value_228))) ? "border-accent ring-1 ring-accent" : "border-surface-border hover:border-accent/60")], ["onClick", (_arg_7) => {
-                    dispatch(new TimelineMsg(12, [path]));
+                let value_229, elems_14;
+                return createElement("button", createObj(ofArray([["type", "button"], ["className", "aspect-video rounded border overflow-hidden " + (((value_229 = (vi === 0), defaultArg(map((y_1) => (path === y_1), block_1.ThumbnailPath), value_229))) ? "border-accent ring-1 ring-accent" : "border-surface-border hover:border-accent/60")], ["onClick", (_arg_7) => {
+                    dispatch(new TimelineMsg(13, [path]));
                 }], (elems_14 = [createElement("img", {
                     className: "w-full h-full object-cover",
                     src: previewMediaUrl(model.Project.Id, path, StoryboardTimeline_mediaCacheBust(model.Project)),
@@ -412,7 +417,7 @@ export function StoryboardTimeline_view(model, dispatch) {
                     outArg = (v_2 | 0);
                 })), outArg];
                 if (matchValue_2[0]) {
-                    dispatch(new TimelineMsg(9, [matchValue_2[1]]));
+                    dispatch(new TimelineMsg(10, [matchValue_2[1]]));
                 }
             },
         }), createElement("p", {
@@ -428,65 +433,94 @@ export function StoryboardTimeline_view(model, dispatch) {
             onChange: (ev_9) => {
                 dispatch(new TimelineMsg(7, [ev_9.target.value]));
             },
-        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_18))])))), createElement("label", createObj(ofArray([(value_278 = "block px-3 py-2 rounded-md border border-surface-border cursor-pointer hover:border-accent text-sm text-center", ["className", value_278]), (elems_19 = [createElement("input", {
+        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_18))])))), createElement("div", createObj(singleton((elems_19 = [createElement("label", {
+            className: "block text-xs text-slate-500 mb-1",
+            children: "Mood / tone tags (comma-separated)",
+        }), createElement("input", {
+            type: "text",
+            className: "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm",
+            placeholder: "calm, upbeat, cinematic",
+            value: model.MoodTagsDraft,
+            onChange: (ev_10) => {
+                dispatch(new TimelineMsg(9, [ev_10.target.value]));
+            },
+        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_19))])))), createElement("label", createObj(ofArray([(value_293 = "block px-3 py-2 rounded-md border border-surface-border cursor-pointer hover:border-accent text-sm text-center", ["className", value_293]), (elems_20 = [createElement("input", {
             type: "file",
             accept: "audio/*",
             className: "hidden",
-            onChange: (ev_10) => {
-                const input_2 = ev_10.target;
+            onChange: (ev_11) => {
+                const input_2 = ev_11.target;
                 const files_2 = input_2.files;
                 if (!(files_2 == null) && (files_2.length > 0)) {
-                    dispatch(new TimelineMsg(13, [files_2[0]]));
+                    dispatch(new TimelineMsg(14, [files_2[0]]));
                 }
             },
         }), createElement("span", {
             children: (matchValue_3 = block_1.Audio, (matchValue_3 != null) ? ((matchValue_3.Path != null) ? ((a_1 = matchValue_3, "Replace audio")) : "Import audio") : "Import audio"),
-        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_19))])]))), defaultArg(map((p) => createElement("p", {
+        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_20))])]))), defaultArg(map((p) => createElement("p", {
             className: "text-xs text-slate-500 truncate",
             children: `Audio: ${p}`,
-        }), bind((a_2) => a_2.Path, block_1.Audio)), defaultOf()), createElement("button", createObj(ofArray([(value_295 = "w-full px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50", ["className", value_295]), ["disabled", model.Saving], ["children", model.Saving ? "Saving…" : "Save block fields"], ["onClick", (_arg_8) => {
-            dispatch(new TimelineMsg(10, []));
-        }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_20))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_21))])])));
-    }, selected), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems_22))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_23))])])));
+        }), bind((a_2) => a_2.Path, block_1.Audio)), defaultOf()), createElement("button", createObj(ofArray([(value_310 = "w-full px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50", ["className", value_310]), ["disabled", model.Saving], ["children", model.Saving ? "Saving…" : "Save block fields"], ["onClick", (_arg_8) => {
+            dispatch(new TimelineMsg(11, []));
+        }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_21))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_22))])])));
+    }, selected), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems_23))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_24))])])));
 }
 
 export function StoryboardTimeline_setDragIndex(model, idx) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, idx, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, idx, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_moveUp(model, blockId) {
-    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, -1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, -1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_moveDown(model, blockId) {
-    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, 1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, 1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_withProject(project, model) {
-    return StoryboardTimeline_selectBlock(new TimelineModel(project, false, false, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft), model.SelectedBlockId);
+    return StoryboardTimeline_selectBlock(new TimelineModel(project, false, false, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack), model.SelectedBlockId);
+}
+
+export function StoryboardTimeline_withSharePack(sharePack, model) {
+    return new TimelineModel(model.Project, false, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, sharePack);
+}
+
+export function StoryboardTimeline_updateSharePack(f, model) {
+    const matchValue = model.SharePack;
+    if (matchValue != null) {
+        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, f(matchValue));
+    }
+    else {
+        return model;
+    }
+}
+
+export function StoryboardTimeline_clearSharePack(model) {
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, undefined);
 }
 
 export function StoryboardTimeline_withPreviewUrl(url, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, url, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, url, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_withPreviewStarted(jobId, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, true, model.Baking, model.PreviewUrl, model.BakeUrl, jobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, true, model.Baking, model.PreviewUrl, model.BakeUrl, jobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_withPreviewError(err, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_withBakeStarted(jobId, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, true, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, jobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, true, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, jobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_withBakeUrl(url, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, url, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, url, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 
 export function StoryboardTimeline_withBakeError(err, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.CrossfadeDurationDraft);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.SharePack);
 }
 

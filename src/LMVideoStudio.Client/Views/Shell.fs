@@ -26,9 +26,18 @@ module Shell =
           Activity = activity
           SystemStatus = None }
 
+    let private formatPhase phase =
+        match phase with
+        | "mockup_preview" -> "Preview"
+        | "image_generate" -> "Generate"
+        | "bootstrap" -> "Bootstrap"
+        | "bake" -> "Bake"
+        | "audio_generate" -> "Voiceover"
+        | other -> other.Replace('_', ' ')
+
     let statusBar (status: SystemStatusDto option) (activity: ActivityPanelState) =
         let gpuJob =
-            ActivityPanel.activeGpuHint activity.Events
+            activeGpuHint activity.Events
             |> Option.map (fun e ->
                 let cold =
                     e.IsColdRun
@@ -77,15 +86,6 @@ module Shell =
                 |> Option.defaultValue Html.none
             ]
         ]
-
-    let private formatPhase phase =
-        match phase with
-        | "mockup_preview" -> "Preview"
-        | "image_generate" -> "Generate"
-        | "bootstrap" -> "Bootstrap"
-        | "bake" -> "Bake"
-        | "audio_generate" -> "Voiceover"
-        | other -> other.Replace('_', ' ')
 
     let navButton (label: string) tab current dispatch =
         Html.button [

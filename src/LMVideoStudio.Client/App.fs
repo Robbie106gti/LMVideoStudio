@@ -1187,7 +1187,7 @@ let update msg model =
         | _ -> model, Cmd.none
 
     | OAuthStartReady(Ok start) ->
-        Browser.Dom.window.open(start.AuthorizationUrl, "_blank") |> ignore
+        Browser.Dom.window?``open``(start.AuthorizationUrl, "_blank") |> ignore
 
         match model.Page with
         | SettingsPage st ->

@@ -7,6 +7,7 @@ open Thoth.Json
 open LMVideoStudio.Domain
 open LMVideoStudio.Domain.HostHealthPoll
 open LMVideoStudio.Client.ProjectJson
+open LMVideoStudio.Client.ErrorReporting
 
 let defaultHostBase = "http://127.0.0.1:17170"
 
@@ -90,14 +91,14 @@ let private importFile: string -> Browser.Types.File -> JS.Promise<int * string>
 [<Import("subscribeSse", from="./fetch.js")>]
 let private subscribeSse: string -> (string -> unit) -> obj = jsNative
 
-let private reportApiFailure method path status message =
-    ErrorReporting.logActivity $"{method} {path} -> {status}: {message}"
+let private reportApiFailure (method: string) (path: string) status message =
+    logActivity $"{method} {path} -> {status}: {message}"
 
     if path.Contains("/api/v1/reports") then
         None
     elif status = 0 || status >= 500 then
         Some
-            { ErrorReporting.Source = "api"
+            { Source = "api"
               Severity = if status = 0 then "error" else "warning"
               Message = $"{method} {path} failed ({status}): {message}"
               Stack = None
@@ -117,14 +118,14 @@ let private fetchAsync url method body =
             let status, text = result
 
             match reportApiFailure method url status text with
-            | Some req -> ErrorReporting.tryCapture req
+            | Some req -> tryCapture req
             | None -> ()
 
             return result
         with ex ->
             let message = ex.Message
 
-            ErrorReporting.tryCapture
+            tryCapture
                 { Source = "api"
                   Severity = "error"
                   Message = $"{method} {url} failed: {message}"
@@ -352,7 +353,8 @@ let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (ima
 
         let moodFields =
             moodTags
-            |> Option.map (fun tags -> [ "moodTags", Encode.list Encode.string tags ])
+            |> Option.map (fun tags ->
+                [ "moodTags", tags |> List.map Encode.string |> List.toArray |> Encode.array ])
             |> Option.defaultValue []
 
         let fields =

@@ -26,17 +26,17 @@
 
     <Compile Include="ProjectJson.fs" />
 
-    <Compile Include="Api.fs" />
-
     <Compile Include="ErrorReporting.fs" />
+
+    <Compile Include="Api.fs" />
 
     <Compile Include="ActivityPanel.fs" />
 
     <Compile Include="Views/ProjectHub.fs" />
 
-    <Compile Include="Views/StoryboardTimeline.fs" />
-
     <Compile Include="Views/SharePackPanel.fs" />
+
+    <Compile Include="Views/StoryboardTimeline.fs" />
 
     <Compile Include="Views/Settings.fs" />
 

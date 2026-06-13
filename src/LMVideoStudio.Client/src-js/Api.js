@@ -2,7 +2,10 @@ import { trimStart, replace, isNullOrWhiteSpace } from "./fable_modules/fable-li
 import { Record } from "./fable_modules/fable-library-js.4.27.0/Types.js";
 import { list_type, int64_type, float64_type, option_type, bool_type, record_type, int32_type, string_type, class_type } from "./fable_modules/fable-library-js.4.27.0/Reflection.js";
 import { float, fromString, bool, int64, list as list_2, int, string, guid, object } from "./fable_modules/Thoth.Json.10.4.1/Decode.fs.js";
-import { equals, uncurry2 } from "./fable_modules/fable-library-js.4.27.0/Util.js";
+import { equals, comparePrimitives, int32ToString, uncurry2 } from "./fable_modules/fable-library-js.4.27.0/Util.js";
+import { tryCapture, CaptureRequest, logActivity } from "./ErrorReporting.js";
+import { ofList } from "./fable_modules/fable-library-js.4.27.0/Map.js";
+import { empty, singleton as singleton_1, append, map, toArray, ofArray } from "./fable_modules/fable-library-js.4.27.0/List.js";
 import { singleton } from "./fable_modules/fable-library-js.4.27.0/AsyncBuilder.js";
 import { sleep, awaitPromise } from "./fable_modules/fable-library-js.4.27.0/Async.js";
 import { subscribeSse, importFile, fetchJson } from "../fetch.js";
@@ -10,7 +13,6 @@ import { evaluateAttempt, defaultConfig } from "./LMVideoStudio.Domain/HostHealt
 import { FSharpResult$2 } from "./fable_modules/fable-library-js.4.27.0/Result.js";
 import { guid as guid_1, object as object_1, toString } from "./fable_modules/Thoth.Json.10.4.1/Encode.fs.js";
 import { decodeProject } from "./ProjectJson.js";
-import { empty, singleton as singleton_1, ofArray, append, map, toArray } from "./fable_modules/fable-library-js.4.27.0/List.js";
 import { filter, map as map_1, defaultArg } from "./fable_modules/fable-library-js.4.27.0/Option.js";
 import { writeErrorReportTauri, checkForUpdatesFallback, checkForUpdatesTauri } from "../tauriInterop.js";
 
@@ -135,16 +137,14 @@ const jobEventDecoder = (path_8) => ((v) => object((get$) => {
 }, path_8, v));
 
 function reportApiFailure(method, path, status, message) {
-    throw 1;
-    if ((() => {
-        throw 1;
-    })()) {
+    logActivity(`${method} ${path} -> ${status}: ${message}`);
+    if (path.indexOf("/api/v1/reports") >= 0) {
         return undefined;
     }
     else if ((status === 0) ? true : (status >= 500)) {
-        return (() => {
-            throw 1;
-        })();
+        return new CaptureRequest("api", (status === 0) ? "error" : "warning", `${method} ${path} failed (${status}): ${message}`, undefined, ofList(ofArray([["method", method], ["path", path], ["status", int32ToString(status)]]), {
+            Compare: comparePrimitives,
+        }));
     }
     else {
         return undefined;
@@ -153,14 +153,16 @@ function reportApiFailure(method, path, status, message) {
 
 function fetchAsync(url, method, body) {
     return singleton.Delay(() => singleton.TryWith(singleton.Delay(() => singleton.Bind(awaitPromise(fetchJson(url)(method)(body)), (_arg) => {
-        let matchValue, req;
+        let matchValue;
         const result = _arg;
-        return singleton.Combine((matchValue = reportApiFailure(method, url, result[0], result[1]), (matchValue == null) ? (singleton.Zero()) : ((req = matchValue, ((() => {
-            throw 1;
-        })(), singleton.Zero())))), singleton.Delay(() => singleton.Return(result)));
+        return singleton.Combine((matchValue = reportApiFailure(method, url, result[0], result[1]), (matchValue == null) ? (singleton.Zero()) : ((tryCapture(matchValue), singleton.Zero()))), singleton.Delay(() => singleton.Return(result)));
     })), (_arg_1) => {
-        throw 1;
-        return singleton.Return([0, _arg_1.message]);
+        const ex = _arg_1;
+        const message = ex.message;
+        tryCapture(new CaptureRequest("api", "error", `${method} ${url} failed: ${message}`, ex.message, ofList(ofArray([["method", method], ["url", url]]), {
+            Compare: comparePrimitives,
+        })));
+        return singleton.Return([0, message]);
     }));
 }
 
@@ -370,9 +372,7 @@ export function generateBlockThumbnail(projectId, blockId, prompt, variantCount)
 export function updateBlock(projectId, blockId, voiceoverScript, imagePrompt, crossfadeDurationMs, moodTags) {
     return singleton.Delay(() => {
         const transitionFields = defaultArg(map_1((ms) => singleton_1(["transitions", object_1([["toNext", object_1([["type", "crossfade"], ["durationMs", ms]])]])]), crossfadeDurationMs), empty());
-        const moodFields = defaultArg(map_1((tags) => singleton_1(["moodTags", (() => {
-            throw 1;
-        })()]), moodTags), empty());
+        const moodFields = defaultArg(map_1((tags) => singleton_1(["moodTags", toArray(map((value_3) => value_3, tags))]), moodTags), empty());
         const body = toString(0, object_1(append(singleton_1(["voiceoverScript", voiceoverScript]), append(defaultArg(map_1((p) => singleton_1(["imagePrompt", p]), imagePrompt), empty()), append(transitionFields, moodFields)))));
         return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}`, "PATCH", body), (_arg) => {
             const text = _arg[1];

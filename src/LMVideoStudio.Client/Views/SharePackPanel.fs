@@ -46,13 +46,13 @@ module SharePackPanel =
 
     let private copyToClipboard (text: string) =
         try
-            Browser.Navigator.clipboard.writeText(text) |> ignore
+            Browser.Dom.window?navigator?clipboard?writeText(text) |> ignore
             Ok "Caption copied to clipboard"
         with ex ->
             Error ex.Message
 
     let private openUrl (url: string) =
-        Browser.Dom.window.open(url, "_blank") |> ignore
+        Browser.Dom.window?``open``(url, "_blank") |> ignore
 
     let view (model: SharePackModel) dispatch =
         let youtubeConnected = isConnected model.ConnectedAccounts "youtube"

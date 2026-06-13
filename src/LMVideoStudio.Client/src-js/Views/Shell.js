@@ -1,13 +1,14 @@
 import { Record, Union } from "../fable_modules/fable-library-js.4.27.0/Types.js";
-import { record_type, option_type, obj_type, union_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
+import { record_type, option_type, union_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
+import { view, activeGpuHint, ActivityPanelState_$reflection } from "../ActivityPanel.js";
 import { JobEventDto_$reflection, SystemStatusDto_$reflection } from "../Api.js";
+import { replace } from "../fable_modules/fable-library-js.4.27.0/String.js";
 import { bind, defaultArg, map } from "../fable_modules/fable-library-js.4.27.0/Option.js";
 import { createElement } from "react";
 import { equals, createObj } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { defaultOf } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { Interop_reactApi } from "../fable_modules/Feliz.2.6.0/Interop.fs.js";
 import { ofArray } from "../fable_modules/fable-library-js.4.27.0/List.js";
-import { replace } from "../fable_modules/fable-library-js.4.27.0/String.js";
 
 export class ShellTab extends Union {
     constructor(tag, fields) {
@@ -34,7 +35,7 @@ export class ShellModel extends Record {
 }
 
 export function ShellModel_$reflection() {
-    return record_type("LMVideoStudio.Client.Views.Shell.ShellModel", [], ShellModel, () => [["Tab", ShellTab_$reflection()], ["Activity", obj_type], ["SystemStatus", option_type(SystemStatusDto_$reflection())]]);
+    return record_type("LMVideoStudio.Client.Views.Shell.ShellModel", [], ShellModel, () => [["Tab", ShellTab_$reflection()], ["Activity", ActivityPanelState_$reflection()], ["SystemStatus", option_type(SystemStatusDto_$reflection())]]);
 }
 
 export class ShellMsg extends Union {
@@ -56,20 +57,36 @@ export function Shell_init(activity) {
     return new ShellModel(new ShellTab(0, []), activity, undefined);
 }
 
+function Shell_formatPhase(phase) {
+    switch (phase) {
+        case "mockup_preview":
+            return "Preview";
+        case "image_generate":
+            return "Generate";
+        case "bootstrap":
+            return "Bootstrap";
+        case "bake":
+            return "Bake";
+        case "audio_generate":
+            return "Voiceover";
+        default:
+            return replace(phase, "_", " ");
+    }
+}
+
 export function Shell_statusBar(status, activity) {
     let value_1, elems;
-    const gpuJob = map((e) => (`${(() => {
-        throw 1;
-    })()}: ${e.Message}${defaultArg(map((b) => {
-        if (b) {
-            return " (cold — first GPU compile may take several minutes)";
-        }
-        else {
-            return " (warm)";
-        }
-    }, e.IsColdRun), "")}`), (() => {
-        throw 1;
-    })());
+    const gpuJob = map((e) => {
+        const cold = defaultArg(map((b) => {
+            if (b) {
+                return " (cold — first GPU compile may take several minutes)";
+            }
+            else {
+                return " (warm)";
+            }
+        }, e.IsColdRun), "");
+        return `${Shell_formatPhase(e.Phase)}: ${e.Message}${cold}`;
+    }, activeGpuHint(activity.Events));
     return createElement("footer", createObj(ofArray([(value_1 = "h-8 border-t border-surface-border bg-surface-raised px-4 flex items-center gap-4 text-xs text-slate-500 min-w-0", ["className", value_1]), (elems = [createElement("span", {
         className: "shrink-0",
         children: "LMVideoStudio",
@@ -99,23 +116,6 @@ export function Shell_statusBar(status, activity) {
     }), gpuJob), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems))])])));
 }
 
-function Shell_formatPhase(phase) {
-    switch (phase) {
-        case "mockup_preview":
-            return "Preview";
-        case "image_generate":
-            return "Generate";
-        case "bootstrap":
-            return "Bootstrap";
-        case "bake":
-            return "Bake";
-        case "audio_generate":
-            return "Voiceover";
-        default:
-            return replace(phase, "_", " ");
-    }
-}
-
 export function Shell_navButton(label, tab, current, dispatch) {
     return createElement("button", {
         className: equals(tab, current) ? "px-3 py-2 text-sm font-medium text-accent border-b-2 border-accent" : "px-3 py-2 text-sm text-slate-400 hover:text-slate-200",
@@ -131,8 +131,6 @@ export function Shell_chrome(tab, activity, status, content, dispatch) {
     return createElement("div", createObj(ofArray([["className", "flex flex-col h-screen"], (elems_3 = [createElement("header", createObj(ofArray([["className", "border-b border-surface-border bg-surface-raised"], (elems_1 = [createElement("div", createObj(ofArray([["className", "px-4 flex items-center gap-6"], (elems = [createElement("span", {
         className: "font-semibold tracking-tight py-3",
         children: "LMVideoStudio",
-    }), Shell_navButton("Projects", new ShellTab(0, []), tab, dispatch), Shell_navButton("Timeline", new ShellTab(1, []), tab, dispatch), Shell_navButton("Settings", new ShellTab(2, []), tab, dispatch)], ["children", Interop_reactApi.Children.toArray(Array.from(elems))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_1))])]))), createElement("div", createObj(ofArray([["className", "flex flex-1 min-h-0"], (elems_2 = [content, (() => {
-        throw 1;
-    })()], ["children", Interop_reactApi.Children.toArray(Array.from(elems_2))])]))), Shell_statusBar(status, activity)], ["children", Interop_reactApi.Children.toArray(Array.from(elems_3))])])));
+    }), Shell_navButton("Projects", new ShellTab(0, []), tab, dispatch), Shell_navButton("Timeline", new ShellTab(1, []), tab, dispatch), Shell_navButton("Settings", new ShellTab(2, []), tab, dispatch)], ["children", Interop_reactApi.Children.toArray(Array.from(elems))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_1))])]))), createElement("div", createObj(ofArray([["className", "flex flex-1 min-h-0"], (elems_2 = [content, view(activity)], ["children", Interop_reactApi.Children.toArray(Array.from(elems_2))])]))), Shell_statusBar(status, activity)], ["children", Interop_reactApi.Children.toArray(Array.from(elems_3))])])));
 }
 
