@@ -138,6 +138,15 @@ Coverage highlights:
 
 Integration tests isolate project storage under a temp directory via `LMVS_REPO_ROOT` and `LMVS_PROJECTS_ROOT`.
 
+GPU smoke (requires CUDA/ROCm worker venv; skips gracefully when unavailable):
+
+```powershell
+.\scripts\gpu_e2e_smoke.ps1
+make test-gpu          # if make is installed
+make test-gpu-stress   # sustained 768×768 load
+npm run test:gpu       # from repo root
+```
+
 Optional: run tests before dev:
 
 ```powershell
@@ -176,6 +185,15 @@ make build-fast
 #   build-sidecars.ps1 -SkipVenvCopy
 #   build-installer.ps1 -SkipSidecars -AllowSpikeVenvFallback
 ```
+
+### Microsoft Store (MSIX)
+
+```powershell
+.\scripts\build-msix.ps1
+make build-msix        # if make is installed
+```
+
+See `docs/MICROSOFT-STORE.md` for packaging and submission notes.
 
 ### Verify before Tauri bundle
 
