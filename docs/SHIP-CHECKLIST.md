@@ -20,12 +20,14 @@ Use this list before tagging a release. `scripts/dev.ps1` covers day-to-day deve
 ## Installer build
 
 - [ ] `.\scripts\build-sidecars.ps1` (or `-SkipVenvCopy` for fast layout; full run copies ~2GB venv)
+- [ ] `.\scripts\verify-sidecar-staging.ps1` passes (use `-AllowSpikeVenvFallback` only for dev)
 - [ ] `.\scripts\build-installer.ps1` completes (unsigned OK for internal QA)
 - [ ] Prerequisites: .NET 8 SDK, Node.js/npm, Rust (`winget install Rustlang.Rustup`), MSVC Build Tools (C++ workload for `link.exe`)
+- [ ] Host published self-contained (`win-x64` single-file) — target PCs do not need .NET 8 runtime
 - [ ] Artifacts: `src/LMVideoStudio.Tauri/src-tauri/target/release/bundle/nsis/*-setup.exe` and/or `.../msi/*.msi`
-- [ ] Tauri `bundle.externalBin` includes Host + worker stubs
+- [ ] Tauri `bundle.externalBin` includes Host + worker stubs; `bundle.resources` includes full `sidecars/lmvs_worker/**`
 - [ ] Replace `REPLACE_WITH_MINISIGN_PUBLIC_KEY` in `src/LMVideoStudio.Tauri/src-tauri/tauri.conf.json` before public release
-- [ ] Smoke-install MSI/NSIS on a VM without dev tools installed
+- [ ] Smoke-install MSI/NSIS on a VM **without dev tools** (no .NET SDK, no spike venv)
 
 ## Functional QA (manual)
 

@@ -43,6 +43,7 @@ models/
 # Secrets
 .env
 .env.*
+config/error-reporting.json
 
 # OS
 Thumbs.db

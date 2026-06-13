@@ -20,6 +20,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "build-prereqs.ps1")
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $SidecarRoot = Join-Path $RepoRoot "sidecars\lmvs_worker"
 $SidecarsDir = Join-Path $RepoRoot "sidecars"
@@ -103,16 +105,22 @@ function Publish-HostSidecar([string]$OutputDir) {
     }
     $publishDir = Join-Path $OutputDir "host_publish"
     if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
-    Write-Host "Publishing Host: $($proj.FullName)" -ForegroundColor Cyan
-    & dotnet publish $proj.FullName -c Release -o $publishDir --no-self-contained
+    Write-Host "Publishing Host (self-contained single-file): $($proj.FullName)" -ForegroundColor Cyan
+    & dotnet publish $proj.FullName -c Release -r win-x64 -o $publishDir `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet publish failed with exit code $LASTEXITCODE"
     }
-    $exe = Get-ChildItem -Path $publishDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $exe = Get-ChildItem -Path $publishDir -Filter "LMVideoStudio.Host.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $exe) {
+        $exe = Get-ChildItem -Path $publishDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
     if ($exe) {
         $hostDest = Join-Path $OutputDir $exe.Name
         Copy-Item $exe.FullName $hostDest -Force
-        Write-Host "Host executable: $hostDest" -ForegroundColor Green
+        Write-Host "Host executable: $hostDest ($([math]::Round($exe.Length / 1MB, 1)) MB)" -ForegroundColor Green
     } else {
         Write-Host "Publish succeeded but no .exe in $publishDir (non-Windows target?)" -ForegroundColor Yellow
     }
@@ -120,6 +128,8 @@ function Publish-HostSidecar([string]$OutputDir) {
 }
 
 Write-Host "=== build-sidecars (Phase 0) ===" -ForegroundColor Cyan
+
+Assert-LmvsBuildPrerequisites
 
 if (-not (Test-Path $SpikeVenv)) {
     Write-Host "Spike venv missing - run spike/scripts/setup_venv.ps1 first" -ForegroundColor Red
@@ -199,6 +209,12 @@ if (-not $SkipHostPublish) {
         Write-Host "Host publish skipped/failed: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 }
+
+$verifyScript = Join-Path $PSScriptRoot "verify-sidecar-staging.ps1"
+$verifyArgs = @()
+if ($SkipVenvCopy) { $verifyArgs += "-AllowSpikeVenvFallback" }
+& $verifyScript @verifyArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "Sidecar ready at: $SidecarRoot" -ForegroundColor Green

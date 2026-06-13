@@ -150,22 +150,50 @@ Configure `src/LMVideoStudio.Tauri/src-tauri/tauri.conf.json` `plugins.updater` 
 
 ## Production build
 
-Full unsigned installer (sidecars with venv copy, Fable, Vite, Tauri NSIS/MSI):
+End-user installs need the full sidecar bundle (Host + embedded Python venv + FFmpeg). Target machines do **not** need a separate .NET 8 runtime (Host is published self-contained).
+
+### Full installer (recommended for QA / release)
 
 ```powershell
+# One-time: spike venv (ROCm torch, worker deps)
+.\spike\scripts\setup_venv.ps1
+
+# Copies ~2GB venv into sidecars\lmvs_worker\.venv, bundles FFmpeg if on PATH
+.\scripts\build-sidecars.ps1
+
+# Or all-in-one:
 .\scripts\build-installer.ps1
 make build          # if make is installed
 ```
 
-Fast iteration (skip ~2GB venv copy; worker uses `spike\.venv` fallback):
+### Fast iteration (dev machines only)
+
+Skips venv copy; worker falls back to `spike\.venv`. **Not suitable for shipping to end users.**
 
 ```powershell
-make build-fast     # sidecars -SkipVenvCopy, then installer -SkipSidecars
+make build-fast
+# equivalent to:
+#   build-sidecars.ps1 -SkipVenvCopy
+#   build-installer.ps1 -SkipSidecars -AllowSpikeVenvFallback
 ```
+
+### Verify before Tauri bundle
+
+```powershell
+.\scripts\verify-sidecar-staging.ps1
+make verify-sidecars
+```
+
+### Install → verify on a test PC
+
+1. Run `*-setup.exe` or `.msi` from `src\LMVideoStudio.Tauri\src-tauri\target\release\bundle\`
+2. Launch LMVideoStudio — Tauri starts Host (:17170) and worker (:8765) sidecars
+3. Optional smoke: `.\scripts\e2e_smoke.ps1 -StartHost` on the dev machine before building
+4. First-run: Ollama + model weights still download separately (`sync_models.ps1 -Pull` on dev; app bootstrap on install)
 
 Artifacts: `src\LMVideoStudio.Tauri\src-tauri\target\release\bundle\`
 
-Prerequisites: .NET 8 SDK, Node.js/npm, Rust (`rustc`/`cargo`), MSVC Build Tools (for Tauri on Windows). First Tauri run downloads crates and may take several minutes.
+Prerequisites (build machine): .NET 8 SDK, Node.js/npm, Rust (`rustc`/`cargo`), MSVC Build Tools (for Tauri on Windows). First Tauri run downloads crates and may take several minutes. Set `TAURI_DISABLE_UPDATER=true` is handled automatically for unsigned local builds.
 
 ## Sidecars
 
