@@ -351,6 +351,6 @@ export function ProjectModule_effectiveMockupDuration(project, block) {
  * Prefer upscaled asset for bake Ken Burns when the Host has produced one.
  */
 export function ProjectModule_preferBakeImagePath(block) {
-    return orElse(orElse(bind((a) => a.UpscaledImagePath, block.Artifacts), bind((g) => bind((vs) => tryFind_1((p) => (p.indexOf("upscaled") >= 0), vs), g.ThumbnailVariants), block.Generation)), block.ThumbnailPath);
+    return orElse(orElse(bind((a) => a.UpscaledImagePath, block.Artifacts), bind((g) => bind((vs) => tryFind_1((p) => (p.toLowerCase().indexOf("upscaled") >= 0), vs), g.ThumbnailVariants), block.Generation)), block.ThumbnailPath);
 }
 
