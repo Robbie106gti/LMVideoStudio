@@ -1,12 +1,15 @@
 mod sidecar;
+mod error_report;
+
+use error_report::{install_panic_hook, write_error_report};
 
 use sidecar::{SidecarManager, SidecarStatus, HOST_PORT};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_updater::UpdaterExt;
 
 struct AppState {
-    sidecars: Mutex<SidecarManager>,
+    sidecars: Arc<Mutex<SidecarManager>>,
 }
 
 #[tauri::command]
@@ -45,6 +48,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            install_panic_hook();
             sidecar::ensure_projects_root();
 
             let repo_root = sidecar::resolve_repo_root(app.handle());
@@ -56,22 +60,29 @@ pub fn run() {
             let mut manager = SidecarManager::new(repo_root);
             manager.start_all(app.handle());
 
-            if !SidecarManager::wait_for_host(sidecar::host_health_timeout_secs()) {
-                eprintln!(
-                    "LMVideoStudio: Host did not respond on /health within {}s",
-                    sidecar::host_health_timeout_secs()
-                );
-            }
-
+            // Show the webview immediately so the splash UI can render while Host starts.
+            // Blocking setup on host health prevented the webview from loading bundled assets.
             inject_host_config(app.handle());
 
-            app.manage(AppState {
-                sidecars: Mutex::new(manager),
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                if !SidecarManager::wait_for_host(sidecar::host_health_timeout_secs()) {
+                    eprintln!(
+                        "LMVideoStudio: Host did not respond on /health within {}s",
+                        sidecar::host_health_timeout_secs()
+                    );
+                }
+                inject_host_config(&app_handle);
             });
+
+            let sidecars = Arc::new(Mutex::new(manager));
+            SidecarManager::spawn_health_monitor(app.handle().clone(), sidecars.clone());
+
+            app.manage(AppState { sidecars });
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![sidecar_status, check_for_updates])
+        .invoke_handler(tauri::generate_handler![sidecar_status, check_for_updates, write_error_report])
         .run(tauri::generate_context!())
         .expect("error while running LMVideoStudio");
 }

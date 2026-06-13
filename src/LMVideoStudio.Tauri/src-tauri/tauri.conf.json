@@ -37,7 +37,7 @@
       "../../../docs/project.schema.json",
       "../../../config/**/*",
       "../../../scripts/**/*.ps1",
-      "../../../sidecars/lmvs_worker/bin/**/*"
+      "../../../sidecars/lmvs_worker/**/*"
     ],
     "icon": [
       "icons/icon.ico"
@@ -48,7 +48,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/LMVideoStudio/LMVideoStudio/releases/latest/download/latest.json"
+        "https://github.com/Robbie106gti/LMVideoStudio/releases/latest/download/latest.json"
       ],
       "dialog": true,
       "pubkey": "REPLACE_WITH_MINISIGN_PUBLIC_KEY"

@@ -232,6 +232,34 @@ impl SidecarManager {
             worker_url: format!("http://127.0.0.1:{WORKER_PORT}"),
         }
     }
+
+    /// Restart sidecars that stopped responding (packaged app resilience).
+    pub fn ensure_running(&mut self, app: &AppHandle) {
+        let status = self.status();
+        if !status.host_running {
+            if let Some(mut child) = self.host_child.take() {
+                let _ = child.kill();
+            }
+            self.start_host(app);
+        }
+        if !status.worker_running {
+            if let Some(mut child) = self.worker_child.take() {
+                let _ = child.kill();
+            }
+            self.start_worker(app);
+        }
+    }
+
+    pub fn spawn_health_monitor(app: AppHandle, manager: std::sync::Arc<std::sync::Mutex<SidecarManager>>) {
+        std::thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_secs(15));
+                if let Ok(mut guard) = manager.lock() {
+                    guard.ensure_running(&app);
+                }
+            }
+        });
+    }
 }
 
 impl Drop for SidecarManager {
