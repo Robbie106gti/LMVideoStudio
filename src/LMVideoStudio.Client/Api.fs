@@ -51,7 +51,12 @@ type JobEventDto =
       Step: string
       Message: string
       Status: string
-      Timestamp: string }
+      Timestamp: string
+      Hardware: string option
+      ElapsedMs: int64 option
+      IsColdRun: bool option
+      StepIndex: int option
+      StepTotal: int option }
 
 let private summaryDecoder =
     Decode.object (fun get ->
@@ -69,7 +74,12 @@ let private jobEventDecoder =
           Step = get.Required.Field "step" Decode.string
           Message = get.Required.Field "message" Decode.string
           Status = get.Required.Field "status" Decode.string
-          Timestamp = get.Required.Field "timestamp" Decode.string })
+          Timestamp = get.Required.Field "timestamp" Decode.string
+          Hardware = get.Optional.Field "hardware" Decode.string
+          ElapsedMs = get.Optional.Field "elapsedMs" Decode.int64
+          IsColdRun = get.Optional.Field "isColdRun" Decode.bool
+          StepIndex = get.Optional.Field "stepIndex" Decode.int
+          StepTotal = get.Optional.Field "stepTotal" Decode.int })
 
 [<Import("fetchJson", from="./fetch.js")>]
 let private fetchJson: string -> string -> string option -> JS.Promise<int * string> = jsNative
@@ -80,13 +90,48 @@ let private importFile: string -> Browser.Types.File -> JS.Promise<int * string>
 [<Import("subscribeSse", from="./fetch.js")>]
 let private subscribeSse: string -> (string -> unit) -> obj = jsNative
 
+let private reportApiFailure method path status message =
+    ErrorReporting.logActivity $"{method} {path} -> {status}: {message}"
+
+    if path.Contains("/api/v1/reports") then
+        None
+    elif status = 0 || status >= 500 then
+        Some
+            { ErrorReporting.Source = "api"
+              Severity = if status = 0 then "error" else "warning"
+              Message = $"{method} {path} failed ({status}): {message}"
+              Stack = None
+              Context =
+                Map.ofList [
+                    "method", method
+                    "path", path
+                    "status", string status
+                ] }
+    else
+        None
+
 let private fetchAsync url method body =
     async {
         try
             let! result = fetchJson url method body |> Async.AwaitPromise
+            let status, text = result
+
+            match reportApiFailure method url status text with
+            | Some req -> ErrorReporting.tryCapture req
+            | None -> ()
+
             return result
         with ex ->
-            return (0, ex.Message)
+            let message = ex.Message
+
+            ErrorReporting.tryCapture
+                { Source = "api"
+                  Severity = "error"
+                  Message = $"{method} {url} failed: {message}"
+                  Stack = Some ex.Message
+                  Context = Map.ofList [ "method", method; "url", url ] }
+
+            return (0, message)
     }
 
 let private isHostHealthy () =
@@ -262,7 +307,8 @@ let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string opt
     async {
         let fields =
             [ "profile", Encode.string "mockup"
-              "variantCount", Encode.int variantCount ]
+              "variantCount", Encode.int variantCount
+              "upscale", Encode.bool true ]
             @ (prompt
                |> Option.filter (not << System.String.IsNullOrWhiteSpace)
                |> Option.map (fun p -> [ "prompt", Encode.string p ])
@@ -289,7 +335,7 @@ let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string opt
             return Error text
     }
 
-let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (imagePrompt: string option) (crossfadeDurationMs: int option) =
+let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (imagePrompt: string option) (crossfadeDurationMs: int option) (moodTags: string list option) =
     async {
         let transitionFields =
             crossfadeDurationMs
@@ -304,12 +350,18 @@ let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (ima
                   ] ])
             |> Option.defaultValue []
 
+        let moodFields =
+            moodTags
+            |> Option.map (fun tags -> [ "moodTags", Encode.list Encode.string tags ])
+            |> Option.defaultValue []
+
         let fields =
             [ "voiceoverScript", Encode.string voiceoverScript ]
             @ (imagePrompt
                |> Option.map (fun p -> [ "imagePrompt", Encode.string p ])
                |> Option.defaultValue [])
             @ transitionFields
+            @ moodFields
 
         let body = Encode.object fields |> Encode.toString 0
         let! status, text = fetchAsync $"{hostBase()}/projects/{projectId}/blocks/{blockId}" "PATCH" (Some body)
@@ -582,3 +634,37 @@ let subscribeEvents (onEvent: JobEventDto -> unit) =
         match Decode.fromString jobEventDecoder data with
         | Ok dto -> onEvent dto
         | Error _ -> ())
+
+let submitErrorReport (json: string) =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/api/v1/reports" "POST" (Some json)
+
+        if status >= 200 && status < 300 then
+            return Ok text
+        elif status = 0 then
+            return Error $"Host request failed: {text}"
+        else
+            return Error text
+    }
+
+let flushErrorReports () =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/api/v1/reports/flush" "POST" (Some "")
+
+        if status >= 200 && status < 300 then
+            return Ok text
+        else
+            return Error text
+    }
+
+[<Import("writeErrorReportTauri", from="./tauriInterop.js")>]
+let private writeErrorReportTauri: string -> JS.Promise<string> = jsNative
+
+let submitErrorReportFallback (json: string) =
+    async {
+        try
+            let! path = writeErrorReportTauri json |> Async.AwaitPromise
+            return Ok path
+        with ex ->
+            return Error ex.Message
+    }

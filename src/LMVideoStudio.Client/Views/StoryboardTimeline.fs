@@ -15,6 +15,7 @@ type TimelineMsg =
     | SelectBlock of Guid option
     | SetVoiceoverScript of string
     | SetImagePrompt of string
+    | SetMoodTags of string
     | SetCrossfadeDuration of int
     | SaveBlockFields
     | GenerateThumbnail
@@ -43,6 +44,7 @@ type TimelineModel =
       SelectedBlockId: Guid option
       VoiceoverDraft: string
       ImagePromptDraft: string
+      MoodTagsDraft: string
       CrossfadeDurationDraft: int }
 
 module StoryboardTimeline =
@@ -61,6 +63,7 @@ module StoryboardTimeline =
           SelectedBlockId = None
           VoiceoverDraft = ""
           ImagePromptDraft = ""
+          MoodTagsDraft = ""
           CrossfadeDurationDraft = 300 }
 
     let private sortedBlocks (project: Project) =
@@ -169,6 +172,7 @@ module StoryboardTimeline =
                     SelectedBlockId = Some id
                     VoiceoverDraft = block.VoiceoverScript |> Option.defaultValue ""
                     ImagePromptDraft = block.ImagePrompt |> Option.defaultValue ""
+                    MoodTagsDraft = String.concat ", " block.MoodTags
                     CrossfadeDurationDraft = blockCrossfadeMs block model.Project }
             | None -> { model with SelectedBlockId = None }
         | None ->
@@ -564,6 +568,21 @@ module StoryboardTimeline =
                                                         prop.placeholder "Narration for this block…"
                                                         prop.value model.VoiceoverDraft
                                                         prop.onChange (fun v -> dispatch (SetVoiceoverScript v))
+                                                    ]
+                                                ]
+                                            ]
+                                            Html.div [
+                                                prop.children [
+                                                    Html.label [
+                                                        prop.className "block text-xs text-slate-500 mb-1"
+                                                        prop.text "Mood / tone tags (comma-separated)"
+                                                    ]
+                                                    Html.input [
+                                                        prop.type' "text"
+                                                        prop.className "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm"
+                                                        prop.placeholder "calm, upbeat, cinematic"
+                                                        prop.value model.MoodTagsDraft
+                                                        prop.onChange (fun v -> dispatch (SetMoodTags v))
                                                     ]
                                                 ]
                                             ]

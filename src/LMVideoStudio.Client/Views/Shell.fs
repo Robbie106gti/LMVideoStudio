@@ -26,34 +26,66 @@ module Shell =
           Activity = activity
           SystemStatus = None }
 
-    let statusBar (status: SystemStatusDto option) =
+    let statusBar (status: SystemStatusDto option) (activity: ActivityPanelState) =
+        let gpuJob =
+            ActivityPanel.activeGpuHint activity.Events
+            |> Option.map (fun e ->
+                let cold =
+                    e.IsColdRun
+                    |> Option.map (fun b -> if b then " (cold — first GPU compile may take several minutes)" else " (warm)")
+                    |> Option.defaultValue ""
+
+                $"{formatPhase e.Phase}: {e.Message}{cold}")
+
         Html.footer [
-            prop.className "h-8 border-t border-surface-border bg-surface-raised px-4 flex items-center gap-4 text-xs text-slate-500"
+            prop.className "h-8 border-t border-surface-border bg-surface-raised px-4 flex items-center gap-4 text-xs text-slate-500 min-w-0"
             prop.children [
-                Html.span [ prop.text "LMVideoStudio Phase 0" ]
+                Html.span [ prop.className "shrink-0"; prop.text "LMVideoStudio" ]
                 status
                 |> Option.map (fun s ->
                     let ollama = if s.Ollama then "✓" else "—"
                     let worker = if s.Worker then "✓" else "—"
 
+                    let warmup =
+                        if s.WarmupComplete then "warm"
+                        else "cold"
+
                     let gpuHint =
                         s.WorkerDevice
                         |> Option.bind (fun d ->
                             if d.Rocm = Some true then
-                                d.VramGb |> Option.map (fun gb -> $"GPU {gb:F0}GB")
+                                d.VramGb |> Option.map (fun gb -> $"GPU {gb:F0}GB · {warmup}")
                             else
                                 None)
 
                     Html.span [
+                        prop.className "shrink-0"
                         prop.text (
                             match gpuHint with
                             | Some g -> $"Host OK · Ollama {ollama} · Worker {worker} · {g}"
                             | None -> $"Host OK · Ollama {ollama} · Worker {worker}"
                         )
                     ])
-                |> Option.defaultValue (Html.span [ prop.text "Host —" ])
+                |> Option.defaultValue (Html.span [ prop.className "shrink-0"; prop.text "Host —" ])
+                gpuJob
+                |> Option.map (fun text ->
+                    Html.span [
+                        prop.className "truncate text-amber-400/90"
+                        prop.title text
+                        prop.text text
+                    ])
+                |> Option.defaultValue Html.none
             ]
         ]
+
+    let private formatPhase phase =
+        match phase with
+        | "mockup_preview" -> "Preview"
+        | "image_generate" -> "Generate"
+        | "bootstrap" -> "Bootstrap"
+        | "bake" -> "Bake"
+        | "audio_generate" -> "Voiceover"
+        | other -> other.Replace('_', ' ')
 
     let navButton (label: string) tab current dispatch =
         Html.button [
@@ -92,6 +124,6 @@ module Shell =
                     prop.className "flex flex-1 min-h-0"
                     prop.children [ content; view activity ]
                 ]
-                statusBar status
+                statusBar status activity
             ]
         ]

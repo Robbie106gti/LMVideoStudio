@@ -308,7 +308,7 @@ export function runRepair() {
 
 export function generateBlockThumbnail(projectId, blockId, prompt, variantCount) {
     return singleton.Delay(() => {
-        const body = toString(0, object_1(append(ofArray([["profile", "mockup"], ["variantCount", variantCount]]), defaultArg(map_1((p) => singleton_1(["prompt", p]), filter((arg) => !isNullOrWhiteSpace(arg), prompt)), empty()))));
+        const body = toString(0, object_1(append(ofArray([["profile", "mockup"], ["variantCount", variantCount], ["upscale", true]]), defaultArg(map_1((p) => singleton_1(["prompt", p]), filter((arg) => !isNullOrWhiteSpace(arg), prompt)), empty()))));
         return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}/generate`, "POST", body), (_arg) => {
             const text = _arg[1];
             const status = _arg[0] | 0;

@@ -3,10 +3,9 @@ module LMVideoStudio.Client.Views.Settings
 
 
 open Feliz
-
 open Fable.Core.JsInterop
-
 open LMVideoStudio.Client.Api
+open LMVideoStudio.Client.ErrorReporting
 
 
 
@@ -30,6 +29,12 @@ type SettingsMsg =
 
     | CloseProject
 
+    | ToggleErrorReportingConsent
+
+    | FlushErrorReports
+
+    | SendPendingErrorReport
+
 
 
 type SettingsModel =
@@ -44,7 +49,11 @@ type SettingsModel =
 
       SyncingModels: bool
 
-      ShowFirstRunBanner: bool }
+      ShowFirstRunBanner: bool
+
+      ErrorReportingConsent: bool
+
+      ErrorReportingBusy: bool }
 
 
 
@@ -85,7 +94,11 @@ module Settings =
 
           SyncingModels = false
 
-          ShowFirstRunBanner = not (readBootstrapDone ()) }
+          ShowFirstRunBanner = not (readBootstrapDone ())
+
+          ErrorReportingConsent = readConsent ()
+
+          ErrorReportingBusy = false }
 
 
 
@@ -389,6 +402,106 @@ module Settings =
 
                     ]
 
+                ]
+
+
+
+                Html.div [
+
+                    prop.className "rounded-lg border border-surface-border p-4 space-y-3"
+
+                    prop.children [
+
+                        Html.h2 [
+
+                            prop.className "text-sm font-semibold"
+
+                            prop.text "Error reporting"
+
+                        ]
+
+                        Html.p [
+
+                            prop.className "text-sm text-slate-400"
+
+                            prop.text "Crash and API errors are saved locally under %LOCALAPPDATA%\\LMVideoStudio\\reports. With consent, reports are sent to the developer webhook configured in config/error-reporting.json."
+
+                        ]
+
+                        Html.label [
+
+                            prop.className "flex items-center gap-2 text-sm"
+
+                            prop.children [
+
+                                Html.input [
+
+                                    prop.type'.checkbox
+
+                                    prop.isChecked model.ErrorReportingConsent
+
+                                    prop.onChange (fun (v: bool) -> dispatch ToggleErrorReportingConsent)
+
+                                ]
+
+                                Html.span [ prop.text "Send error reports automatically (default off)" ]
+
+                            ]
+
+                        ]
+
+                        Html.div [
+
+                            prop.className "flex flex-wrap gap-2"
+
+                            prop.children [
+
+                                Html.button [
+
+                                    prop.className "px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50"
+
+                                    prop.disabled model.ErrorReportingBusy
+
+                                    prop.text "Send queued reports"
+
+                                    prop.onClick (fun _ -> dispatch FlushErrorReports)
+
+                                ]
+
+                                Html.button [
+
+                                    prop.className "px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50"
+
+                                    prop.disabled model.ErrorReportingBusy
+
+                                    prop.text "Send last captured error"
+
+                                    prop.onClick (fun _ -> dispatch SendPendingErrorReport)
+
+                                ]
+
+                            ]
+
+                        ]
+
+                    ]
+
+                ]
+
+
+
+                Html.div [
+                    prop.className "rounded-lg border border-surface-border p-4 space-y-2"
+                    prop.children [
+                        Html.h2 [
+                            prop.className "text-sm font-semibold text-slate-300"
+                            prop.text "Social upload (OAuth)"
+                        ]
+                        Html.p [
+                            prop.className "text-xs text-slate-500"
+                            prop.text "Direct YouTube / Meta upload requires OAuth app credentials (client ID + secret). Share Pack copy-to-clipboard and open-upload assist work today without OAuth."
+                        ]
+                    ]
                 ]
 
 

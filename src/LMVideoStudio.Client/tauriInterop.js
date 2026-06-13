@@ -19,6 +19,14 @@ export async function checkForUpdatesFallback(currentVersion) {
   }
 }
 
+export async function writeErrorReportTauri(json) {
+  if (typeof window.__TAURI__ === "undefined") {
+    throw new Error("Tauri runtime unavailable");
+  }
+  const { invoke } = window.__TAURI__.core;
+  return invoke("write_error_report", { json });
+}
+
 export async function checkForUpdatesTauri() {
   if (typeof window.__TAURI__ === "undefined") {
     return null;

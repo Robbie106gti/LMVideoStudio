@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    // Relative asset URLs are required for Tauri's bundled webview (absolute /assets/… fails to load).
+    base: "./",
     root: ".",
     build: {
       outDir: "dist",
