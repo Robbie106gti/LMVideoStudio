@@ -63,7 +63,7 @@ function Invoke-LmvsApi {
 }
 
 function Resolve-ProjectId([string]$inputPath) {
-    if ([string]::IsNullOrWhiteSpace $inputPath) {
+    if ([string]::IsNullOrWhiteSpace($inputPath)) {
         throw "Project id or folder path required for command '$Command'"
     }
     if ($inputPath -match '^[0-9a-fA-F-]{36}$') {
@@ -161,3 +161,4 @@ switch ($Command) {
         }
     }
 }
+
