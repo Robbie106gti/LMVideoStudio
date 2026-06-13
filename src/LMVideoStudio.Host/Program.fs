@@ -1082,7 +1082,7 @@ module Program =
             ovr.Worker
             |> Option.defaultWith (fun () -> PythonWorkerProvider.PythonWorkerProvider("http://127.0.0.1:8765"))
 
-        let gpuQueue = GpuQueueService(SingleFlightGpuQueue() :> IGpuJobQueue, worker, repoRoot)
+        let gpuQueue = GpuQueueService(SingleFlightGpuQueue(), worker, repoRoot)
 
         let bootstrap = Bootstrap.BootstrapService(repoRoot, events, models, ollama, worker, gpuQueue)
         let conflicts = ConflictScan.ConflictScanService repoRoot

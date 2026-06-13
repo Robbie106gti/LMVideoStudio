@@ -39,7 +39,7 @@ type SingleFlightGpuQueue() =
                 ignore status)
 
 type GpuQueueService(queue: IGpuJobQueue, worker: PythonWorkerProvider.PythonWorkerProvider, repoRoot: string) =
-    let gate = SemaphoreSlim(1, 1)
+    let gate = new SemaphoreSlim(1, 1)
     let warmupMarkerPath = Path.Combine(repoRoot, ".lmvs", "warmup_complete")
 
     let coldTimeout = TimeSpan.FromSeconds 300.0
@@ -81,10 +81,10 @@ type GpuQueueService(queue: IGpuJobQueue, worker: PythonWorkerProvider.PythonWor
               Profile = defaultArg profile HardwareProfile.defaultProfile
               EnqueuedAt = DateTimeOffset.UtcNow }
 
-        (queue :> IGpuJobQueue).Enqueue request
+        queue.Enqueue request
 
     member _.Status() =
-        {| current = (queue :> IGpuJobQueue).Current
+        {| current = queue.Current
            queuedHint = "single-flight"
            warmRun = isWarmRun() |}
 
@@ -98,7 +98,7 @@ type GpuQueueService(queue: IGpuJobQueue, worker: PythonWorkerProvider.PythonWor
 
             try
                 let! _ =
-                    (queue :> IGpuJobQueue)
+                    queue
                         .Enqueue
                             { Id = Guid.NewGuid()
                               Kind = kind
@@ -114,11 +114,11 @@ type GpuQueueService(queue: IGpuJobQueue, worker: PythonWorkerProvider.PythonWor
 
                     if completed = workTask then
                         let! result = workTask
-                        (queue :> IGpuJobQueue).CompleteCurrent Completed
+                        queue.CompleteCurrent Completed
                         logTiming kind started "completed" None
                         return result
                     else
-                        (queue :> IGpuJobQueue).CompleteCurrent Failed
+                        queue.CompleteCurrent Failed
                         logTiming kind started "timeout" None
 
                         let warmLabel = if warm then "warm" else "cold"
@@ -130,7 +130,7 @@ type GpuQueueService(queue: IGpuJobQueue, worker: PythonWorkerProvider.PythonWor
                                 )
                             )
                 with ex ->
-                    (queue :> IGpuJobQueue).CompleteCurrent Failed
+                    queue.CompleteCurrent Failed
                     logTiming kind started "failed" (Some ex)
                     return raise ex
             finally

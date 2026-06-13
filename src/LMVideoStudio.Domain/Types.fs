@@ -215,6 +215,6 @@ module Project =
                 |> Option.bind (fun vs ->
                     vs
                     |> List.tryFind (fun p ->
-                        p.Contains("upscaled", StringComparison.OrdinalIgnoreCase))))
+                        p.ToLowerInvariant().Contains("upscaled"))))
         )
         |> Option.orElse block.ThumbnailPath

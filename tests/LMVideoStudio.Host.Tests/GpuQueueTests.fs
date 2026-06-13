@@ -18,7 +18,7 @@ module GpuQueueTests =
         File.WriteAllText(Path.Combine(markerDir, "warmup_complete"), "ok")
 
         use worker = PythonWorkerProvider.PythonWorkerProvider("http://127.0.0.1:1")
-        let gpu = GpuQueueService(SingleFlightGpuQueue() :> IGpuJobQueue, worker, repoRoot)
+        let gpu = GpuQueueService(SingleFlightGpuQueue(), worker, repoRoot)
 
         gpu.IsWarmRun() |> should equal true
 
@@ -34,7 +34,7 @@ module GpuQueueTests =
             Directory.CreateDirectory repoRoot |> ignore
 
             use worker = PythonWorkerProvider.PythonWorkerProvider("http://127.0.0.1:1")
-            let gpu = GpuQueueService(SingleFlightGpuQueue() :> IGpuJobQueue, worker, repoRoot)
+            let gpu = GpuQueueService(SingleFlightGpuQueue(), worker, repoRoot)
 
             let! a = gpu.RunJob(GpuJobKind.AudioGenerate, fun () -> Task.FromResult 1)
             let! b = gpu.RunJob(GpuJobKind.AudioGenerate, fun () -> Task.FromResult 2)

@@ -244,7 +244,7 @@ let importBlockImage (projectId: Guid) (file: Browser.Types.File) =
             elif status >= 200 && status < 300 then
                 let projectJson =
                     try
-                        let doc = JS.JSON.parse text :?> obj
+                        let doc = JS.JSON.parse text
                         let nested = doc?projectJson |> unbox<string>
                         Some nested
                     with _ ->
@@ -323,7 +323,7 @@ let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string opt
         if status >= 200 && status < 300 then
             let projectJson =
                 try
-                    let doc = JS.JSON.parse text :?> obj
+                    let doc = JS.JSON.parse text
                     let nested = doc?projectJson |> unbox<string>
                     Some nested
                 with _ ->
@@ -386,7 +386,7 @@ let importBlockAudio (projectId: Guid) (blockId: Guid) (file: Browser.Types.File
             elif status >= 200 && status < 300 then
                 let projectJson =
                     try
-                        let doc = JS.JSON.parse text :?> obj
+                        let doc = JS.JSON.parse text
                         let nested = doc?projectJson |> unbox<string>
                         Some nested
                     with _ ->
@@ -440,7 +440,7 @@ let getMockupPreviewStatus (projectId: Guid) =
         if status >= 200 && status < 300 then
             let ready =
                 try
-                    let doc = JS.JSON.parse text :?> obj
+                    let doc = JS.JSON.parse text
                     let raw = doc?ready
                     if isNull raw then true else unbox<bool> raw
                 with _ ->
@@ -468,7 +468,7 @@ let startBake (projectId: Guid) =
 
         if status >= 200 && status < 300 then
             try
-                let doc = JS.JSON.parse text :?> obj
+                let doc = JS.JSON.parse text
                 let jobId = doc?jobId |> unbox<string>
                 return Ok jobId
             with ex ->
@@ -539,7 +539,7 @@ let importStylePackLogo (projectId: Guid) (file: Browser.Types.File) =
             if status >= 200 && status < 300 then
                 let projectJson =
                     try
-                        let doc = JS.JSON.parse text :?> obj
+                        let doc = JS.JSON.parse text
                         let nested = doc?projectJson |> unbox<string>
                         Some nested
                     with _ ->

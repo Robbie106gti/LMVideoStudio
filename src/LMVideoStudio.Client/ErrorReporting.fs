@@ -3,6 +3,7 @@ module LMVideoStudio.Client.ErrorReporting
 open System
 open Fable.Core
 open Fable.Core.JsInterop
+open Fable.Core.JS.Constructors
 open Thoth.Json
 open LMVideoStudio.Domain.ErrorReport
 
@@ -114,7 +115,7 @@ let installHooks onCaptured =
                     Map.empty
                 else
                     ctx
-                    |> JS.Object.keys
+                    |> Object.keys
                     |> Seq.map (fun k -> k, unbox<string> (ctx?(k)))
                     |> Map.ofSeq
             with _ ->
@@ -139,9 +140,9 @@ let decodeSummaryFromJson json =
 
 let private captureHandler = ref None
 
-let setCaptureHandler handler = captureHandler := Some handler
+let setCaptureHandler handler = captureHandler.Value <- Some handler
 
 let tryCapture (req: CaptureRequest) =
-    match !captureHandler with
+    match captureHandler.Value with
     | Some handler -> handler req
     | None -> ()
