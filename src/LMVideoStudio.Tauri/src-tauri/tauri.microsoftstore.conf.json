@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "Robbie106gti.LMVideoStudio",
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "publisher": "Robbie106gti",
+    "shortDescription": "Local AI video storyboard and export studio",
+    "targets": ["msi"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": false,
+      "dialog": false
+    }
+  },
+  "app": {
+    "security": {
+      "capabilities": ["microsoftstore"]
+    }
+  }
+}

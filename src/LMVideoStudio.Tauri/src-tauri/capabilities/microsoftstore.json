@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "microsoftstore",
+  "description": "Microsoft Store build — no GitHub updater IPC",
+  "windows": ["main"],
+  "permissions": ["core:default", "shell:default"]
+}

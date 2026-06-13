@@ -44,6 +44,7 @@ models/
 .env
 .env.*
 config/error-reporting.json
+config/social-oauth.json
 
 # OS
 Thumbs.db

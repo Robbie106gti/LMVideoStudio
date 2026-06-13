@@ -1,4 +1,4 @@
-.PHONY: dev test test-gpu test-gpu-stress build build-fast verify-sidecars
+.PHONY: dev test test-gpu test-gpu-stress build build-fast build-msix verify-sidecars
 dev:
 	powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 
@@ -17,6 +17,9 @@ build:
 build-fast:
 	powershell -ExecutionPolicy Bypass -File scripts/build-sidecars.ps1 -SkipVenvCopy
 	powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -SkipSidecars -AllowSpikeVenvFallback
+
+build-msix:
+	powershell -ExecutionPolicy Bypass -File scripts/build-msix.ps1
 
 verify-sidecars:
 	powershell -ExecutionPolicy Bypass -File scripts/verify-sidecar-staging.ps1

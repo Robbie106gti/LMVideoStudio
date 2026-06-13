@@ -74,3 +74,50 @@ jobs:
         run: |
           Write-Host "Configure code signing (minisign) before publishing to GitHub Releases."
           Write-Host "Tag: $env:GITHUB_REF"
+
+  # Store MSIX — enable when Partner Center identity + signing are configured.
+  # Produces offline MSI / optional MSIX without GitHub updater artifacts.
+  store-msix:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            src/LMVideoStudio.Client/package-lock.json
+            src/LMVideoStudio.Tauri/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Microsoft Store package (stub)
+        shell: pwsh
+        run: |
+          Write-Host "Store build stub — run .\scripts\build-msix.ps1 locally or enable sidecar build in CI."
+          Write-Host "Set Partner Center identity in tauri.microsoftstore.conf.json before upload."
+          if (-not (Test-Path spike\.venv)) {
+            Write-Host "spike\.venv missing — full store build requires sidecars (see docs/MICROSOFT-STORE.md)"
+            exit 0
+          }
+          .\scripts\build-msix.ps1 -SkipSidecars -AllowSpikeVenvFallback
+        continue-on-error: true
+
+      - name: Upload store artifacts
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmvs-store-msix
+          path: |
+            src/LMVideoStudio.Tauri/src-tauri/target/release/bundle/msi/**
+            out/store-msix/**
+          if-no-files-found: ignore
