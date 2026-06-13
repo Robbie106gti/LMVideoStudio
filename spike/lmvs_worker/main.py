@@ -6,6 +6,7 @@ import io
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -48,7 +49,18 @@ def health():
         "rocm": info.get("rocm", False),
         "vram_gb": info.get("vram_gb"),
         "device_name": info.get("device_name"),
+        "torch_device": info.get("torch_device"),
         "models_loaded": models_loaded_status(),
+    }
+
+
+def _device_payload() -> dict[str, Any]:
+    info = torch_device_info()
+    return {
+        "rocm": info.get("rocm", False),
+        "device_name": info.get("device_name"),
+        "torch_device": info.get("torch_device"),
+        "vram_gb": info.get("vram_gb"),
     }
 
 
@@ -64,7 +76,10 @@ def image_generate(req: GenerateRequest):
     )
     buf = io.BytesIO()
     image.save(buf, format="PNG")
-    return {"image_base64": base64.b64encode(buf.getvalue()).decode("ascii")}
+    return {
+        "image_base64": base64.b64encode(buf.getvalue()).decode("ascii"),
+        "device": _device_payload(),
+    }
 
 
 @app.post("/image/upscale")

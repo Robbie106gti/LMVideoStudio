@@ -24,6 +24,18 @@ def unload_torch() -> None:
         pass
 
 
+def torch_active_device() -> str:
+    """PyTorch device string used for inference (cuda:N on ROCm/CUDA, else cpu)."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return f"cuda:{torch.cuda.current_device()}"
+    except ImportError:
+        pass
+    return "cpu"
+
+
 def torch_device_info() -> dict[str, Any]:
     import torch
 
@@ -32,6 +44,7 @@ def torch_device_info() -> dict[str, Any]:
         "rocm": available,
         "device_count": torch.cuda.device_count() if available else 0,
         "hip_visible_devices": configure_hip_visible_devices(),
+        "torch_device": torch_active_device(),
     }
     if available:
         props = torch.cuda.get_device_properties(0)

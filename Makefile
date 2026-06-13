@@ -1,9 +1,15 @@
-.PHONY: dev test build build-fast
+.PHONY: dev test test-gpu test-gpu-stress build build-fast
 dev:
 	powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
 
 test:
 	powershell -ExecutionPolicy Bypass -File scripts/test.ps1
+
+test-gpu:
+	powershell -ExecutionPolicy Bypass -File scripts/gpu_e2e_smoke.ps1
+
+test-gpu-stress:
+	powershell -ExecutionPolicy Bypass -File scripts/gpu_e2e_smoke.ps1 -Stress
 
 build:
 	powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1

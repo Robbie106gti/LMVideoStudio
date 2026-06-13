@@ -21,3 +21,34 @@ make test
 # or
 .\scripts\test.ps1
 ```
+
+## GPU E2E smoke (worker + Stable Diffusion)
+
+Optional smoke test for the Python worker on `:8765` — not part of fast `make test` (no GPU required for CI).
+
+| Profile | Resolution | Steps | Gens | Typical runtime | GPU load |
+|---------|------------|-------|------|-----------------|----------|
+| `smoke` (default) | 256×256 | 8 | 1 | ~10s warm | Light — may show low Task Manager Compute on ROCm |
+| `stress` | 768×768 | 25 | 3 | minutes | Sustained — expect visible GPU Compute spikes |
+
+| Step | What it verifies |
+|------|------------------|
+| Worker health | `GET /health` (`rocm`, `device_name`, `torch_device`, `vram_gb`) |
+| SD generation | `POST /image/generate` — response includes `device` payload |
+| Output | PNG in `out/` (`gpu_e2e_smoke.png` or `gpu_e2e_stress_1.png` …) |
+
+```powershell
+make test-gpu
+make test-gpu-stress
+# or
+npm run test:gpu
+npm run test:gpu-stress
+# or
+.\scripts\gpu_e2e_smoke.ps1
+.\scripts\gpu_e2e_smoke.ps1 -Stress
+.\scripts\gpu_e2e_smoke.ps1 -Profile stress
+```
+
+Skips gracefully when no GPU or worker venv (`-Force` fails instead). Prerequisites: `spike\scripts\setup_venv.ps1` (or `.\scripts\build-sidecars.ps1`), and SD weights via `.\scripts\sync_models.ps1 -Pull`. Ollama is not required for this path.
+
+If smoke passes but Task Manager shows ~0% GPU Compute with VRAM loaded, the default job may be too small; use stress mode. Windows Compute graphs can lag or under-report ROCm; watch for spikes during generation and higher total runtime on stress.
