@@ -111,7 +111,9 @@ jobs:
             )) {
             $path = Join-Path $env:GITHUB_WORKSPACE $script
             if (-not (Test-Path $path)) { throw "Missing $script" }
-            $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errs)
+            $tokens = $null
+            $errs = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errs)
             if ($errs) { $errs; throw "$script parse errors" }
           }
           Write-Host "Script parse OK"
