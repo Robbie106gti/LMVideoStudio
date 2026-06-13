@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "notes": "LMVideoStudio release notes go here.",
+  "pub_date": "2026-01-01T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "REPLACE_WITH_MINISIGN_SIGNATURE",
+      "url": "https://github.com/LMVideoStudio/LMVideoStudio/releases/download/v0.1.0/LMVideoStudio_0.1.0_x64-setup.exe"
+    }
+  }
+}

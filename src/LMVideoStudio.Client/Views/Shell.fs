@@ -1,0 +1,97 @@
+module LMVideoStudio.Client.Views.Shell
+
+open Feliz
+open LMVideoStudio.Client.Api
+open LMVideoStudio.Client.ActivityPanel
+
+type ShellTab =
+    | Hub
+    | Timeline
+    | Settings
+
+type ShellModel =
+    { Tab: ShellTab
+      Activity: ActivityPanelState
+      SystemStatus: SystemStatusDto option }
+
+type ShellMsg =
+    | SelectTab of ShellTab
+    | EventReceived of JobEventDto
+    | SseConnected
+    | StatusLoaded of SystemStatusDto
+
+module Shell =
+    let init activity =
+        { Tab = Hub
+          Activity = activity
+          SystemStatus = None }
+
+    let statusBar (status: SystemStatusDto option) =
+        Html.footer [
+            prop.className "h-8 border-t border-surface-border bg-surface-raised px-4 flex items-center gap-4 text-xs text-slate-500"
+            prop.children [
+                Html.span [ prop.text "LMVideoStudio Phase 0" ]
+                status
+                |> Option.map (fun s ->
+                    let ollama = if s.Ollama then "✓" else "—"
+                    let worker = if s.Worker then "✓" else "—"
+
+                    let gpuHint =
+                        s.WorkerDevice
+                        |> Option.bind (fun d ->
+                            if d.Rocm = Some true then
+                                d.VramGb |> Option.map (fun gb -> $"GPU {gb:F0}GB")
+                            else
+                                None)
+
+                    Html.span [
+                        prop.text (
+                            match gpuHint with
+                            | Some g -> $"Host OK · Ollama {ollama} · Worker {worker} · {g}"
+                            | None -> $"Host OK · Ollama {ollama} · Worker {worker}"
+                        )
+                    ])
+                |> Option.defaultValue (Html.span [ prop.text "Host —" ])
+            ]
+        ]
+
+    let navButton (label: string) tab current dispatch =
+        Html.button [
+            prop.className (
+                if tab = current then
+                    "px-3 py-2 text-sm font-medium text-accent border-b-2 border-accent"
+                else
+                    "px-3 py-2 text-sm text-slate-400 hover:text-slate-200"
+            )
+            prop.text label
+            prop.onClick (fun _ -> dispatch (SelectTab tab))
+        ]
+
+    let chrome tab activity status content dispatch =
+        Html.div [
+            prop.className "flex flex-col h-screen"
+            prop.children [
+                Html.header [
+                    prop.className "border-b border-surface-border bg-surface-raised"
+                    prop.children [
+                        Html.div [
+                            prop.className "px-4 flex items-center gap-6"
+                            prop.children [
+                                Html.span [
+                                    prop.className "font-semibold tracking-tight py-3"
+                                    prop.text "LMVideoStudio"
+                                ]
+                                navButton "Projects" Hub tab dispatch
+                                navButton "Timeline" Timeline tab dispatch
+                                navButton "Settings" Settings tab dispatch
+                            ]
+                        ]
+                    ]
+                ]
+                Html.div [
+                    prop.className "flex flex-1 min-h-0"
+                    prop.children [ content; view activity ]
+                ]
+                statusBar status
+            ]
+        ]

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LMVideoStudio",
+  "version": "0.1.0",
+  "identifier": "com.lmvideostudio.app",
+  "build": {
+    "beforeDevCommand": "npm run dev --prefix ../LMVideoStudio.Client",
+    "beforeBuildCommand": "npm run build --prefix ../LMVideoStudio.Client",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../../LMVideoStudio.Client/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "LMVideoStudio",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": [
+      "sidecars/LMVideoStudio.Host",
+      "sidecars/lmvs_worker/run_worker"
+    ],
+    "resources": [
+      "../../../docs/project.schema.json",
+      "../../../config/**/*",
+      "../../../scripts/**/*.ps1",
+      "../../../sidecars/lmvs_worker/bin/**/*"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/LMVideoStudio/LMVideoStudio/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "REPLACE_WITH_MINISIGN_PUBLIC_KEY"
+    }
+  }
+}

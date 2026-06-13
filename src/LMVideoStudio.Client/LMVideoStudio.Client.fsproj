@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+
+    <TargetFramework>net8.0</TargetFramework>
+
+    <RootNamespace>LMVideoStudio.Client</RootNamespace>
+
+    <AssemblyName>LMVideoStudio.Client</AssemblyName>
+
+    <!-- Fable sets FABLE_COMPILER; dotnet build restores packages only -->
+
+    <DefaultTargets>Restore</DefaultTargets>
+
+  </PropertyGroup>
+
+  <ItemGroup>
+
+    <ProjectReference Include="..\LMVideoStudio.Domain\LMVideoStudio.Domain.fsproj" />
+
+  </ItemGroup>
+
+  <ItemGroup>
+
+    <Compile Include="ProjectJson.fs" />
+
+    <Compile Include="Api.fs" />
+
+    <Compile Include="ActivityPanel.fs" />
+
+    <Compile Include="Views/ProjectHub.fs" />
+
+    <Compile Include="Views/StoryboardTimeline.fs" />
+
+    <Compile Include="Views/Settings.fs" />
+
+    <Compile Include="Views/SetupWizard.fs" />
+
+    <Compile Include="Views/Shell.fs" />
+
+    <Compile Include="App.fs" />
+
+    <Compile Include="Main.fs" />
+
+  </ItemGroup>
+
+  <!-- dotnet build must not compile Fable-only sources -->
+  <ItemGroup Condition="'$(FABLE_COMPILER)' != 'true'">
+    <Compile Remove="@(Compile)" />
+  </ItemGroup>
+  <Target Name="Build" DependsOnTargets="Restore" />
+
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+
+</Project>
+

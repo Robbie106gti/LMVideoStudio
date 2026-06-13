@@ -1,0 +1,6 @@
+FSharp.Core
+Thoth.Json.Net
+xunit
+Microsoft.NET.Test.Sdk
+xunit.runner.visualstudio
+FsUnit.xUnit

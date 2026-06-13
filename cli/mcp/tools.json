@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "name": "lmvs-headless-mcp",
+  "description": "Static tool manifest for a future LMVideoStudio MCP server (v1 skeleton).",
+  "tools": [
+    {
+      "name": "validate",
+      "description": "Validate a project JSON document against the LMVS schema.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectJson": { "type": "string" }
+        },
+        "required": ["projectJson"]
+      }
+    },
+    {
+      "name": "preview",
+      "description": "Start a mockup preview render job for a project.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string", "format": "uuid" }
+        },
+        "required": ["projectId"]
+      }
+    },
+    {
+      "name": "bake",
+      "description": "Start a full-quality bake export job for a project.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string", "format": "uuid" }
+        },
+        "required": ["projectId"]
+      }
+    }
+  ]
+}

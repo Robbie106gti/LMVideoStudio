@@ -1,0 +1,10 @@
+FSharp.Core
+Giraffe
+Thoth.Json.Net
+JsonSchema.Net
+xunit
+Microsoft.NET.Test.Sdk
+xunit.runner.visualstudio
+FsUnit.xUnit
+Microsoft.AspNetCore.Mvc.Testing
+Microsoft.AspNetCore.TestHost

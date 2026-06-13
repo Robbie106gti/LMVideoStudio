@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "updated": "2026-06-12",
+  "ollama": [
+    {
+      "id": "text-assistant",
+      "model": "llama3.1:latest",
+      "purpose": "Briefs, outlines, social copy, chat",
+      "required": true,
+      "update_policy": "track_latest_tag"
+    },
+    {
+      "id": "vision-caption",
+      "model": "llava:latest",
+      "purpose": "Block image captions and vision QA",
+      "required": false,
+      "update_policy": "track_latest_tag"
+    }
+  ],
+  "huggingface": [
+    {
+      "id": "sd-thumbnail",
+      "repo_id": "runwayml/stable-diffusion-v1-5",
+      "revision": "main",
+      "purpose": "512px storyboard thumbnails",
+      "env_override": "LMVS_SD_MODEL",
+      "required": true,
+      "update_policy": "pin_revision"
+    }
+  ],
+  "files": [
+    {
+      "id": "esrgan-x2",
+      "path": "spike/models/RealESRGAN_x2plus.pth",
+      "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
+      "purpose": "2x upscale after SD",
+      "required": true,
+      "update_policy": "pin_url"
+    }
+  ]
+}

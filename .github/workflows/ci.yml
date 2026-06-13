@@ -1,0 +1,90 @@
+# CI — Domain + Host + Fable Client build on PR/push
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  dotnet-fable:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/LMVideoStudio.Client/package-lock.json
+
+      - name: Restore and build solution
+        shell: pwsh
+        run: |
+          $src = Join-Path $env:GITHUB_WORKSPACE "src"
+          if (-not (Test-Path $src)) {
+            Write-Host "src/ not present — skipping dotnet build (Phase 0 skeleton OK)"
+            exit 0
+          }
+          $sln = Join-Path $env:GITHUB_WORKSPACE "LMVideoStudio.sln"
+          if (Test-Path $sln) {
+            dotnet restore $sln
+            dotnet build $sln -c Release --no-restore
+          }
+          else {
+            $proj = Get-ChildItem -Path $src -Recurse -Filter "LMVideoStudio.Host.fsproj" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $proj) { throw "No Host .fsproj under src/" }
+            dotnet restore $proj.FullName
+            dotnet build $proj.FullName -c Release --no-restore
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: dotnet test
+        shell: pwsh
+        run: |
+          $tests = Join-Path $env:GITHUB_WORKSPACE "tests"
+          if (-not (Test-Path $tests)) {
+            Write-Host "tests/ not present — skipping dotnet test"
+            exit 0
+          }
+          $sln = Join-Path $env:GITHUB_WORKSPACE "LMVideoStudio.sln"
+          if (Test-Path $sln) {
+            dotnet test $sln -c Release --verbosity normal
+          } else {
+            dotnet test $tests -c Release --verbosity normal
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Fable compile + Vite build (Client)
+        shell: pwsh
+        working-directory: src/LMVideoStudio.Client
+        run: |
+          if (-not (Test-Path package.json)) { throw "Client package.json missing" }
+          npm ci
+          npm run fable
+          npm run build
+
+      - name: Model manifest sanity
+        shell: pwsh
+        run: |
+          $manifest = Join-Path $env:GITHUB_WORKSPACE "config\models.manifest.json"
+          if (-not (Test-Path $manifest)) { throw "Missing models manifest" }
+          $null = Get-Content $manifest -Raw | ConvertFrom-Json
+          Write-Host "models.manifest.json parses OK"
+
+      - name: PowerShell script syntax (build-sidecars, sync_models, lmvs CLI)
+        shell: pwsh
+        run: |
+          foreach ($script in @("scripts/build-sidecars.ps1", "scripts/sync_models.ps1", "cli/lmvs/lmvs.ps1")) {
+            $path = Join-Path $env:GITHUB_WORKSPACE $script
+            if (-not (Test-Path $path)) { throw "Missing $script" }
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errs)
+            if ($errs) { $errs; throw "$script parse errors" }
+          }
+          Write-Host "Script parse OK"

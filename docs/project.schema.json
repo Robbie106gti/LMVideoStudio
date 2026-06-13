@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lmvideostudio.local/schemas/project/v1",
+  "title": "LMVideoStudio Project",
+  "description": "Folder-based project interchange format. GUI, CLI (lmvs), and external agents (Cursor, Claude, Codex) read/write the same file: MyProject/project.lmvs.json",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "sequencePreset", "renderDefaults", "blocks"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Increment when breaking changes require migration"
+    },
+    "id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "brief": {
+      "type": "string",
+      "description": "Optional marketing/script brief used for outline generation"
+    },
+    "sequencePreset": {
+      "type": "string",
+      "enum": ["1080p24", "1080p25", "1080p30", "4k24", "1080x1920_vertical", "1080_square"],
+      "description": "Target sequence for bake export"
+    },
+    "defaultMockupDurationSec": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 30,
+      "default": 3.5,
+      "description": "Default per-block mockup length while storyboarding (typically 3–4 s)"
+    },
+    "renderDefaults": {
+      "type": "object",
+      "required": ["mockup", "bake"],
+      "properties": {
+        "mockup": { "$ref": "#/$defs/renderProfile" },
+        "bake": { "$ref": "#/$defs/renderProfile" }
+      }
+    },
+    "stylePack": {
+      "type": "object",
+      "properties": {
+        "dominantColors": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+        },
+        "aspectRatio": { "type": "string", "examples": ["16:9", "9:16", "1:1"] },
+        "notes": { "type": "string" }
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/storyboardBlock" }
+    },
+    "transitionsDefault": { "$ref": "#/$defs/transitionSpec" }
+  },
+  "$defs": {
+    "renderProfile": {
+      "type": "object",
+      "required": ["tier"],
+      "properties": {
+        "tier": { "type": "string", "enum": ["mockup", "bake"] },
+        "width": { "type": "integer", "minimum": 320 },
+        "height": { "type": "integer", "minimum": 180 },
+        "kenBurns": { "type": "string", "enum": ["none", "simple", "full"], "default": "simple" },
+        "upscale": { "type": "string", "enum": ["none", "2x", "4x"], "default": "none" },
+        "useComfyClip": { "type": "boolean", "default": false }
+      }
+    },
+    "transitionSpec": {
+      "type": "object",
+      "properties": {
+        "in": { "$ref": "#/$defs/transitionEdge" },
+        "out": { "$ref": "#/$defs/transitionEdge" },
+        "toNext": { "$ref": "#/$defs/transitionEdge" }
+      }
+    },
+    "transitionEdge": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["cut", "fade", "crossfade", "slide_left", "slide_right", "dissolve"]
+        },
+        "durationMs": { "type": "integer", "minimum": 0, "maximum": 5000, "default": 300 }
+      }
+    },
+    "storyboardBlock": {
+      "type": "object",
+      "required": ["id", "order", "source"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "order": { "type": "integer", "minimum": 0 },
+        "title": { "type": "string" },
+        "source": { "type": "string", "enum": ["imported", "generated"] },
+        "thumbnailPath": {
+          "type": "string",
+          "description": "Relative path from project root, e.g. assets/block-01.png"
+        },
+        "imagePrompt": { "type": "string" },
+        "voiceoverScript": { "type": "string" },
+        "directorNotes": { "type": "string" },
+        "moodTags": { "type": "array", "items": { "type": "string" } },
+        "mockupDurationSec": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 60,
+          "description": "Preview block length; defaults to project.defaultMockupDurationSec"
+        },
+        "bakeDurationSec": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 600,
+          "description": "Final export length; if omitted, uses mockupDurationSec at bake"
+        },
+        "transitions": { "$ref": "#/$defs/transitionSpec" },
+        "audio": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string", "description": "Relative path, e.g. assets/vo-01.wav" },
+            "source": { "type": "string", "enum": ["imported", "generated", "none"] },
+            "mockupQuality": {
+              "type": "string",
+              "enum": ["rough", "full"],
+              "default": "rough",
+              "description": "rough = fast TTS or trimmed import for preview reel"
+            }
+          }
+        },
+        "generation": {
+          "type": "object",
+          "properties": {
+            "seed": { "type": "integer" },
+            "referenceAssetPath": { "type": "string" }
+          }
+        },
+        "artifacts": {
+          "type": "object",
+          "description": "Populated by Host after mockup/bake jobs",
+          "properties": {
+            "mockupVideoPath": { "type": "string" },
+            "bakeVideoPath": { "type": "string" },
+            "upscaledImagePath": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": 1,
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Product Launch 30s",
+      "sequencePreset": "1080p24",
+      "defaultMockupDurationSec": 3.5,
+      "renderDefaults": {
+        "mockup": {
+          "tier": "mockup",
+          "width": 640,
+          "height": 360,
+          "kenBurns": "simple",
+          "upscale": "none",
+          "useComfyClip": false
+        },
+        "bake": {
+          "tier": "bake",
+          "width": 1920,
+          "height": 1080,
+          "kenBurns": "full",
+          "upscale": "2x",
+          "useComfyClip": false
+        }
+      },
+      "transitionsDefault": {
+        "toNext": { "type": "crossfade", "durationMs": 300 }
+      },
+      "blocks": [
+        {
+          "id": "660e8400-e29b-41d4-a716-446655440001",
+          "order": 0,
+          "title": "Hook",
+          "source": "generated",
+          "imagePrompt": "Wide establishing shot of modern office at golden hour",
+          "voiceoverScript": "What if your workflow could think ahead?",
+          "mockupDurationSec": 3.5,
+          "bakeDurationSec": 4.0,
+          "transitions": {
+            "in": { "type": "fade", "durationMs": 200 },
+            "toNext": { "type": "crossfade", "durationMs": 300 }
+          },
+          "audio": {
+            "source": "generated",
+            "mockupQuality": "rough"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Install AFTER ROCm torch wheels (see scripts/setup_venv.ps1). No torchao.
+diffusers>=0.32.0,<0.35.0
+transformers>=4.44.0,<5.0.0
+accelerate>=0.33.0,<2.0.0
+safetensors>=0.4.0
+pillow>=10.0.0
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.30.0,<1.0.0
+httpx>=0.27.0
+opencv-python-headless>=4.8.0
+basicsr>=1.4.2
+realesrgan>=0.3.0
+pyinstaller>=6.0.0,<7.0.0

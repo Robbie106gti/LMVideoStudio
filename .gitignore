@@ -1,0 +1,49 @@
+# Sidecar build output
+sidecars/
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Rust / Tauri
+**/target/
+
+# Paket restore output
+packages/
+
+# Python
+spike/.venv/
+spike/out/
+spike/dist/
+spike/build/
+spike/bin/ffmpeg.exe
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.spec.bak
+
+# Dev / local logs
+host_err.txt
+host_out.txt
+*.log
+
+# Model caches (HF, torch)
+.cache/
+models/
+
+# Secrets
+.env
+.env.*
+
+# OS
+Thumbs.db
+.DS_Store
+*.fs.bak

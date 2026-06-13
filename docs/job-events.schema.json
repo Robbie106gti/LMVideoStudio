@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lmvideostudio.local/schemas/job-event/v1",
+  "title": "LMVideoStudio Job Progress Event",
+  "description": "SSE/WebSocket payload for ActivityPanel and bootstrap progress. Host emits; Fable client subscribes.",
+  "type": "object",
+  "required": ["jobId", "phase", "step", "message", "status", "timestamp"],
+  "properties": {
+    "jobId": { "type": "string", "format": "uuid" },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "bootstrap",
+        "repair",
+        "outline",
+        "image_generate",
+        "image_upscale",
+        "audio_generate",
+        "export",
+        "mockup_preview",
+        "bake",
+        "model_sync"
+      ]
+    },
+    "step": {
+      "type": "string",
+      "description": "Machine-readable step id, e.g. sd_inference, ollama_pull, sidecar_health"
+    },
+    "stepIndex": { "type": "integer", "minimum": 0 },
+    "stepTotal": { "type": "integer", "minimum": 1 },
+    "message": { "type": "string", "description": "User-visible label" },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed", "cancelled"]
+    },
+    "hardware": {
+      "type": "string",
+      "enum": ["none", "cpu", "gpu", "network"],
+      "description": "What resource this step primarily uses"
+    },
+    "progress": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Optional 0-1 fraction when known"
+    },
+    "elapsedMs": { "type": "integer", "minimum": 0 },
+    "isColdRun": {
+      "type": "boolean",
+      "description": "True during first GPU compile/warmup after install or driver update"
+    },
+    "error": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" }
+  },
+  "examples": [
+    {
+      "jobId": "550e8400-e29b-41d4-a716-446655440000",
+      "phase": "bootstrap",
+      "step": "gpu_warmup",
+      "stepIndex": 6,
+      "stepTotal": 7,
+      "message": "Warming up GPU (first run may take 2–3 minutes)",
+      "status": "running",
+      "hardware": "gpu",
+      "elapsedMs": 45000,
+      "isColdRun": true,
+      "timestamp": "2026-06-12T18:00:00Z"
+    },
+    {
+      "jobId": "550e8400-e29b-41d4-a716-446655440001",
+      "phase": "image_generate",
+      "step": "sd_inference",
+      "stepIndex": 3,
+      "stepTotal": 5,
+      "message": "Generating thumbnail on GPU (512×512, step 8/15)",
+      "status": "running",
+      "hardware": "gpu",
+      "progress": 0.53,
+      "elapsedMs": 12000,
+      "isColdRun": false,
+      "timestamp": "2026-06-12T18:05:00Z"
+    }
+  ]
+}

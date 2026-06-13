@@ -1,0 +1,22 @@
+source https://api.nuget.org/v3/index.json
+framework: net8.0
+
+nuget Fable.Elmish.React
+nuget FSharp.Core ~> 6.0
+nuget Giraffe ~> 6.0
+nuget Thoth.Json.Net ~> 10.0
+nuget JsonSchema.Net ~> 6.0
+nuget Fable.Promise ~> 2.2
+nuget Fable.SimpleHttp ~> 3.6
+nuget Fable.Core ~> 4.1
+nuget Feliz == 2.6.0
+nuget Elmish ~> 4.0
+nuget Fable.React ~> 9.4
+nuget Thoth.Json ~> 10.1
+
+nuget xunit ~> 2.9
+nuget xunit.runner.visualstudio ~> 2.8
+nuget Microsoft.NET.Test.Sdk 17.8.0
+nuget Microsoft.AspNetCore.Mvc.Testing ~> 6.0
+nuget Microsoft.AspNetCore.TestHost ~> 6.0
+nuget FsUnit.xUnit ~> 5.6

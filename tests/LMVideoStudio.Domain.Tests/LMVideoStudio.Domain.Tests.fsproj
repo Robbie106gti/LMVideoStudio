@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <RootNamespace>LMVideoStudio.Domain.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LMVideoStudio.Domain\LMVideoStudio.Domain.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ValidationTests.fs" />
+    <Compile Include="SerializationTests.fs" />
+    <Compile Include="SchemaTests.fs" />
+    <Compile Include="ProjectTests.fs" />
+    <Compile Include="TransitionValidationTests.fs" />
+    <Compile Include="HostHealthPollTests.fs" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
