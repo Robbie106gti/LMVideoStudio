@@ -3,7 +3,6 @@ module LMVideoStudio.Client.ErrorReporting
 open System
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Core.JS.Constructors
 open Thoth.Json
 open LMVideoStudio.Domain.ErrorReport
 
@@ -115,7 +114,7 @@ let installHooks onCaptured =
                     Map.empty
                 else
                     ctx
-                    |> Object.keys
+                    |> JS.Constructors.Object.keys
                     |> Seq.map (fun k -> k, unbox<string> (ctx?(k)))
                     |> Map.ofSeq
             with _ ->
