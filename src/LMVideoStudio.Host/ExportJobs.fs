@@ -264,7 +264,7 @@ module ExportJobs =
 
             jobId
 
-    type BakeJobService(store: ProjectStore.ProjectStore, events: JobEventHub, repoRoot: string, worker: PythonWorkerProvider.PythonWorkerProvider) =
+    type BakeJobService(store: ProjectStore.ProjectStore, events: JobEventHub, repoRoot: string, worker: PythonWorkerProvider.PythonWorkerProvider, gpu: GpuQueueService) =
         /// Bake also stitches via CPU FFmpeg; upscale steps use GPU worker when enabled.
         let jobState = { Gate = new SemaphoreSlim(1, 1); ActiveCts = None; ActiveJobId = None }
         let publishProgress jobId step message status progress stepIndex stepTotal =
@@ -300,7 +300,8 @@ module ExportJobs =
             else
                 let bytes = File.ReadAllBytes thumbPath
                 let b64 = Convert.ToBase64String bytes
-                let upscaleResult = worker.UpscaleImage(b64).GetAwaiter().GetResult()
+                let upscaleResult =
+                    gpu.RunJob(GpuJobKind.ImageUpscale, fun () -> worker.UpscaleImage b64).GetAwaiter().GetResult()
 
                 match upscaleResult with
                 | Error err -> Error err

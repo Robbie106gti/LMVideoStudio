@@ -33,6 +33,8 @@ module TestMocks =
                     jsonResponse
                         HttpStatusCode.OK
                         $"""{{"image_base64":"{tinyPngBase64}","width":640,"height":360}}"""
+                elif req.Method = HttpMethod.Post && req.RequestUri.AbsolutePath.EndsWith("/unload") then
+                    jsonResponse HttpStatusCode.OK """{"ok":true}"""
                 else
                     jsonResponse HttpStatusCode.NotFound """{"error":"not found"}""")
 

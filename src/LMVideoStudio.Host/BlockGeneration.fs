@@ -29,7 +29,9 @@ module BlockGeneration =
         (
             store: ProjectStore.ProjectStore,
             worker: PythonWorkerProvider.PythonWorkerProvider,
-            events: JobEventHub
+            gpu: GpuQueueService,
+            events: JobEventHub,
+            conflicts: ConflictScan.ConflictScanService
         ) =
         let resolveProfile (project: Project) (tier: RenderTier) =
             match tier with
@@ -70,17 +72,37 @@ module BlockGeneration =
                     if opts.Profile = RenderTier.Mockup then JobPhase.MockupPreview
                     else JobPhase.Bake
 
+                let tierLabel =
+                    if opts.Profile = RenderTier.Mockup then "mockup" else "bake"
+
                 events.Publish(
-                    JobEvent.create jobId phase "start" "Generating thumbnail (GPU Python worker / ROCm)…" JobStatus.Running
+                    { JobEvent.create jobId phase "start" $"Generating {tierLabel} thumbnail (GPU worker)…" JobStatus.Running with
+                        Hardware = Some "gpu"
+                        IsColdRun = Some(not (gpu.IsWarmRun())) }
                 )
 
-                if opts.Profile <> RenderTier.Mockup then
+                match conflicts.RunScan() with
+                | Ok doc ->
+                    let conflictCount =
+                        match doc.TryGetProperty("conflicts") with
+                        | true, arr -> arr.GetArrayLength()
+                        | _ -> 0
+
+                    if conflictCount > 0 then
+                        events.Publish(
+                            JobEvent.create
+                                jobId
+                                phase
+                                "conflicts"
+                                $"Advisory: {conflictCount} competing GPU app(s) detected — proceeding"
+                                JobStatus.Running
+                        )
+                | Error err ->
                     events.Publish(
-                        JobEvent.create jobId phase "profile" "Bake profile not supported in Phase 2a" JobStatus.Failed
+                        JobEvent.create jobId phase "conflicts" $"Conflict scan skipped: {err}" JobStatus.Running
                     )
 
-                    return Error "Only mockup profile generation is supported in Phase 2a"
-                elif opts.VariantCount <> 1 && opts.VariantCount <> 3 then
+                if opts.VariantCount <> 1 && opts.VariantCount <> 3 then
                     events.Publish(
                         JobEvent.create jobId phase "variants" "variantCount must be 1 or 3" JobStatus.Failed
                     )
@@ -129,7 +151,10 @@ module BlockGeneration =
                                             )
 
                                             let! genResult =
-                                                worker.GenerateForProfile(profile, prompt, seed = seed)
+                                                gpu.RunJob(
+                                                    GpuJobKind.ImageGenerate,
+                                                    fun () -> worker.GenerateForProfile(profile, prompt, seed = seed)
+                                                )
 
                                             match genResult with
                                             | Error err ->
@@ -169,7 +194,11 @@ module BlockGeneration =
                                                     return None
                                                 else
                                                     let b64 = Convert.ToBase64String(File.ReadAllBytes thumbPath)
-                                                    let! up = worker.UpscaleImage b64
+                                                    let! up =
+                                                        gpu.RunJob(
+                                                            GpuJobKind.ImageUpscale,
+                                                            fun () -> worker.UpscaleImage b64
+                                                        )
 
                                                     match up with
                                                     | Error _ -> return None

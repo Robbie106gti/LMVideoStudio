@@ -46,6 +46,8 @@ module FeatureTddTests =
                     TestMocks.jsonResponse
                         HttpStatusCode.OK
                         $"""{{"image_base64":"{tinyPngBase64}","width":1280,"height":720}}"""
+                elif req.Method = HttpMethod.Post && req.RequestUri.AbsolutePath.EndsWith("/unload") then
+                    TestMocks.jsonResponse HttpStatusCode.OK """{"ok":true}"""
                 else
                     TestMocks.jsonResponse HttpStatusCode.NotFound """{"error":"not found"}""")
 
@@ -576,5 +578,6 @@ module FeatureTddTests =
             proc.WaitForExit 30000
             proc.ExitCode |> should equal 0
             script.Contains("build-sidecars.ps1") |> should equal true
-            script.Contains("dotnet publish") |> should equal true
+            script.Contains("verify-sidecar-staging.ps1") |> should equal true
+            script.Contains("build-prereqs.ps1") |> should equal true
             script.Contains("tauri build") |> should equal true

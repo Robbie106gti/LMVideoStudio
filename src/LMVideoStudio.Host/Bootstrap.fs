@@ -101,8 +101,10 @@ module Bootstrap =
             events: JobEventHub,
             modelSync: ModelSync.ModelSyncService,
             ollama: OllamaProvider.OllamaProvider,
-            worker: PythonWorkerProvider.PythonWorkerProvider
+            worker: PythonWorkerProvider.PythonWorkerProvider,
+            gpu: GpuQueueService
         ) =
+        let warmupMarkerPath = Path.Combine(repoRoot, ".lmvs", "warmup_complete")
         let runSetupScript (scriptName: string, args: string) =
             task {
                 let script = Path.Combine(repoRoot, "scripts", scriptName)
@@ -141,6 +143,7 @@ module Bootstrap =
                 let jobId = Guid.NewGuid()
                 let steps =
                     [ "preflight", "Checking system requirements…"
+                      "conflicts", "Scanning for GPU conflicts…"
                       "ollama", "Verifying Ollama…"
                       "python", "Verifying Python worker…"
                       "models", "Syncing model catalog…"
@@ -163,6 +166,29 @@ module Bootstrap =
                     )
 
                     match step with
+                    | "conflicts" ->
+                        let conflicts = ConflictScan.ConflictScanService repoRoot
+
+                        match conflicts.RunScan() with
+                        | Ok doc ->
+                            let count =
+                                match doc.TryGetProperty("conflicts") with
+                                | true, arr -> arr.GetArrayLength()
+                                | _ -> 0
+
+                            let msg =
+                                if count = 0 then
+                                    "No competing GPU apps detected"
+                                else
+                                    $"Advisory: {count} competing GPU app(s) detected"
+
+                            events.Publish(
+                                JobEvent.create jobId Bootstrap "conflicts" msg Running
+                            )
+                        | Error err ->
+                            events.Publish(
+                                JobEvent.create jobId Bootstrap "conflicts" $"Scan skipped: {err}" Running
+                            )
                     | "ollama" ->
                         let! health = ollama.HealthCheck()
 
@@ -222,7 +248,37 @@ module Bootstrap =
                             events.Publish(
                                 JobEvent.create jobId Bootstrap "ffmpeg" "FFmpeg not found (Ken Burns export unavailable)" Running
                             )
-                    | "warmup" -> ()
+                    | "warmup" ->
+                        let! health = worker.HealthCheck()
+
+                        if health.Reachable && (health.Rocm |> Option.defaultValue false) then
+                            try
+                                let! _ =
+                                    gpu.RunJob(
+                                        LMVideoStudio.Domain.GpuJobKind.ImageGenerate,
+                                        fun () ->
+                                            worker.GenerateImage
+                                                { Prompt = "warmup test frame, simple gradient"
+                                                  Width = 256
+                                                  Height = 256
+                                                  Steps = 8
+                                                  Seed = 0 }
+                                    )
+
+                                let markerDir = Path.GetDirectoryName warmupMarkerPath
+
+                                if not (String.IsNullOrEmpty markerDir) then
+                                    Directory.CreateDirectory markerDir |> ignore
+
+                                File.WriteAllText(warmupMarkerPath, DateTimeOffset.UtcNow.ToString("O"))
+
+                                events.Publish(
+                                    JobEvent.create jobId Bootstrap "warmup_done" "GPU warmup complete (SD cold compile done)" Completed
+                                )
+                            with ex ->
+                                events.Publish(
+                                    JobEvent.create jobId Bootstrap "warmup_skip" $"GPU warmup skipped: {ex.Message}" Running
+                                )
                     | _ -> ()
 
                     do! Task.Delay 100
@@ -259,7 +315,7 @@ module Bootstrap =
                        workerDevice = workerDevice
                        ffmpeg = ffmpegAvailable ()
                        conflictsScriptExists = File.Exists conflictsScript
-                       warmupComplete = false |}
+                       warmupComplete = File.Exists warmupMarkerPath |}
             }
 
         member _.Repair() =

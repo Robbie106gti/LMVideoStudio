@@ -212,6 +212,20 @@ module PythonWorkerProvider =
         member _.UpscaleImage(imageBase64: string) : Task<Result<UpscaleImageResult, string>> =
             requestUpscaleImage http baseUrl imageBase64
 
+        member _.UnloadAll() : Task<Result<unit, string>> =
+            task {
+                try
+                    let! resp = http.PostAsync($"{baseUrl}/unload", new StringContent("{}", Encoding.UTF8, "application/json"))
+
+                    if resp.IsSuccessStatusCode then
+                        return Ok()
+                    else
+                        let! err = resp.Content.ReadAsStringAsync()
+                        return Error $"Worker unload failed: HTTP {(int resp.StatusCode)} {err}"
+                with ex ->
+                    return Error ex.Message
+            }
+
         interface IDisposable with
             member _.Dispose() =
                 if isNull (box http) |> not then http.Dispose()

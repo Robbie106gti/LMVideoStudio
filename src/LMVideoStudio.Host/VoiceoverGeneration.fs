@@ -7,7 +7,14 @@ open LMVideoStudio.Domain
 
 /// TTS / voiceover — calls worker /audio/generate when available, else writes a stub WAV.
 module VoiceoverGeneration =
-    type VoiceoverService(store: ProjectStore.ProjectStore, events: JobEventHub, worker: PythonWorkerProvider.PythonWorkerProvider, repoRoot: string) =
+    type VoiceoverService
+        (
+            store: ProjectStore.ProjectStore,
+            events: JobEventHub,
+            worker: PythonWorkerProvider.PythonWorkerProvider,
+            gpu: GpuQueueService,
+            repoRoot: string
+        ) =
         let publish jobId step message status =
             events.Publish(JobEvent.create jobId JobPhase.AudioGenerate step message status)
 
@@ -45,10 +52,16 @@ module VoiceoverGeneration =
                         | None ->
                             publish jobId "script" "voiceoverScript required" JobStatus.Failed
                         | Some text ->
-                            publish jobId "worker" "Requesting TTS from worker…" JobStatus.Running
+                            publish jobId "worker" "Requesting TTS from worker (GPU queue)…" JobStatus.Running
 
                             let audioResult =
-                                worker.GenerateVoiceover(text).GetAwaiter().GetResult()
+                                gpu
+                                    .RunJob(
+                                        GpuJobKind.AudioGenerate,
+                                        fun () -> worker.GenerateVoiceover(text)
+                                    )
+                                    .GetAwaiter()
+                                    .GetResult()
 
                             let bytes, ext =
                                 match audioResult with
