@@ -1,4 +1,6 @@
-# Install AFTER ROCm torch wheels (see scripts/setup_venv.ps1). No torchao.
+# Worker deps. Install platform torch first:
+#   Windows: ROCm wheels (see spike/scripts/setup_venv.ps1)
+#   macOS:   pip install torch torchvision torchaudio (MPS) via scripts/setup-python-macos.sh
 diffusers>=0.32.0,<0.35.0
 transformers>=4.44.0,<5.0.0
 accelerate>=0.33.0,<2.0.0

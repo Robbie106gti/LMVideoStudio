@@ -1,14 +1,18 @@
-//! Compiled by build-installer.ps1 into run_worker-{target}.exe (Tauri externalBin).
+//! Compiled by build-installer.ps1 / build-macos.sh into run_worker-{target} (Tauri externalBin).
 //! Spawns the embedded Python worker venv shipped under LMVS_REPO_ROOT/sidecars/lmvs_worker.
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 fn venv_python(sidecar: &Path) -> Option<PathBuf> {
-    let python = sidecar
-        .join(".venv")
-        .join("Scripts")
-        .join("python.exe");
+    let python = if cfg!(windows) {
+        sidecar
+            .join(".venv")
+            .join("Scripts")
+            .join("python.exe")
+    } else {
+        sidecar.join(".venv").join("bin").join("python")
+    };
     if python.exists() {
         Some(python)
     } else {
@@ -52,17 +56,33 @@ fn resolve_python(worker_dir: &Path) -> Option<PathBuf> {
     }
 
     if let Ok(root) = env::var("LMVS_REPO_ROOT") {
-        let spike = PathBuf::from(&root)
-            .join("spike")
-            .join(".venv")
-            .join("Scripts")
-            .join("python.exe");
+        let spike = if cfg!(windows) {
+            PathBuf::from(&root)
+                .join("spike")
+                .join(".venv")
+                .join("Scripts")
+                .join("python.exe")
+        } else {
+            PathBuf::from(&root)
+                .join("spike")
+                .join(".venv")
+                .join("bin")
+                .join("python")
+        };
         if spike.exists() {
             return Some(spike);
         }
     }
 
     None
+}
+
+fn path_separator() -> char {
+    if cfg!(windows) {
+        ';'
+    } else {
+        ':'
+    }
 }
 
 fn main() {
@@ -74,15 +94,20 @@ fn main() {
                 "ERROR: No worker venv found under {} or spike fallback.",
                 worker_dir.display()
             );
-            eprintln!("Re-run .\\scripts\\build-sidecars.ps1 (full run copies ~2GB venv).");
+            eprintln!("Re-run ./scripts/build-sidecars-macos.sh or ./scripts/build-sidecars.ps1.");
             std::process::exit(1);
         }
     };
 
     if let Ok(path) = env::var("PATH") {
         let bin = worker_dir.join("bin");
-        env::set_var("PATH", format!("{};{}", bin.display(), path));
+        env::set_var(
+            "PATH",
+            format!("{}{}{}", bin.display(), path_separator(), path),
+        );
     }
+
+    let port = env::var("LMVS_WORKER_PORT").unwrap_or_else(|_| "8765".to_string());
 
     let mut cmd = Command::new(&python);
     cmd.args([
@@ -92,7 +117,7 @@ fn main() {
         "--host",
         "127.0.0.1",
         "--port",
-        "8765",
+        &port,
     ])
     .current_dir(&worker_dir)
     .stdout(Stdio::null())
@@ -101,6 +126,7 @@ fn main() {
     if let Ok(root) = env::var("LMVS_REPO_ROOT") {
         cmd.env("LMVS_REPO_ROOT", root);
     }
+    cmd.env("LMVS_WORKER_PORT", &port);
 
     let status = cmd.status().expect("failed to spawn worker");
     std::process::exit(status.code().unwrap_or(1));

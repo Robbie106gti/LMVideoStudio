@@ -6,6 +6,8 @@ use error_report::{install_panic_hook, write_error_report};
 use sidecar::{SidecarManager, SidecarStatus, HOST_PORT};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager, State};
+
+#[cfg(not(lmvs_microsoft_store))]
 use tauri_plugin_updater::UpdaterExt;
 
 struct AppState {
@@ -17,6 +19,7 @@ fn sidecar_status(state: State<'_, AppState>) -> SidecarStatus {
     state.sidecars.lock().unwrap().status()
 }
 
+#[cfg(not(lmvs_microsoft_store))]
 #[tauri::command]
 async fn check_for_updates(app: AppHandle) -> Result<String, String> {
     let updater = app.updater().map_err(|e| e.to_string())?;
@@ -32,9 +35,26 @@ async fn check_for_updates(app: AppHandle) -> Result<String, String> {
     }
 }
 
+#[cfg(lmvs_microsoft_store)]
+#[tauri::command]
+async fn check_for_updates(_app: AppHandle) -> Result<String, String> {
+    Ok("Updates are managed by the Microsoft Store".into())
+}
+
+fn build_flavor() -> &'static str {
+    if cfg!(lmvs_microsoft_store) {
+        "microsoft-store"
+    } else {
+        "direct"
+    }
+}
+
 fn inject_host_config(app: &AppHandle) {
     let host_url = format!("http://127.0.0.1:{HOST_PORT}");
-    let script = format!("window.__LMVS_HOST__ = '{host_url}';");
+    let flavor = build_flavor();
+    let script = format!(
+        "window.__LMVS_HOST__ = '{host_url}'; window.__LMVS_BUILD_FLAVOR__ = '{flavor}';"
+    );
 
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.eval(&script);
@@ -44,9 +64,13 @@ fn inject_host_config(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    #[cfg(not(lmvs_microsoft_store))]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder
         .setup(|app| {
             install_panic_hook();
             sidecar::ensure_projects_root();
@@ -56,6 +80,7 @@ pub fn run() {
                 "LMVS_REPO_ROOT",
                 repo_root.to_string_lossy().as_ref(),
             );
+            std::env::set_var("LMVS_BUILD_FLAVOR", build_flavor());
 
             let mut manager = SidecarManager::new(repo_root);
             manager.start_all(app.handle());

@@ -25,6 +25,16 @@ pub const HOST_PORT: u16 = 17170;
 const WORKER_PORT: u16 = 8765;
 const HOST_HEALTH_TIMEOUT_SECS: u64 = 60;
 
+fn build_flavor_env() -> String {
+    std::env::var("LMVS_BUILD_FLAVOR").unwrap_or_else(|_| {
+        if cfg!(lmvs_microsoft_store) {
+            "microsoft-store".into()
+        } else {
+            "direct".into()
+        }
+    })
+}
+
 #[derive(Clone, Serialize, Default)]
 pub struct SidecarStatus {
     pub host_running: bool,
@@ -86,6 +96,7 @@ impl SidecarManager {
 
         let port = HOST_PORT.to_string();
         let repo = self.repo_root.to_string_lossy().into_owned();
+        let flavor = build_flavor_env();
 
         let spawn_result = if entry.extension().is_some_and(|ext| ext == "dll") {
             Command::new("dotnet")
@@ -93,6 +104,7 @@ impl SidecarManager {
                 .arg(&port)
                 .env("LMVS_REPO_ROOT", &repo)
                 .env("LMVS_HOST_PORT", &port)
+                .env("LMVS_BUILD_FLAVOR", &flavor)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
@@ -101,6 +113,7 @@ impl SidecarManager {
                 .arg(&port)
                 .env("LMVS_REPO_ROOT", &repo)
                 .env("LMVS_HOST_PORT", &port)
+                .env("LMVS_BUILD_FLAVOR", &flavor)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
@@ -128,13 +141,7 @@ impl SidecarManager {
             }
         }
 
-        for candidate in [
-            self.sidecars_dir().join("LMVideoStudio.Host.exe"),
-            self.sidecars_dir()
-                .join("lmvs_host")
-                .join("publish")
-                .join("LMVideoStudio.Host.exe"),
-        ] {
+        for candidate in host_sidecar_candidates(&self.sidecars_dir()) {
             if candidate.exists() {
                 return Some(candidate);
             }
@@ -154,6 +161,7 @@ impl SidecarManager {
             let _ = Command::new(bundled)
                 .env("LMVS_REPO_ROOT", self.repo_root.to_string_lossy().as_ref())
                 .env("LMVS_WORKER_PORT", WORKER_PORT.to_string())
+                .env("LMVS_BUILD_FLAVOR", build_flavor_env())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
@@ -162,10 +170,10 @@ impl SidecarManager {
         }
 
         let worker_dir = self.sidecars_dir().join("lmvs_worker");
-        let venv_python = worker_dir.join(".venv").join("Scripts").join("python.exe");
+        let venv_python = worker_venv_python(&worker_dir);
 
         if venv_python.exists() {
-            let _ = Command::new(venv_python)
+            let _ = Command::new(&venv_python)
                 .args([
                     "-m",
                     "uvicorn",
@@ -178,6 +186,7 @@ impl SidecarManager {
                 .current_dir(&worker_dir)
                 .env("LMVS_REPO_ROOT", self.repo_root.to_string_lossy().as_ref())
                 .env("LMVS_WORKER_PORT", WORKER_PORT.to_string())
+                .env("LMVS_BUILD_FLAVOR", build_flavor_env())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
@@ -186,16 +195,11 @@ impl SidecarManager {
         }
 
         // Dev fallback: spike venv (Gate 9 pattern)
-        let spike_python = self
-            .repo_root
-            .join("spike")
-            .join(".venv")
-            .join("Scripts")
-            .join("python.exe");
+        let spike_python = worker_venv_python(&self.repo_root.join("spike"));
 
         if spike_python.exists() {
             let python_root = self.repo_root.join("python");
-            let _ = Command::new(spike_python)
+            let _ = Command::new(&spike_python)
                 .args([
                     "-m",
                     "uvicorn",
@@ -208,6 +212,7 @@ impl SidecarManager {
                 .current_dir(&python_root)
                 .env("LMVS_REPO_ROOT", self.repo_root.to_string_lossy().as_ref())
                 .env("LMVS_WORKER_PORT", WORKER_PORT.to_string())
+                .env("LMVS_BUILD_FLAVOR", build_flavor_env())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()
@@ -336,9 +341,10 @@ fn install_dir() -> Option<PathBuf> {
 }
 
 fn bundled_sidecar_names(stem: &str) -> Vec<String> {
-    let mut names = vec![format!("{stem}.exe")];
+    let suffix = sidecar_file_suffix();
+    let mut names = vec![format!("{stem}{suffix}")];
     if let Some(target) = option_env!("TARGET") {
-        names.push(format!("{stem}-{target}.exe"));
+        names.push(format!("{stem}-{target}{suffix}"));
     }
     names
 }
@@ -362,11 +368,57 @@ pub fn ensure_projects_root() {
         return;
     }
 
+    #[cfg(target_os = "windows")]
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
         let projects = PathBuf::from(local)
             .join("LMVideoStudio")
             .join("projects");
         let _ = fs::create_dir_all(projects);
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Ok(home) = std::env::var("HOME") {
+        let projects = PathBuf::from(home)
+            .join("Library")
+            .join("Application Support")
+            .join("LMVideoStudio")
+            .join("projects");
+        let _ = fs::create_dir_all(projects);
+    }
+}
+
+fn host_sidecar_file_name() -> &'static str {
+    if cfg!(windows) {
+        "LMVideoStudio.Host.exe"
+    } else {
+        "LMVideoStudio.Host"
+    }
+}
+
+fn host_sidecar_candidates(sidecars_dir: &Path) -> [PathBuf; 2] {
+    let name = host_sidecar_file_name();
+    [
+        sidecars_dir.join(name),
+        sidecars_dir
+            .join("lmvs_host")
+            .join("publish")
+            .join(name),
+    ]
+}
+
+fn worker_venv_python(root: &Path) -> PathBuf {
+    if cfg!(windows) {
+        root.join(".venv").join("Scripts").join("python.exe")
+    } else {
+        root.join(".venv").join("bin").join("python")
+    }
+}
+
+fn sidecar_file_suffix() -> &'static str {
+    if cfg!(windows) {
+        ".exe"
+    } else {
+        ""
     }
 }
 
@@ -392,18 +444,19 @@ mod tests {
 
     #[test]
     fn bundled_sidecar_names_include_plain_and_target_triple() {
+        let suffix = sidecar_file_suffix();
         let names = bundled_sidecar_names("LMVideoStudio.Host");
-        assert!(names.contains(&"LMVideoStudio.Host.exe".to_string()));
+        assert!(names.contains(&format!("LMVideoStudio.Host{suffix}")));
         if let Some(target) = option_env!("TARGET") {
-            assert!(names.contains(&format!("LMVideoStudio.Host-{target}.exe")));
+            assert!(names.contains(&format!("LMVideoStudio.Host-{target}{suffix}")));
         }
     }
 
     #[test]
-    fn find_bundled_sidecar_prefers_plain_exe_name() {
+    fn find_bundled_sidecar_prefers_plain_name() {
         let dir = temp_dir("plain");
-        let exe = dir.join("LMVideoStudio.Host.exe");
-        fs::write(&exe, b"").expect("write exe");
+        let exe = dir.join(format!("LMVideoStudio.Host{}", sidecar_file_suffix()));
+        fs::write(&exe, b"").expect("write sidecar");
 
         let found = find_bundled_sidecar(&dir, "LMVideoStudio.Host");
         assert_eq!(found.as_deref(), Some(exe.as_path()));
@@ -416,10 +469,21 @@ mod tests {
         };
 
         let dir = temp_dir("triple");
-        let exe = dir.join(format!("run_worker-{target}.exe"));
-        fs::write(&exe, b"").expect("write exe");
+        let exe = dir.join(format!("run_worker-{target}{}", sidecar_file_suffix()));
+        fs::write(&exe, b"").expect("write sidecar");
 
         let found = find_bundled_sidecar(&dir, "run_worker");
         assert_eq!(found.as_deref(), Some(exe.as_path()));
+    }
+
+    #[test]
+    fn worker_venv_python_uses_platform_layout() {
+        let root = temp_dir("venv");
+        let expected = if cfg!(windows) {
+            root.join(".venv").join("Scripts").join("python.exe")
+        } else {
+            root.join(".venv").join("bin").join("python")
+        };
+        assert_eq!(worker_venv_python(&root), expected);
     }
 }

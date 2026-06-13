@@ -1,0 +1,112 @@
+# CI — macOS arm64 build smoke (dotnet tests + sidecar publish; GPU tests skipped)
+
+name: macOS Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos-arm64:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            src/LMVideoStudio.Client/package-lock.json
+            src/LMVideoStudio.Tauri/package-lock.json
+
+      - name: Setup Rust (aarch64-apple-darwin)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: dotnet test
+        run: |
+          if [ -f LMVideoStudio.sln ]; then
+            dotnet test LMVideoStudio.sln -c Release --verbosity normal
+          elif [ -d tests ]; then
+            dotnet test tests -c Release --verbosity normal
+          else
+            echo "No solution/tests — skip"
+          fi
+
+      - name: Host self-contained publish smoke (osx-arm64)
+        run: |
+          proj="$(find src -name '*Host*.fsproj' -print -quit || true)"
+          if [ -z "$proj" ]; then
+            echo "Host project missing — skip"
+            exit 0
+          fi
+          out="$RUNNER_TEMP/lmvs-host-publish"
+          dotnet publish "$proj" -c Release -r osx-arm64 -o "$out" \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true
+          host="$out/LMVideoStudio.Host"
+          if [ ! -f "$host" ]; then
+            echo "Missing published Host binary"
+            exit 1
+          fi
+          size="$(stat -f%z "$host")"
+          if [ "$size" -lt 5000000 ]; then
+            echo "Host binary smaller than expected ($size bytes)"
+            exit 1
+          fi
+          echo "Self-contained Host publish OK ($(( size / 1048576 )) MB)"
+
+      - name: Sidecar scripts syntax check
+        run: |
+          chmod +x scripts/*.sh
+          bash -n scripts/build-macos.sh
+          bash -n scripts/build-sidecars-macos.sh
+          bash -n scripts/verify-sidecar-staging-macos.sh
+          bash -n scripts/setup-ollama-macos.sh
+          bash -n scripts/setup-python-macos.sh
+
+      - name: Build sidecar layout (skip venv — no GPU weights in CI)
+        run: |
+          ./scripts/build-sidecars-macos.sh --skip-venv-copy --skip-host-publish || true
+          ./scripts/verify-sidecar-staging-macos.sh --allow-spike-venv-fallback || \
+            echo "Sidecar verify skipped (no venv in CI)"
+
+      - name: Fable compile + Vite build (Client)
+        working-directory: src/LMVideoStudio.Client
+        run: |
+          npm ci
+          npm run fable
+          npm run build
+
+      - name: macOS build dry-run
+        run: ./scripts/build-macos.sh --dry-run
+
+      - name: Full .dmg build (optional, manual dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          ./scripts/build-macos.sh --skip-venv-copy --allow-spike-venv-fallback
+        continue-on-error: true
+
+      - name: Upload .dmg artifact (if present)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmvs-macos-dmg
+          path: src/LMVideoStudio.Tauri/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: ignore
+
+      - name: GPU tests note
+        run: |
+          echo "GPU/MPS e2e tests are skipped on macos-latest CI (no model weights)."
+          echo "Run ./scripts/gpu_e2e_smoke.ps1 on a configured M-series Mac after ./scripts/build-sidecars-macos.sh"
