@@ -44,6 +44,28 @@ try {
         exit $LASTEXITCODE
     }
 
+    if ($Full) {
+        $pythonDir = Join-Path $RepoRoot "python"
+        $pythonTests = Join-Path $pythonDir "tests"
+        if (Test-Path $pythonTests) {
+            Write-Host "Running Python worker pytest (GET /health smoke) ..." -ForegroundColor Cyan
+            $pythonExe = Join-Path $pythonDir ".venv\Scripts\python.exe"
+            if (-not (Test-Path $pythonExe)) {
+                $pythonExe = "python"
+            }
+            Push-Location $pythonDir
+            try {
+                & $pythonExe -m pytest tests -v --tb=short
+                if ($LASTEXITCODE -ne 0) {
+                    exit $LASTEXITCODE
+                }
+            }
+            finally {
+                Pop-Location
+            }
+        }
+    }
+
     if ($Full -or $Smoke) {
         $smokeScript = Join-Path $RepoRoot "scripts\bootstrap_smoke.ps1"
         if (-not (Test-Path $smokeScript)) {

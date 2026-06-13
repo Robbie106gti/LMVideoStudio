@@ -22,6 +22,18 @@ make test
 .\scripts\test.ps1
 ```
 
+## Python worker `/health` smoke (pytest)
+
+GPU-free smoke tests for the FastAPI worker live in `python/tests/`. They use `TestClient` to `GET /health` and assert the JSON shape (`rocm`, `device_name`, `torch_device`, `vram_gb`, `models_loaded`, `hf_cache`). Mocked tests run without torch or GPU; the live test skips when torch is not installed.
+
+```powershell
+cd python
+pip install -r requirements-dev.txt fastapi httpx pillow pydantic
+python -m pytest tests -v
+```
+
+Included in `.\scripts\test.ps1 -Full` after dotnet tests. CI runs the mocked suite on every PR (no GPU).
+
 ## GPU E2E smoke (worker + Stable Diffusion)
 
 Optional smoke test for the Python worker on `:8765` — not part of fast `make test` (no GPU required for CI).

@@ -61,6 +61,21 @@ jobs:
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Python worker /health smoke (pytest)
+        shell: pwsh
+        run: |
+          $pythonDir = Join-Path $env:GITHUB_WORKSPACE "python"
+          if (-not (Test-Path $pythonDir)) {
+            Write-Host "python/ not present — skipping worker pytest"
+            exit 0
+          }
+          python -m pip install --upgrade pip
+          pip install pytest fastapi httpx pillow pydantic
+          Push-Location $pythonDir
+          python -m pytest tests -v --tb=short
+          Pop-Location
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Fable compile + Vite build (Client)
         shell: pwsh
         working-directory: src/LMVideoStudio.Client
@@ -85,8 +100,10 @@ jobs:
               "scripts/build-prereqs.ps1",
               "scripts/build-sidecars.ps1",
               "scripts/build-installer.ps1",
+              "scripts/build-msix.ps1",
               "scripts/verify-sidecar-staging.ps1",
               "scripts/sync_models.ps1",
+              "scripts/gpu_e2e_smoke.ps1",
               "cli/lmvs/lmvs.ps1"
             )) {
             $path = Join-Path $env:GITHUB_WORKSPACE $script

@@ -18,6 +18,7 @@
     <Compile Include="TransitionValidationTests.fs" />
     <Compile Include="HostHealthPollTests.fs" />
     <Compile Include="ErrorReportTests.fs" />
+    <Compile Include="HardwareProfileTests.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

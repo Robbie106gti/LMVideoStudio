@@ -21,6 +21,7 @@
     <Compile Include="FfmpegOrphanRegressionTests.fs" />
     <Compile Include="SidecarStartupTests.fs" />
     <Compile Include="GpuQueueTests.fs" />
+    <Compile Include="JobEventSseTests.fs" />
     <Compile Include="ErrorReportingTests.fs" />
     <Compile Include="SocialOAuthTests.fs" />
   </ItemGroup>
