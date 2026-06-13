@@ -20,8 +20,6 @@
 
   <ItemGroup>
 
-    <Compile Include="GpuQueue.fs" />
-
     <Compile Include="JobEvents.fs" />
 
     <Compile Include="FfmpegExport.fs" />
@@ -31,6 +29,8 @@
     <Compile Include="ProjectStore.fs" />
 
     <Compile Include="PythonWorkerProvider.fs" />
+
+    <Compile Include="GpuQueue.fs" />
 
     <Compile Include="ExportJobs.fs" />
 
@@ -51,6 +51,8 @@
     <Compile Include="BlockGeneration.fs" />
 
     <Compile Include="Bootstrap.fs" />
+
+    <Compile Include="ErrorReporting.fs" />
 
     <Compile Include="Program.fs" />
 

@@ -12,6 +12,7 @@ open LMVideoStudio.Client.Views.StoryboardTimeline
 open LMVideoStudio.Client.Views.Settings
 open LMVideoStudio.Client.Views.SetupWizard
 open LMVideoStudio.Client.Views.Shell
+open LMVideoStudio.Client.ErrorReporting
 
 type AppPage =
     | HubPage of ProjectHubModel
@@ -28,7 +29,8 @@ type AppModel =
       Page: AppPage
       SetupWizard: SetupWizardModel option
       OpenProjectId: System.Guid option
-      HostStartup: HostStartup }
+      HostStartup: HostStartup
+      PendingErrorReport: string option }
 
 type AppMsg =
     | ShellMsg of ShellMsg
@@ -61,6 +63,9 @@ type AppMsg =
     | InitSubscriptions
     | HostReady of Result<unit, string>
     | RetryHostStartup
+    | ErrorCaptured of CaptureRequest
+    | ErrorReportSubmitted of Result<string, string>
+    | PendingErrorStored of string
 
 let init () =
     let activity = ActivityPanel.init ()
@@ -69,7 +74,8 @@ let init () =
       Page = HubPage(ProjectHub.init ())
       SetupWizard = if SetupWizard.isComplete () then None else Some(SetupWizard.init ())
       OpenProjectId = None
-      HostStartup = Starting },
+      HostStartup = Starting
+      PendingErrorReport = None },
     Cmd.batch [
         Cmd.ofMsg InitSubscriptions
         Cmd.OfAsync.perform waitForHostHealth () HostReady
@@ -79,6 +85,81 @@ let update msg model =
     match msg with
     | InitSubscriptions ->
         model, Cmd.none
+
+    | ErrorCaptured req ->
+        let hostHealthy =
+            match model.HostStartup with
+            | Ready -> Some true
+            | Failed _ -> Some false
+            | Starting -> None
+
+        let ollama = model.Shell.SystemStatus |> Option.map (fun s -> s.Ollama)
+        let worker = model.Shell.SystemStatus |> Option.map (fun s -> s.Worker)
+        let consent = readConsent ()
+
+        match buildReport req hostHealthy ollama worker consent with
+        | Error _ -> model, Cmd.none
+        | Ok report ->
+            let summary =
+                { Message = report.Message
+                  Source = report.Source
+                  Severity = report.Severity
+                  Timestamp = report.Timestamp }
+
+            let model' =
+                { model with
+                    Shell =
+                        { model.Shell with
+                            Activity = ActivityPanel.setLastError model.Shell.Activity summary }
+                    PendingErrorReport = Some(encodeForSubmit report) }
+
+            if shouldAutoSubmit report.Severity consent then
+                model',
+                Cmd.OfAsync.perform
+                    (fun json ->
+                        async {
+                            let! hostResult = submitErrorReport json
+
+                            match hostResult with
+                            | Ok r -> return Ok r
+                            | Error _ ->
+                                let! fallback = submitErrorReportFallback json
+                                return fallback
+                        })
+                    (encodeForSubmit report)
+                    ErrorReportSubmitted
+            else
+                model', Cmd.ofMsg (PendingErrorStored(encodeForSubmit report))
+
+    | PendingErrorStored _ -> model, Cmd.none
+
+    | ErrorReportSubmitted(Ok msg) ->
+        let model' =
+            match model.Page with
+            | SettingsPage st ->
+                { model with
+                    Page =
+                        SettingsPage
+                            { st with
+                                Message = Some $"Error report sent: {msg}"
+                                ErrorReportingBusy = false } }
+            | _ -> model
+
+        model', Cmd.none
+
+    | ErrorReportSubmitted(Error err) ->
+        let model' =
+            match model.Page with
+            | SettingsPage st ->
+                { model with
+                    Page =
+                        SettingsPage
+                            { st with
+                                Message = Some $"Error report failed: {err}"
+                                ErrorReportingBusy = false } }
+            | _ -> model
+
+        model', Cmd.none
 
     | HostReady(Ok _) ->
         { model with HostStartup = Ready },
@@ -629,6 +710,13 @@ let update msg model =
             Cmd.none
         | _ -> model, Cmd.none
 
+    | TimelineMsg (TimelineMsg.SetMoodTags text) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with MoodTagsDraft = text } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
     | TimelineMsg (TimelineMsg.SetCrossfadeDuration ms) ->
         match model.Page with
         | TimelinePage t ->
@@ -646,9 +734,17 @@ let update msg model =
                     if System.String.IsNullOrWhiteSpace t.ImagePromptDraft then None
                     else Some t.ImagePromptDraft
 
+                let moodTags =
+                    t.MoodTagsDraft.Split(',')
+                    |> Array.map (fun s -> s.Trim())
+                    |> Array.filter (fun s -> not (System.String.IsNullOrWhiteSpace s))
+                    |> Array.toList
+                    |> fun tags -> if List.isEmpty tags then None else Some tags
+
                 { model with Page = TimelinePage { t with Saving = true } },
                 Cmd.OfAsync.perform
-                    (fun () -> updateBlock t.Project.Id blockId t.VoiceoverDraft prompt (Some t.CrossfadeDurationDraft))
+                    (fun () ->
+                        updateBlock t.Project.Id blockId t.VoiceoverDraft prompt (Some t.CrossfadeDurationDraft) moodTags)
                     ()
                     BlockFieldsSaved
         | _ -> model, Cmd.none
@@ -857,6 +953,64 @@ let update msg model =
             Cmd.OfAsync.perform runRepair () (fun () -> SettingsActionDone "Repair started")
         | _ -> model, Cmd.none
 
+    | SettingsMsg SettingsMsg.ToggleErrorReportingConsent ->
+        match model.Page with
+        | SettingsPage st ->
+            let next = not st.ErrorReportingConsent
+            setConsent next
+
+            { model with Page = SettingsPage { st with ErrorReportingConsent = next } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | SettingsMsg SettingsMsg.FlushErrorReports ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with ErrorReportingBusy = true } },
+            Cmd.OfAsync.perform flushErrorReports () (fun r ->
+                SettingsActionDone(match r with Ok body -> $"Queued reports flushed: {body}" | Error e -> e))
+        | _ -> model, Cmd.none
+
+    | SettingsMsg SettingsMsg.SendPendingErrorReport ->
+        match model.PendingErrorReport with
+        | None ->
+            model,
+            Cmd.ofMsg (
+                SettingsActionDone "No captured error report yet — reproduce an error or wait for one to occur."
+            )
+        | Some json ->
+            match model.Page with
+            | SettingsPage st ->
+                { model with Page = SettingsPage { st with ErrorReportingBusy = true } },
+                Cmd.OfAsync.perform
+                    (fun payload ->
+                        async {
+                            let! hostResult = submitErrorReport payload
+
+                            match hostResult with
+                            | Ok r -> return Ok r
+                            | Error _ ->
+                                let! fallback = submitErrorReportFallback payload
+                                return fallback
+                        })
+                    json
+                    ErrorReportSubmitted
+            | _ ->
+                model,
+                Cmd.OfAsync.perform
+                    (fun payload ->
+                        async {
+                            let! hostResult = submitErrorReport payload
+
+                            match hostResult with
+                            | Ok r -> return Ok r
+                            | Error _ ->
+                                let! fallback = submitErrorReportFallback payload
+                                return fallback
+                        })
+                    json
+                    ErrorReportSubmitted
+
     | SettingsMsg SettingsMsg.ScanConflicts ->
         match model.Page with
         | SettingsPage _ ->
@@ -869,7 +1023,12 @@ let update msg model =
             match model.Page with
             | SettingsPage st ->
                 { model with
-                    Page = SettingsPage { st with Message = Some msg; CheckingUpdates = false } }
+                    Page =
+                        SettingsPage
+                            { st with
+                                Message = Some msg
+                                CheckingUpdates = false
+                                ErrorReportingBusy = false } }
             | _ -> model
 
         model', Cmd.none
@@ -977,5 +1136,9 @@ module App =
                     { new System.IDisposable with
                         member _.Dispose() =
                             emitJsExpr es "$0.close()" }
+
+                [ "error-hooks" ], fun dispatch ->
+                    ErrorReporting.installHooks (fun req -> dispatch (ErrorCaptured req))
+                    { new System.IDisposable with member _.Dispose() = () }
             ])
         |> Elmish.Program.run

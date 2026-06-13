@@ -35,7 +35,8 @@ module Program =
           Preview: ExportJobs.MockupPreviewService
           Bake: ExportJobs.BakeJobService
           Outline: OutlineGeneration.OutlineGenerationService
-          Voiceover: VoiceoverGeneration.VoiceoverService }
+          Voiceover: VoiceoverGeneration.VoiceoverService
+          ErrorReporting: ErrorReporting.ErrorReportingService }
 
     type HostServiceOverrides =
         { Worker: PythonWorkerProvider.PythonWorkerProvider option
@@ -215,6 +216,45 @@ module Program =
                     task {
                         let! body = readBody ctx
                         return! handleValidateProject services body ctx next
+                    }
+
+                POST
+                >=> route "/api/v1/reports"
+                >=> fun next ctx ->
+                    task {
+                        let! body = readBody ctx
+
+                        let userConsented =
+                            try
+                                let doc = System.Text.Json.JsonDocument.Parse(body)
+                                doc.RootElement.TryGetProperty("userConsented")
+                                |> fun (ok, el) -> ok && el.GetBoolean()
+                            with _ ->
+                                false
+
+                        let! result = services.ErrorReporting.Submit(body, userConsented)
+
+                        match result with
+                        | Ok r ->
+                            do! writeJson ctx 201 (
+                                jsonObj
+                                    {| reportId = r.ReportId
+                                       storedPath = r.StoredPath
+                                       uploaded = r.Uploaded
+                                       queued = r.Queued |}
+                            )
+                        | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
+
+                        return! next ctx
+                    }
+
+                POST
+                >=> route "/api/v1/reports/flush"
+                >=> fun next ctx ->
+                    task {
+                        let! count = services.ErrorReporting.FlushQueue()
+                        do! writeJson ctx 200 (jsonObj {| flushed = count |})
+                        return! next ctx
                     }
 
                 GET
@@ -551,13 +591,25 @@ module Program =
                                     else
                                         block.Artifacts
 
+                                let moodTags =
+                                    if root.TryGetProperty("moodTags") |> fst then
+                                        root.GetProperty("moodTags").EnumerateArray()
+                                        |> Seq.choose (fun el ->
+                                            let s = el.GetString()
+
+                                            if String.IsNullOrWhiteSpace s then None else Some s)
+                                        |> Seq.toList
+                                    else
+                                        block.MoodTags
+
                                 { block with
                                     VoiceoverScript = voiceover
                                     ImagePrompt = imagePrompt
                                     MockupDurationSec = mockupDuration
                                     ThumbnailPath = thumbnailPath
                                     Transitions = transitions
-                                    Artifacts = artifacts }) with
+                                    Artifacts = artifacts
+                                    MoodTags = moodTags }) with
                             | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
                             | Ok project -> do! writeJson ctx 200 (Json.encodeProject project)
                         with ex ->
@@ -889,7 +941,6 @@ module Program =
 
         let schemaPath = Path.Combine(repoRoot, "docs", "project.schema.json")
         let events = JobEventHub()
-        let gpuQueue = GpuQueueService(SingleFlightGpuQueue() :> IGpuJobQueue)
         let store = ProjectStore.ProjectStore(repoRoot, schemaPath)
         let models = ModelSync.ModelSyncService(repoRoot, events)
 
@@ -901,15 +952,19 @@ module Program =
             ovr.Worker
             |> Option.defaultWith (fun () -> PythonWorkerProvider.PythonWorkerProvider("http://127.0.0.1:8765"))
 
-        let bootstrap = Bootstrap.BootstrapService(repoRoot, events, models, ollama, worker)
+        let gpuQueue = GpuQueueService(SingleFlightGpuQueue() :> IGpuJobQueue, worker, repoRoot)
+
+        let bootstrap = Bootstrap.BootstrapService(repoRoot, events, models, ollama, worker, gpuQueue)
         let conflicts = ConflictScan.ConflictScanService repoRoot
-        let generation = BlockGeneration.BlockGenerationService(store, worker, events)
+        let generation = BlockGeneration.BlockGenerationService(store, worker, gpuQueue, events, conflicts)
         let preview = ExportJobs.MockupPreviewService(store, events, repoRoot)
-        let bake = ExportJobs.BakeJobService(store, events, repoRoot, worker)
+        let bake = ExportJobs.BakeJobService(store, events, repoRoot, worker, gpuQueue)
         let outline = OutlineGeneration.OutlineGenerationService ollama
-        let voiceover = VoiceoverGeneration.VoiceoverService(store, events, worker, repoRoot)
+        let voiceover = VoiceoverGeneration.VoiceoverService(store, events, worker, gpuQueue, repoRoot)
+        let errorReporting = ErrorReporting.ErrorReportingService repoRoot
 
         store.EnsureRoot()
+        errorReporting.EnsureDirectories()
 
         { Store = store
           Events = events
@@ -923,7 +978,8 @@ module Program =
           Preview = preview
           Bake = bake
           Outline = outline
-          Voiceover = voiceover }
+          Voiceover = voiceover
+          ErrorReporting = errorReporting }
 
     let configureWebApplication (builder: WebApplicationBuilder) (hostServices: HostServices) =
         builder.Services.AddGiraffe() |> ignore
@@ -954,6 +1010,16 @@ module Program =
 
     [<EntryPoint>]
     let main args =
+        AppDomain.CurrentDomain.UnhandledException.Add(fun ev ->
+            match ev.ExceptionObject with
+            | :? exn as ex ->
+                try
+                    let reporting = ErrorReporting.ErrorReportingService repoRoot
+                    reporting.CaptureHostException(ex).GetAwaiter().GetResult() |> ignore
+                with _ ->
+                    eprintfn "LMVideoStudio Host fatal: %s" ex.Message
+            | _ -> ())
+
         let port =
             match Environment.GetEnvironmentVariable("LMVS_HOST_PORT") with
             | null | "" ->

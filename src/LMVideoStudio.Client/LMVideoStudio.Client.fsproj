@@ -28,6 +28,8 @@
 
     <Compile Include="Api.fs" />
 
+    <Compile Include="ErrorReporting.fs" />
+
     <Compile Include="ActivityPanel.fs" />
 
     <Compile Include="Views/ProjectHub.fs" />

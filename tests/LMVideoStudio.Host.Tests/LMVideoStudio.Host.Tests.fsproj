@@ -20,6 +20,8 @@
     <Compile Include="FeatureTddTests.fs" />
     <Compile Include="FfmpegOrphanRegressionTests.fs" />
     <Compile Include="SidecarStartupTests.fs" />
+    <Compile Include="GpuQueueTests.fs" />
+    <Compile Include="ErrorReportingTests.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
