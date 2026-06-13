@@ -78,13 +78,36 @@ jobs:
           $null = Get-Content $manifest -Raw | ConvertFrom-Json
           Write-Host "models.manifest.json parses OK"
 
-      - name: PowerShell script syntax (build-sidecars, sync_models, lmvs CLI)
+      - name: PowerShell script syntax (build scripts, sync_models, lmvs CLI)
         shell: pwsh
         run: |
-          foreach ($script in @("scripts/build-sidecars.ps1", "scripts/sync_models.ps1", "cli/lmvs/lmvs.ps1")) {
+          foreach ($script in @(
+              "scripts/build-prereqs.ps1",
+              "scripts/build-sidecars.ps1",
+              "scripts/build-installer.ps1",
+              "scripts/verify-sidecar-staging.ps1",
+              "scripts/sync_models.ps1",
+              "cli/lmvs/lmvs.ps1"
+            )) {
             $path = Join-Path $env:GITHUB_WORKSPACE $script
             if (-not (Test-Path $path)) { throw "Missing $script" }
             $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errs)
             if ($errs) { $errs; throw "$script parse errors" }
           }
           Write-Host "Script parse OK"
+
+      - name: Host self-contained publish smoke
+        shell: pwsh
+        run: |
+          $proj = Join-Path $env:GITHUB_WORKSPACE "src\LMVideoStudio.Host\LMVideoStudio.Host.fsproj"
+          if (-not (Test-Path $proj)) { Write-Host "Host project missing — skip"; exit 0 }
+          $out = Join-Path $env:RUNNER_TEMP "lmvs-host-publish"
+          dotnet publish $proj -c Release -r win-x64 -o $out `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = Join-Path $out "LMVideoStudio.Host.exe"
+          if (-not (Test-Path $exe)) { throw "Missing published Host exe" }
+          if ((Get-Item $exe).Length -lt 5MB) { throw "Host exe smaller than expected for self-contained publish" }
+          Write-Host "Self-contained Host publish OK ($('{0:N1}' -f ((Get-Item $exe).Length / 1MB)) MB)"

@@ -28,17 +28,36 @@ jobs:
             src/LMVideoStudio.Client/package-lock.json
             src/LMVideoStudio.Tauri/package-lock.json
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Run unit tests
         shell: pwsh
         run: |
           dotnet test LMVideoStudio.sln -c Release --verbosity normal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Build installer skeleton (unsigned)
+      - name: Build sidecar layout (no venv copy in CI)
         shell: pwsh
         run: |
-          .\scripts\build-installer.ps1 -SkipSidecars
+          if (-not (Test-Path spike\.venv)) {
+            Write-Host "spike\.venv missing — skipping sidecar build (full installer requires local venv copy)"
+            exit 0
+          }
+          .\scripts\build-sidecars.ps1 -SkipVenvCopy
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build installer (unsigned)
+        shell: pwsh
+        run: |
+          .\scripts\build-installer.ps1 -SkipSidecars -AllowSpikeVenvFallback
         continue-on-error: true
+
+      - name: Generate latest.json skeleton
+        shell: pwsh
+        run: |
+          $tag = if ($env:GITHUB_REF -match 'refs/tags/(.*)') { $Matches[1].TrimStart('v') } else { '0.1.0' }
+          .\scripts\generate-latest-json.ps1 -Version $tag
 
       - name: Upload bundle artifacts
         if: success() || failure()
@@ -47,6 +66,7 @@ jobs:
           name: lmvs-installer-bundle
           path: |
             src/LMVideoStudio.Tauri/src-tauri/target/release/bundle/**
+            out/latest.json
           if-no-files-found: ignore
 
       - name: Release notes placeholder
