@@ -1,6 +1,20 @@
 mod sidecar;
 mod error_report;
 
+#[cfg(windows)]
+fn set_process_app_user_model_id(identifier: &str) {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+
+    let wide: Vec<u16> = OsStr::new(identifier)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    unsafe {
+        windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
+    }
+}
+
 use error_report::{install_panic_hook, write_error_report};
 
 use sidecar::{SidecarManager, SidecarStatus, HOST_PORT};
@@ -72,6 +86,9 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            #[cfg(windows)]
+            set_process_app_user_model_id(&app.config().identifier);
+
             install_panic_hook();
             sidecar::ensure_projects_root();
 
