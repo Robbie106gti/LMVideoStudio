@@ -8,6 +8,23 @@ from typing import Any
 SD_MODEL = os.environ.get("LMVS_SD_MODEL", "runwayml/stable-diffusion-v1-5")
 ESRGAN_MODEL = os.environ.get("LMVS_ESRGAN_MODEL", "RealESRGAN_x2plus")
 
+
+def configure_hf_cache() -> Path:
+    """Pin Hugging Face cache under repo/sidecars to avoid roaming profile bloat."""
+    root = os.environ.get("LMVS_REPO_ROOT", "")
+    if root:
+        cache = Path(root) / "sidecars" / "lmvs_worker" / "hf_cache"
+    else:
+        cache = Path(__file__).resolve().parents[1] / "hf_cache"
+    cache.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("HF_HOME", str(cache))
+    os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(cache / "hub"))
+    os.environ.setdefault("TRANSFORMERS_CACHE", str(cache / "transformers"))
+    return cache
+
+
+configure_hf_cache()
+
 _pipe: Any = None
 _upsampler: Any = None
 
