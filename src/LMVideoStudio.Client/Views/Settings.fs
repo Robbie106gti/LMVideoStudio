@@ -35,6 +35,12 @@ type SettingsMsg =
 
     | SendPendingErrorReport
 
+    | RefreshConnectedAccounts
+
+    | ConnectOAuth of string
+
+    | DisconnectOAuth of string
+
 
 
 type SettingsModel =
@@ -53,7 +59,11 @@ type SettingsModel =
 
       ErrorReportingConsent: bool
 
-      ErrorReportingBusy: bool }
+      ErrorReportingBusy: bool
+
+      ConnectedAccounts: ConnectedAccountsDto option
+
+      OAuthBusy: string option }
 
 
 
@@ -82,6 +92,13 @@ module Settings =
 
 
 
+    let private isMicrosoftStoreBuild () =
+        try
+            let flavor = Browser.Dom.window?``__LMVS_BUILD_FLAVOR__`` |> unbox<string option>
+            flavor = Some "microsoft-store"
+        with _ ->
+            false
+
     let init () =
 
         { Status = None
@@ -98,7 +115,11 @@ module Settings =
 
           ErrorReportingConsent = readConsent ()
 
-          ErrorReportingBusy = false }
+          ErrorReportingBusy = false
+
+          ConnectedAccounts = None
+
+          OAuthBusy = None }
 
 
 
@@ -491,7 +512,7 @@ module Settings =
 
 
                 Html.div [
-                    prop.className "rounded-lg border border-surface-border p-4 space-y-2"
+                    prop.className "rounded-lg border border-surface-border p-4 space-y-3"
                     prop.children [
                         Html.h2 [
                             prop.className "text-sm font-semibold text-slate-300"
@@ -499,7 +520,89 @@ module Settings =
                         ]
                         Html.p [
                             prop.className "text-xs text-slate-500"
-                            prop.text "Direct YouTube / Meta upload requires OAuth app credentials (client ID + secret). Share Pack copy-to-clipboard and open-upload assist work today without OAuth."
+                            prop.text "Optional direct upload to YouTube and Meta (Facebook Page). Copy-to-clipboard and open-upload assist work without OAuth. Configure config/social-oauth.json from the example file."
+                        ]
+                        model.ConnectedAccounts
+                        |> Option.map (fun dto ->
+                            if not dto.Configured then
+                                Html.p [
+                                    prop.className "text-xs text-amber-400/90"
+                                    prop.text "OAuth apps not configured — copy config/social-oauth.json.example to config/social-oauth.json and add your client IDs."
+                                ]
+                            else
+                                Html.none)
+                        |> Option.defaultValue (
+                            Html.p [
+                                prop.className "text-xs text-slate-500"
+                                prop.text "Loading connection status…"
+                            ]
+                        )
+                        Html.div [
+                            prop.className "grid gap-2 sm:grid-cols-2"
+                            prop.children [
+                                yield!
+                                    [ "youtube", "YouTube"
+                                      "meta", "Meta (Facebook Page)" ]
+                                    |> List.map (fun (provider, label) ->
+                                        let account =
+                                            model.ConnectedAccounts
+                                            |> Option.bind (fun dto ->
+                                                dto.Accounts
+                                                |> List.tryFind (fun a -> a.Provider = provider))
+
+                                        let connected =
+                                            account |> Option.map (fun a -> a.Connected) |> Option.defaultValue false
+
+                                        let name =
+                                            account
+                                            |> Option.bind (fun a ->
+                                                a.AccountName
+                                                |> Option.orElse a.PageName)
+                                            |> Option.defaultValue "Not connected"
+
+                                        let busy = model.OAuthBusy = Some provider
+
+                                        Html.div [
+                                            prop.className "rounded-md border border-surface-border p-3 space-y-2"
+                                            prop.children [
+                                                Html.div [
+                                                    prop.className "text-sm font-medium text-slate-200"
+                                                    prop.text label
+                                                ]
+                                                Html.p [
+                                                    prop.className "text-xs text-slate-500 truncate"
+                                                    prop.text (
+                                                        if connected then $"Connected: {name}"
+                                                        else "Not connected"
+                                                    )
+                                                ]
+                                                Html.div [
+                                                    prop.className "flex gap-2"
+                                                    prop.children [
+                                                        if connected then
+                                                            Html.button [
+                                                                prop.className "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent disabled:opacity-50"
+                                                                prop.disabled busy
+                                                                prop.text (if busy then "Working…" else "Disconnect")
+                                                                prop.onClick (fun _ -> dispatch (DisconnectOAuth provider))
+                                                            ]
+                                                        else
+                                                            Html.button [
+                                                                prop.className "px-3 py-1.5 rounded-md border border-accent text-accent text-xs hover:bg-accent/10 disabled:opacity-50"
+                                                                prop.disabled busy
+                                                                prop.text (if busy then "Opening…" else "Connect")
+                                                                prop.onClick (fun _ -> dispatch (ConnectOAuth provider))
+                                                            ]
+                                                        Html.button [
+                                                            prop.className "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent"
+                                                            prop.text "Refresh"
+                                                            prop.onClick (fun _ -> dispatch RefreshConnectedAccounts)
+                                                        ]
+                                                    ]
+                                                ]
+                                            ]
+                                        ])
+                            ]
                         ]
                     ]
                 ]
@@ -533,6 +636,8 @@ module Settings =
                             prop.onClick (fun _ -> dispatch CheckUpdates)
 
                         ]
+                        |> fun btn ->
+                            if isMicrosoftStoreBuild () then Html.none else btn
 
                         Html.button [
 

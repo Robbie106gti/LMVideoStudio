@@ -9,6 +9,7 @@ open LMVideoStudio.Client.Api
 open LMVideoStudio.Client.ActivityPanel
 open LMVideoStudio.Client.Views.ProjectHub
 open LMVideoStudio.Client.Views.StoryboardTimeline
+open LMVideoStudio.Client.Views.SharePackPanel
 open LMVideoStudio.Client.Views.Settings
 open LMVideoStudio.Client.Views.SetupWizard
 open LMVideoStudio.Client.Views.Shell
@@ -56,7 +57,12 @@ type AppMsg =
     | OutlineApplied of Result<LMVideoStudio.Domain.Project, string>
     | StylePackImported of Result<LMVideoStudio.Domain.Project, string>
     | BakeStarted of Result<string, string>
-    | SharePackDone of Result<string, string>
+    | SharePackDone of Result<SharePackExportDto, string>
+    | SharePackAccountsLoaded of Result<ConnectedAccountsDto, string>
+    | SharePackUploadDone of Result<SharePackUploadResultDto, string>
+    | ConnectedAccountsLoaded of Result<ConnectedAccountsDto, string>
+    | OAuthStartReady of Result<OAuthStartDto, string>
+    | OAuthActionDone of string
     | VariantSelected of Result<LMVideoStudio.Domain.Project, string>
     | ProjectDeleted of Result<System.Guid, string>
     | SetupWizardMsg of SetupWizardMsg
@@ -266,6 +272,7 @@ let update msg model =
         Cmd.batch [
             Cmd.OfAsync.perform getSystemStatus () SettingsStatus
             Cmd.OfAsync.perform getModelStatus () ModelStatusLoaded
+            Cmd.OfAsync.perform getConnectedAccounts () ConnectedAccountsLoaded
         ]
 
     | ProjectsLoaded(Ok items) ->
@@ -540,7 +547,144 @@ let update msg model =
         match model.Page with
         | TimelinePage t ->
             { model with Page = TimelinePage { t with Saving = true } },
-            Cmd.OfAsync.perform (fun () -> exportSharePack t.Project.Id) () SharePackDone
+            Cmd.batch [
+                Cmd.OfAsync.perform getConnectedAccounts () SharePackAccountsLoaded
+                Cmd.OfAsync.perform (fun () -> exportSharePackDetailed t.Project.Id) () SharePackDone
+            ]
+        | _ -> model, Cmd.none
+
+    | SharePackAccountsLoaded(Ok accounts) ->
+        match model.Page with
+        | TimelinePage t ->
+            match t.SharePack with
+            | Some sp ->
+                { model with Page = TimelinePage(StoryboardTimeline.updateSharePack (fun s -> { s with ConnectedAccounts = Some accounts }) t) },
+                Cmd.none
+            | None -> model, Cmd.none
+        | _ -> model, Cmd.none
+
+    | SharePackAccountsLoaded(Error _) -> model, Cmd.none
+
+    | SharePackDone(Ok dto) ->
+        match model.Page with
+        | TimelinePage t ->
+            let accounts =
+                t.SharePack
+                |> Option.bind (fun sp -> sp.ConnectedAccounts)
+                |> Option.defaultValue
+                    { Configured = false
+                      Accounts = [] }
+
+            let sharePack = SharePackPanel.fromExport dto (Some accounts)
+
+            { model with Page = TimelinePage(StoryboardTimeline.withSharePack sharePack t) },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | SharePackDone(Error err) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with Saving = false; Error = Some err } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SharePackMsg SharePackMsg.Dismiss) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage(StoryboardTimeline.clearSharePack t) },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SharePackMsg SharePackMsg.CopyCaption) ->
+        match model.Page with
+        | TimelinePage t ->
+            match t.SharePack with
+            | None -> model, Cmd.none
+            | Some sp ->
+                match SharePackPanel.handleCopyCaption sp with
+                | Ok msg ->
+                    { model with
+                        Page =
+                            TimelinePage(
+                                StoryboardTimeline.updateSharePack (fun s -> { s with UploadMessage = Some msg }) t
+                            ) },
+                    Cmd.none
+                | Error err ->
+                    { model with Page = TimelinePage { t with Error = Some err } },
+                    Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SharePackMsg SharePackMsg.OpenYouTubeUpload) ->
+        SharePackPanel.handleOpenYouTube ()
+        model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SharePackMsg SharePackMsg.OpenMetaUpload) ->
+        SharePackPanel.handleOpenMeta ()
+        model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SharePackMsg SharePackMsg.UploadToYouTube) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with
+                Page =
+                    TimelinePage(
+                        StoryboardTimeline.updateSharePack (fun sp -> { sp with Uploading = Some "youtube" }) t
+                    ) },
+            Cmd.OfAsync.perform
+                (fun () ->
+                    uploadSharePack t.Project.Id "youtube" (Some t.Project.Name) (
+                        t.SharePack |> Option.map (fun sp -> sp.CaptionText)
+                    ))
+                ()
+                SharePackUploadDone
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SharePackMsg SharePackMsg.UploadToMeta) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with
+                Page =
+                    TimelinePage(
+                        StoryboardTimeline.updateSharePack (fun sp -> { sp with Uploading = Some "meta" }) t
+                    ) },
+            Cmd.OfAsync.perform
+                (fun () ->
+                    uploadSharePack t.Project.Id "meta" (Some t.Project.Name) (
+                        t.SharePack |> Option.map (fun sp -> sp.CaptionText)
+                    ))
+                ()
+                SharePackUploadDone
+        | _ -> model, Cmd.none
+
+    | SharePackUploadDone(Ok result) ->
+        match model.Page with
+        | TimelinePage t ->
+            let msg =
+                match result.Url with
+                | Some url -> $"{result.Message}: {url}"
+                | None -> result.Message
+
+            { model with
+                Page =
+                    TimelinePage(
+                        StoryboardTimeline.updateSharePack (fun sp ->
+                            { sp with
+                                Uploading = None
+                                UploadMessage = Some msg }) t
+                    ) },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | SharePackUploadDone(Error err) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with
+                Page =
+                    TimelinePage(
+                        StoryboardTimeline.updateSharePack (fun sp -> { sp with Uploading = None }) t
+                        |> fun t' -> { t' with Error = Some err }
+                    ) },
+            Cmd.none
         | _ -> model, Cmd.none
 
     | VariantSelected(Ok project) ->
@@ -551,20 +695,6 @@ let update msg model =
         | _ -> model, Cmd.none
 
     | VariantSelected(Error err) ->
-        match model.Page with
-        | TimelinePage t ->
-            { model with Page = TimelinePage { t with Saving = false; Error = Some err } },
-            Cmd.none
-        | _ -> model, Cmd.none
-
-    | SharePackDone(Ok msg) ->
-        match model.Page with
-        | TimelinePage t ->
-            { model with Page = TimelinePage { t with Saving = false; Error = Some $"Share pack exported: {msg}" } },
-            Cmd.none
-        | _ -> model, Cmd.none
-
-    | SharePackDone(Error err) ->
         match model.Page with
         | TimelinePage t ->
             { model with Page = TimelinePage { t with Saving = false; Error = Some err } },
@@ -1016,6 +1146,81 @@ let update msg model =
         | SettingsPage _ ->
             model,
             Cmd.OfAsync.perform runConflictScan () (fun () -> SettingsActionDone "Conflict scan complete")
+        | _ -> model, Cmd.none
+
+    | SettingsMsg SettingsMsg.RefreshConnectedAccounts ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with OAuthBusy = None } },
+            Cmd.OfAsync.perform getConnectedAccounts () ConnectedAccountsLoaded
+        | _ -> model, Cmd.none
+
+    | ConnectedAccountsLoaded(Ok accounts) ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with ConnectedAccounts = Some accounts; OAuthBusy = None } },
+            Cmd.none
+        | TimelinePage t ->
+            match t.SharePack with
+            | Some _ ->
+                { model with
+                    Page =
+                        TimelinePage(
+                            StoryboardTimeline.updateSharePack (fun sp -> { sp with ConnectedAccounts = Some accounts }) t
+                        ) },
+                Cmd.none
+            | None -> model, Cmd.none
+        | _ -> model, Cmd.none
+
+    | ConnectedAccountsLoaded(Error err) ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with Message = Some err; OAuthBusy = None } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | SettingsMsg (SettingsMsg.ConnectOAuth provider) ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with OAuthBusy = Some provider } },
+            Cmd.OfAsync.perform (fun () -> startOAuth provider) () OAuthStartReady
+        | _ -> model, Cmd.none
+
+    | OAuthStartReady(Ok start) ->
+        Browser.Dom.window.open(start.AuthorizationUrl, "_blank") |> ignore
+
+        match model.Page with
+        | SettingsPage st ->
+            { model with
+                Page =
+                    SettingsPage
+                        { st with
+                            OAuthBusy = None
+                            Message = Some $"Complete sign-in in your browser, then click Refresh for {start.Provider}." } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | OAuthStartReady(Error err) ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with OAuthBusy = None; Message = Some err } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | SettingsMsg (SettingsMsg.DisconnectOAuth provider) ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with OAuthBusy = Some provider } },
+            Cmd.OfAsync.perform (fun () -> disconnectOAuth provider) () (fun r ->
+                OAuthActionDone(match r with Ok _ -> $"{provider} disconnected" | Error e -> e))
+        | _ -> model, Cmd.none
+
+    | OAuthActionDone msg ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with
+                Page = SettingsPage { st with OAuthBusy = None; Message = Some msg } },
+            Cmd.OfAsync.perform getConnectedAccounts () ConnectedAccountsLoaded
         | _ -> model, Cmd.none
 
     | SettingsActionDone msg ->

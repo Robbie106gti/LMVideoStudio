@@ -20,3 +20,4 @@ nuget Microsoft.NET.Test.Sdk 17.8.0
 nuget Microsoft.AspNetCore.Mvc.Testing ~> 6.0
 nuget Microsoft.AspNetCore.TestHost ~> 6.0
 nuget FsUnit.xUnit ~> 5.6
+nuget System.Security.Cryptography.ProtectedData

@@ -608,7 +608,6 @@ let exportSharePack (projectId: Guid) =
         else
             return Error text
     }
-
 [<Import("checkForUpdatesTauri", from="./tauriInterop.js")>]
 let private checkForUpdatesTauri: unit -> JS.Promise<string> = jsNative
 
@@ -618,13 +617,22 @@ let private checkForUpdatesFallback: string -> JS.Promise<string> = jsNative
 let checkForUpdates () =
     async {
         try
-            let! tauriResult = checkForUpdatesTauri () |> Async.AwaitPromise
+            let flavor =
+                try
+                    Browser.Dom.window?``__LMVS_BUILD_FLAVOR__`` |> unbox<string option>
+                with _ ->
+                    None
 
-            if not (isNull tauriResult) && not (System.String.IsNullOrWhiteSpace tauriResult) then
-                return Ok tauriResult
+            if flavor = Some "microsoft-store" then
+                return Ok "Updates are managed by the Microsoft Store"
             else
-                let! fallback = checkForUpdatesFallback "0.1.0" |> Async.AwaitPromise
-                return Ok fallback
+                let! tauriResult = checkForUpdatesTauri () |> Async.AwaitPromise
+
+                if not (isNull tauriResult) && not (System.String.IsNullOrWhiteSpace tauriResult) then
+                    return Ok tauriResult
+                else
+                    let! fallback = checkForUpdatesFallback "0.1.0" |> Async.AwaitPromise
+                    return Ok fallback
         with ex ->
             return Error ex.Message
     }
@@ -667,4 +675,136 @@ let submitErrorReportFallback (json: string) =
             return Ok path
         with ex ->
             return Error ex.Message
+    }
+
+type ConnectedAccountDto =
+    { Provider: string
+      Connected: bool
+      AccountName: string option
+      AccountId: string option
+      PageName: string option
+      ExpiresAtUtc: string option
+      Configured: bool }
+
+type ConnectedAccountsDto =
+    { Configured: bool
+      Accounts: ConnectedAccountDto list }
+
+type SharePackExportDto =
+    { OutputDir: string
+      Files: string list
+      CaptionPath: string
+      CaptionText: string
+      ReadmePath: string
+      MediaBase: string }
+
+type OAuthStartDto = { AuthorizationUrl: string; State: string; Provider: string }
+
+type SharePackUploadResultDto =
+    { Platform: string
+      VideoId: string option
+      Url: string option
+      Message: string }
+
+let private connectedAccountDecoder =
+    Decode.object (fun get ->
+        { Provider = get.Required.Field "provider" Decode.string
+          Connected = get.Required.Field "connected" Decode.bool
+          AccountName = get.Optional.Field "accountName" Decode.string
+          AccountId = get.Optional.Field "accountId" Decode.string
+          PageName = get.Optional.Field "pageName" Decode.string
+          ExpiresAtUtc = get.Optional.Field "expiresAtUtc" Decode.string
+          Configured = get.Required.Field "configured" Decode.bool })
+
+let private connectedAccountsDecoder =
+    Decode.object (fun get ->
+        { Configured = get.Required.Field "configured" Decode.bool
+          Accounts = get.Required.Field "accounts" (Decode.list connectedAccountDecoder) })
+
+let private sharePackExportDecoder =
+    Decode.object (fun get ->
+        { OutputDir = get.Required.Field "outputDir" Decode.string
+          Files = get.Required.Field "files" (Decode.list Decode.string)
+          CaptionPath = get.Required.Field "captionPath" Decode.string
+          CaptionText =
+            get.Optional.Field "captionText" Decode.string
+            |> Option.defaultValue ""
+          ReadmePath = get.Required.Field "readmePath" Decode.string
+          MediaBase = get.Required.Field "mediaBase" Decode.string })
+
+let private oauthStartDecoder =
+    Decode.object (fun get ->
+        { AuthorizationUrl = get.Required.Field "authorizationUrl" Decode.string
+          State = get.Required.Field "state" Decode.string
+          Provider = get.Required.Field "provider" Decode.string })
+
+let private sharePackUploadResultDecoder =
+    Decode.object (fun get ->
+        { Platform = get.Required.Field "platform" Decode.string
+          VideoId = get.Optional.Field "videoId" Decode.string
+          Url = get.Optional.Field "url" Decode.string
+          Message = get.Required.Field "message" Decode.string })
+
+let getConnectedAccounts () =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/settings/connected-accounts" "GET" None
+
+        if status >= 200 && status < 300 then
+            match Decode.fromString connectedAccountsDecoder text with
+            | Ok dto -> return Ok dto
+            | Error err -> return Error err
+        else
+            return Error text
+    }
+
+let startOAuth provider =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/oauth/{provider}/start" "GET" None
+
+        if status >= 200 && status < 300 then
+            match Decode.fromString oauthStartDecoder text with
+            | Ok dto -> return Ok dto
+            | Error err -> return Error err
+        else
+            return Error text
+    }
+
+let disconnectOAuth provider =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/oauth/{provider}" "DELETE" None
+
+        if status >= 200 && status < 300 then
+            return Ok text
+        else
+            return Error text
+    }
+
+let exportSharePackDetailed (projectId: Guid) =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/projects/{projectId}/export/share-pack" "POST" (Some "")
+
+        if status >= 200 && status < 300 then
+            match Decode.fromString sharePackExportDecoder text with
+            | Ok dto -> return Ok dto
+            | Error err -> return Error err
+        else
+            return Error text
+    }
+
+let uploadSharePack (projectId: Guid) (platform: string) (title: string option) (description: string option) =
+    async {
+        let fields =
+            [ "platform", Encode.string platform ]
+            @ (title |> Option.map (fun t -> [ "title", Encode.string t ]) |> Option.defaultValue [])
+            @ (description |> Option.map (fun d -> [ "description", Encode.string d ]) |> Option.defaultValue [])
+
+        let body = Encode.object fields |> Encode.toString 0
+        let! status, text = fetchAsync $"{hostBase()}/projects/{projectId}/export/share-pack/upload" "POST" (Some body)
+
+        if status >= 200 && status < 300 then
+            match Decode.fromString sharePackUploadResultDecoder text with
+            | Ok dto -> return Ok dto
+            | Error err -> return Error err
+        else
+            return Error text
     }

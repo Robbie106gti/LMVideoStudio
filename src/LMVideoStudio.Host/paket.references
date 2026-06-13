@@ -2,3 +2,4 @@ FSharp.Core
 Giraffe
 Thoth.Json.Net
 JsonSchema.Net
+System.Security.Cryptography.ProtectedData

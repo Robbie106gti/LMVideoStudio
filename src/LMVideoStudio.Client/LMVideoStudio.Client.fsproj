@@ -36,6 +36,8 @@
 
     <Compile Include="Views/StoryboardTimeline.fs" />
 
+    <Compile Include="Views/SharePackPanel.fs" />
+
     <Compile Include="Views/Settings.fs" />
 
     <Compile Include="Views/SetupWizard.fs" />

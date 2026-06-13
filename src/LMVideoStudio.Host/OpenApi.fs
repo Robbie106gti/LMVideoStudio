@@ -1,6 +1,5 @@
 namespace LMVideoStudio.Host
 
-/// OpenAPI 3.0 description for headless REST consumers (mirrors cli/lmvs/lmvs.ps1).
 module OpenApi =
     let documentJson =
         """{
@@ -20,6 +19,15 @@ module OpenApi =
     },
     "/api/v1/status": {
       "get": { "summary": "Combined status (CLI status command)", "responses": { "200": { "description": "health + system" } } }
+    },
+    "/settings/connected-accounts": {
+      "get": { "summary": "OAuth connected accounts (YouTube, Meta)", "responses": { "200": { "description": "connection status" } } }
+    },
+    "/oauth/{provider}/start": {
+      "get": { "summary": "Start OAuth PKCE flow (youtube or meta)", "responses": { "200": { "description": "authorization URL" } } }
+    },
+    "/oauth/callback": {
+      "get": { "summary": "OAuth redirect callback", "responses": { "200": { "description": "HTML success page" } } }
     },
     "/projects/validate": {
       "post": {
@@ -50,6 +58,29 @@ module OpenApi =
     },
     "/projects/{projectId}/export/share-pack": {
       "post": { "summary": "Export YouTube + Reels share folder", "responses": { "200": { "description": "share pack created" } } }
+    },
+    "/projects/{projectId}/export/share-pack/upload": {
+      "post": {
+        "summary": "OAuth direct upload to YouTube or Meta",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["platform"],
+                "properties": {
+                  "platform": { "type": "string", "enum": ["youtube", "meta"] },
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "pageId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "upload started/completed" }, "400": { "description": "validation error" } }
+      }
     },
     "/projects/{projectId}/blocks/{blockId}/generate": {
       "post": {

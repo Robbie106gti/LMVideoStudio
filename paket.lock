@@ -238,6 +238,7 @@ NUGET
     System.IO.Pipelines (10.0.9)
     System.Reflection.Metadata (10.0.9)
       System.Collections.Immutable (>= 10.0.9)
+    System.Security.Cryptography.ProtectedData (10.0.9)
     System.Text.Encodings.Web (10.0.9)
     System.Text.Json (10.0.9)
       System.IO.Pipelines (>= 10.0.9)

@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Net.Http
 open System.Text
 open Giraffe
 open Microsoft.AspNetCore.Builder
@@ -36,7 +37,9 @@ module Program =
           Bake: ExportJobs.BakeJobService
           Outline: OutlineGeneration.OutlineGenerationService
           Voiceover: VoiceoverGeneration.VoiceoverService
-          ErrorReporting: ErrorReporting.ErrorReportingService }
+          ErrorReporting: ErrorReporting.ErrorReportingService
+          SocialOAuth: SocialOAuth.SocialOAuthService
+          Http: HttpClient }
 
     type HostServiceOverrides =
         { Worker: PythonWorkerProvider.PythonWorkerProvider option
@@ -727,6 +730,123 @@ module Program =
                         return! next ctx
                     })
 
+                GET
+                >=> routef "/oauth/%s/start" (fun provider next ctx ->
+                    task {
+                        match services.SocialOAuth.Start provider with
+                        | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
+                        | Ok start ->
+                            do! writeJson ctx 200 (
+                                jsonObj
+                                    {| authorizationUrl = start.AuthorizationUrl
+                                       state = start.State
+                                       provider = start.Provider |}
+                            )
+
+                        return! next ctx
+                    })
+
+                GET
+                >=> route "/oauth/callback"
+                >=> fun next ctx ->
+                    task {
+                        let code = ctx.Request.Query.["code"].ToString()
+                        let state = ctx.Request.Query.["state"].ToString()
+                        let oauthErr = ctx.Request.Query.["error"].ToString()
+
+                        if not (String.IsNullOrWhiteSpace oauthErr) then
+                            ctx.Response.StatusCode <- 400
+                            ctx.Response.ContentType <- "text/html; charset=utf-8"
+
+                            do!
+                                ctx.Response.WriteAsync(
+                                    $"<html><body><h1>OAuth failed</h1><p>{System.Net.WebUtility.HtmlEncode oauthErr}</p></body></html>"
+                                )
+                        elif String.IsNullOrWhiteSpace code || String.IsNullOrWhiteSpace state then
+                            do! writeJson ctx 400 (jsonObj {| error = "code and state query parameters required" |})
+                        else
+                            let! result = services.SocialOAuth.Callback code state
+
+                            match result with
+                            | Error err ->
+                                ctx.Response.StatusCode <- 400
+                                ctx.Response.ContentType <- "text/html; charset=utf-8"
+                                do! ctx.Response.WriteAsync($"<html><body><h1>OAuth failed</h1><p>{System.Net.WebUtility.HtmlEncode err}</p></body></html>")
+                            | Ok ok ->
+                                ctx.Response.StatusCode <- 200
+                                ctx.Response.ContentType <- "text/html; charset=utf-8"
+
+                                let name =
+                                    ok.AccountName
+                                    |> Option.defaultValue ok.Provider
+
+                                do!
+                                    ctx.Response.WriteAsync(
+                                        $"""<html><body style="font-family:Segoe UI,sans-serif;padding:2rem;">
+<h1>Connected {System.Net.WebUtility.HtmlEncode ok.Provider}</h1>
+<p>{System.Net.WebUtility.HtmlEncode ok.Message}</p>
+<p>Account: <strong>{System.Net.WebUtility.HtmlEncode name}</strong></p>
+</body></html>"""
+                                    )
+
+                        return! next ctx
+                    }
+
+                DELETE
+                >=> routef "/oauth/%s" (fun provider next ctx ->
+                    task {
+                        match services.SocialOAuth.Disconnect provider with
+                        | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
+                        | Ok _ -> do! writeJson ctx 200 (jsonObj {| disconnected = provider |})
+
+                        return! next ctx
+                    })
+
+                GET
+                >=> route "/settings/connected-accounts"
+                >=> fun next ctx ->
+                    task {
+                        let accounts = services.SocialOAuth.ConnectedAccounts()
+
+                        do! writeJson ctx 200 (
+                            jsonObj
+                                {| configured = services.SocialOAuth.Config.Configured
+                                   accounts = accounts |}
+                        )
+
+                        return! next ctx
+                    }
+
+                POST
+                >=> routef "/projects/%O/export/share-pack/upload" (fun (projectId: Guid) next ctx ->
+                    task {
+                        let! body = readBody ctx
+
+                        match SocialUpload.validateUploadRequest body with
+                        | Error err -> do! writeJson ctx 400 (jsonObj {| error = SocialUpload.validationErrorMessage err |})
+                        | Ok request ->
+                            match services.Store.Load projectId with
+                            | Error err -> do! writeJson ctx 404 (jsonObj {| error = err |})
+                            | Ok project ->
+                                let folder = services.Store.ProjectFolder projectId
+
+                                let! uploadResult =
+                                    SocialUpload.uploadSharePackAsync services.Http services.SocialOAuth folder project.Name request
+
+                                match uploadResult with
+                                | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
+                                | Ok result ->
+                                    do! writeJson ctx 200 (
+                                        jsonObj
+                                            {| platform = result.Platform
+                                               videoId = result.VideoId
+                                               url = result.Url
+                                               message = result.Message |}
+                                    )
+
+                        return! next ctx
+                    })
+
                 POST
                 >=> routef "/projects/%O/export/share-pack" (fun (projectId: Guid) next ctx ->
                     task {
@@ -738,11 +858,21 @@ module Program =
                             match SharePackExport.exportSharePack repoRoot folder project with
                             | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
                             | Ok result ->
+                                let captionFullPath =
+                                    Path.Combine(folder, result.CaptionPath.Replace('/', Path.DirectorySeparatorChar))
+
+                                let captionText =
+                                    if File.Exists captionFullPath then
+                                        File.ReadAllText(captionFullPath, Encoding.UTF8)
+                                    else
+                                        ""
+
                                 do! writeJson ctx 200 (
                                     jsonObj
                                         {| outputDir = result.OutputDir
                                            files = result.Files
                                            captionPath = result.CaptionPath
+                                           captionText = captionText
                                            readmePath = result.ReadmePath
                                            mediaBase = $"/projects/{projectId}/media/{result.OutputDir}" |}
                                 )
@@ -962,9 +1092,12 @@ module Program =
         let outline = OutlineGeneration.OutlineGenerationService ollama
         let voiceover = VoiceoverGeneration.VoiceoverService(store, events, worker, gpuQueue, repoRoot)
         let errorReporting = ErrorReporting.ErrorReportingService repoRoot
+        let httpClient = new HttpClient()
+        let socialOAuth = SocialOAuth.SocialOAuthService(repoRoot, httpClient)
 
         store.EnsureRoot()
         errorReporting.EnsureDirectories()
+        OAuthTokenStore.ensureRoot () |> ignore
 
         { Store = store
           Events = events
@@ -979,7 +1112,9 @@ module Program =
           Bake = bake
           Outline = outline
           Voiceover = voiceover
-          ErrorReporting = errorReporting }
+          ErrorReporting = errorReporting
+          SocialOAuth = socialOAuth
+          Http = httpClient }
 
     let configureWebApplication (builder: WebApplicationBuilder) (hostServices: HostServices) =
         builder.Services.AddGiraffe() |> ignore

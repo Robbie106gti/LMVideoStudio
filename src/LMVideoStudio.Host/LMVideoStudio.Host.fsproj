@@ -44,6 +44,14 @@
 
     <Compile Include="SharePackExport.fs" />
 
+    <Compile Include="SocialOAuthConfig.fs" />
+
+    <Compile Include="OAuthTokenStore.fs" />
+
+    <Compile Include="SocialOAuth.fs" />
+
+    <Compile Include="SocialUpload.fs" />
+
     <Compile Include="OpenApi.fs" />
 
     <Compile Include="VoiceoverGeneration.fs" />

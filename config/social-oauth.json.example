@@ -1,0 +1,24 @@
+{
+  "redirectBase": "http://127.0.0.1:17170",
+  "youtube": {
+    "enabled": true,
+    "clientId": "YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+    "scopes": [
+      "https://www.googleapis.com/auth/youtube.upload",
+      "https://www.googleapis.com/auth/youtube.readonly"
+    ]
+  },
+  "meta": {
+    "enabled": true,
+    "clientId": "YOUR_META_APP_ID",
+    "clientSecret": "YOUR_META_APP_SECRET",
+    "scopes": [
+      "pages_show_list",
+      "pages_read_engagement",
+      "pages_manage_posts",
+      "instagram_basic",
+      "instagram_content_publish"
+    ]
+  }
+}

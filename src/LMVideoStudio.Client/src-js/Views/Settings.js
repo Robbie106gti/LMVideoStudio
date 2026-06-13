@@ -1,8 +1,9 @@
 import { Record, Union } from "../fable_modules/fable-library-js.4.27.0/Types.js";
 import { record_type, bool_type, string_type, option_type, union_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
 import { ModelStatusDto_$reflection, SystemStatusDto_$reflection } from "../Api.js";
+import { createObj, equals } from "../fable_modules/fable-library-js.4.27.0/Util.js";
+import { readConsent } from "../ErrorReporting.js";
 import { createElement } from "react";
-import { createObj } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { empty, singleton, append, delay, toList } from "../fable_modules/fable-library-js.4.27.0/Seq.js";
 import { ofArray } from "../fable_modules/fable-library-js.4.27.0/List.js";
 import { Interop_reactApi } from "../fable_modules/Feliz.2.6.0/Interop.fs.js";
@@ -16,16 +17,16 @@ export class SettingsMsg extends Union {
         this.fields = fields;
     }
     cases() {
-        return ["CheckUpdates", "RunBootstrap", "ScanConflicts", "RepairSetup", "RefreshModelStatus", "SyncModelsCheck", "SyncModelsPull", "DismissFirstRun", "CloseProject"];
+        return ["CheckUpdates", "RunBootstrap", "ScanConflicts", "RepairSetup", "RefreshModelStatus", "SyncModelsCheck", "SyncModelsPull", "DismissFirstRun", "CloseProject", "ToggleErrorReportingConsent", "FlushErrorReports", "SendPendingErrorReport"];
     }
 }
 
 export function SettingsMsg_$reflection() {
-    return union_type("LMVideoStudio.Client.Views.Settings.SettingsMsg", [], SettingsMsg, () => [[], [], [], [], [], [], [], [], []]);
+    return union_type("LMVideoStudio.Client.Views.Settings.SettingsMsg", [], SettingsMsg, () => [[], [], [], [], [], [], [], [], [], [], [], []]);
 }
 
 export class SettingsModel extends Record {
-    constructor(Status, ModelStatus, Message, CheckingUpdates, SyncingModels, ShowFirstRunBanner) {
+    constructor(Status, ModelStatus, Message, CheckingUpdates, SyncingModels, ShowFirstRunBanner, ErrorReportingConsent, ErrorReportingBusy) {
         super();
         this.Status = Status;
         this.ModelStatus = ModelStatus;
@@ -33,11 +34,13 @@ export class SettingsModel extends Record {
         this.CheckingUpdates = CheckingUpdates;
         this.SyncingModels = SyncingModels;
         this.ShowFirstRunBanner = ShowFirstRunBanner;
+        this.ErrorReportingConsent = ErrorReportingConsent;
+        this.ErrorReportingBusy = ErrorReportingBusy;
     }
 }
 
 export function SettingsModel_$reflection() {
-    return record_type("LMVideoStudio.Client.Views.Settings.SettingsModel", [], SettingsModel, () => [["Status", option_type(SystemStatusDto_$reflection())], ["ModelStatus", option_type(ModelStatusDto_$reflection())], ["Message", option_type(string_type)], ["CheckingUpdates", bool_type], ["SyncingModels", bool_type], ["ShowFirstRunBanner", bool_type]]);
+    return record_type("LMVideoStudio.Client.Views.Settings.SettingsModel", [], SettingsModel, () => [["Status", option_type(SystemStatusDto_$reflection())], ["ModelStatus", option_type(ModelStatusDto_$reflection())], ["Message", option_type(string_type)], ["CheckingUpdates", bool_type], ["SyncingModels", bool_type], ["ShowFirstRunBanner", bool_type], ["ErrorReportingConsent", bool_type], ["ErrorReportingBusy", bool_type]]);
 }
 
 const Settings_bootstrapDoneKey = "lmvs_bootstrap_done";
@@ -69,8 +72,17 @@ function Settings_readBootstrapDone() {
     }
 }
 
+function Settings_isMicrosoftStoreBuild() {
+    try {
+        return equals(window.__LMVS_BUILD_FLAVOR__, "microsoft-store");
+    }
+    catch (matchValue) {
+        return false;
+    }
+}
+
 export function Settings_init() {
-    return new SettingsModel(undefined, undefined, undefined, false, false, !Settings_readBootstrapDone());
+    return new SettingsModel(undefined, undefined, undefined, false, false, !Settings_readBootstrapDone(), readConsent(), false);
 }
 
 export function Settings_markBootstrapStarted() {
@@ -82,8 +94,8 @@ export function Settings_markBootstrapStarted() {
 }
 
 export function Settings_view(model, dispatch) {
-    let elems_8;
-    return createElement("div", createObj(ofArray([["className", "max-w-xl mx-auto p-8 space-y-6"], (elems_8 = toList(delay(() => append(singleton(createElement("h1", {
+    let elems_12;
+    return createElement("div", createObj(ofArray([["className", "max-w-xl mx-auto p-8 space-y-6"], (elems_12 = toList(delay(() => append(singleton(createElement("h1", {
         className: "text-2xl font-bold",
         children: "Settings",
     })), delay(() => {
@@ -173,45 +185,80 @@ export function Settings_view(model, dispatch) {
                         dispatch(new SettingsMsg(6, []));
                     },
                 })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_5))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_6))])])))), delay(() => {
-                    let elems_7;
-                    return append(singleton(createElement("div", createObj(ofArray([["className", "flex flex-col gap-2"], (elems_7 = [createElement("button", {
-                        className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                        children: "Close project",
+                    let elems_9, value_114, elems_7, elems_8;
+                    return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-3"], (elems_9 = [createElement("h2", {
+                        className: "text-sm font-semibold",
+                        children: "Error reporting",
+                    }), createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_114 = "Crash and API errors are saved locally under %LOCALAPPDATA%\\LMVideoStudio\\reports. With consent, reports are sent to the developer webhook configured in config/error-reporting.json.", ["children", value_114])]))), createElement("label", createObj(ofArray([["className", "flex items-center gap-2 text-sm"], (elems_7 = [createElement("input", {
+                        type: "checkbox",
+                        checked: model.ErrorReportingConsent,
+                        onChange: (ev) => {
+                            const v = ev.target.checked;
+                            dispatch(new SettingsMsg(9, []));
+                        },
+                    }), createElement("span", {
+                        children: "Send error reports automatically (default off)",
+                    })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_7))])]))), createElement("div", createObj(ofArray([["className", "flex flex-wrap gap-2"], (elems_8 = [createElement("button", {
+                        className: "px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50",
+                        disabled: model.ErrorReportingBusy,
+                        children: "Send queued reports",
                         onClick: (_arg_5) => {
-                            dispatch(new SettingsMsg(8, []));
+                            dispatch(new SettingsMsg(10, []));
                         },
                     }), createElement("button", {
-                        className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                        children: "Check for updates",
-                        disabled: model.CheckingUpdates,
+                        className: "px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50",
+                        disabled: model.ErrorReportingBusy,
+                        children: "Send last captured error",
                         onClick: (_arg_6) => {
-                            dispatch(new SettingsMsg(0, []));
+                            dispatch(new SettingsMsg(11, []));
                         },
-                    }), createElement("button", {
-                        className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                        children: "Run bootstrap",
-                        onClick: (_arg_7) => {
-                            dispatch(new SettingsMsg(1, []));
-                        },
-                    }), createElement("button", {
-                        className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                        children: "Repair setup",
-                        onClick: (_arg_8) => {
-                            dispatch(new SettingsMsg(3, []));
-                        },
-                    }), createElement("button", {
-                        className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                        children: "Scan GPU conflicts",
-                        onClick: (_arg_9) => {
-                            dispatch(new SettingsMsg(2, []));
-                        },
-                    })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_7))])])))), delay(() => singleton(defaultArg(map((m_1) => createElement("p", {
-                        className: "text-sm text-slate-400",
-                        children: m_1,
-                    }), model.Message), defaultOf()))));
+                    })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_8))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_9))])])))), delay(() => {
+                        let elems_10, value_151;
+                        return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-2"], (elems_10 = [createElement("h2", {
+                            className: "text-sm font-semibold text-slate-300",
+                            children: "Social upload (OAuth)",
+                        }), createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_151 = "Direct YouTube / Meta upload requires OAuth app credentials (client ID + secret). Share Pack copy-to-clipboard and open-upload assist work today without OAuth.", ["children", value_151])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_10))])])))), delay(() => {
+                            let elems_11, btn;
+                            return append(singleton(createElement("div", createObj(ofArray([["className", "flex flex-col gap-2"], (elems_11 = [createElement("button", {
+                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                children: "Close project",
+                                onClick: (_arg_7) => {
+                                    dispatch(new SettingsMsg(8, []));
+                                },
+                            }), (btn = createElement("button", {
+                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                children: "Check for updates",
+                                disabled: model.CheckingUpdates,
+                                onClick: (_arg_8) => {
+                                    dispatch(new SettingsMsg(0, []));
+                                },
+                            }), Settings_isMicrosoftStoreBuild() ? defaultOf() : btn), createElement("button", {
+                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                children: "Run bootstrap",
+                                onClick: (_arg_9) => {
+                                    dispatch(new SettingsMsg(1, []));
+                                },
+                            }), createElement("button", {
+                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                children: "Repair setup",
+                                onClick: (_arg_10) => {
+                                    dispatch(new SettingsMsg(3, []));
+                                },
+                            }), createElement("button", {
+                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                children: "Scan GPU conflicts",
+                                onClick: (_arg_11) => {
+                                    dispatch(new SettingsMsg(2, []));
+                                },
+                            })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_11))])])))), delay(() => singleton(defaultArg(map((m_1) => createElement("p", {
+                                className: "text-sm text-slate-400",
+                                children: m_1,
+                            }), model.Message), defaultOf()))));
+                        }));
+                    }));
                 }));
             }))));
         }));
-    })))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_8))])])));
+    })))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_12))])])));
 }
 

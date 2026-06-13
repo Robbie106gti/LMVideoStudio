@@ -3,6 +3,7 @@ module LMVideoStudio.Client.Views.StoryboardTimeline
 open System
 open Feliz
 open LMVideoStudio.Client.Api
+open LMVideoStudio.Client.Views.SharePackPanel
 open LMVideoStudio.Domain
 
 type TimelineMsg =
@@ -24,6 +25,7 @@ type TimelineMsg =
     | RefreshMockupPreview
     | StartBake
     | ExportSharePack
+    | SharePackMsg of SharePackMsg
     | PreviewFailed of string
     | BakeFailed of string
     | Save
@@ -45,7 +47,8 @@ type TimelineModel =
       VoiceoverDraft: string
       ImagePromptDraft: string
       MoodTagsDraft: string
-      CrossfadeDurationDraft: int }
+      CrossfadeDurationDraft: int
+      SharePack: SharePackModel option }
 
 module StoryboardTimeline =
     let init (project: Project) =
@@ -64,7 +67,8 @@ module StoryboardTimeline =
           VoiceoverDraft = ""
           ImagePromptDraft = ""
           MoodTagsDraft = ""
-          CrossfadeDurationDraft = 300 }
+          CrossfadeDurationDraft = 300
+          SharePack = None }
 
     let private sortedBlocks (project: Project) =
         project.Blocks |> List.sortBy (fun b -> b.Order)
@@ -339,6 +343,9 @@ module StoryboardTimeline =
                 model.Error
                 |> Option.map (fun e ->
                     Html.div [ prop.className "px-6 py-2 text-red-400 text-sm"; prop.text e ])
+                |> Option.defaultValue Html.none
+                model.SharePack
+                |> Option.map (fun sp -> SharePackPanel.view sp (SharePackMsg >> dispatch))
                 |> Option.defaultValue Html.none
                 Html.div [
                     prop.className "flex flex-1 min-h-0"
@@ -653,6 +660,17 @@ module StoryboardTimeline =
                 model.SelectedBlockId
 
         model'
+
+    let withSharePack sharePack model =
+        { model with SharePack = Some sharePack; Saving = false; Error = None }
+
+    let updateSharePack f model =
+        match model.SharePack with
+        | None -> model
+        | Some sp -> { model with SharePack = Some(f sp) }
+
+    let clearSharePack model =
+        { model with SharePack = None }
 
     let withPreviewUrl url model =
         { model with PreviewUrl = Some url; Previewing = false; Error = None }

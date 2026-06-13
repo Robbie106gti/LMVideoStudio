@@ -27,9 +27,16 @@ export async function writeErrorReportTauri(json) {
   return invoke("write_error_report", { json });
 }
 
+export function isMicrosoftStoreBuild() {
+  return window.__LMVS_BUILD_FLAVOR__ === "microsoft-store";
+}
+
 export async function checkForUpdatesTauri() {
   if (typeof window.__TAURI__ === "undefined") {
     return null;
+  }
+  if (isMicrosoftStoreBuild()) {
+    return "Updates are managed by the Microsoft Store";
   }
   const { invoke } = window.__TAURI__.core;
   return invoke("check_for_updates");

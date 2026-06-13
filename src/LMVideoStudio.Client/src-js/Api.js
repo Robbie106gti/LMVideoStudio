@@ -1,8 +1,8 @@
 import { trimStart, replace, isNullOrWhiteSpace } from "./fable_modules/fable-library-js.4.27.0/String.js";
 import { Record } from "./fable_modules/fable-library-js.4.27.0/Types.js";
-import { float64_type, option_type, bool_type, record_type, int32_type, string_type, class_type } from "./fable_modules/fable-library-js.4.27.0/Reflection.js";
-import { float, bool, fromString, list as list_2, int, string, guid, object } from "./fable_modules/Thoth.Json.10.4.1/Decode.fs.js";
-import { uncurry2 } from "./fable_modules/fable-library-js.4.27.0/Util.js";
+import { list_type, int64_type, float64_type, option_type, bool_type, record_type, int32_type, string_type, class_type } from "./fable_modules/fable-library-js.4.27.0/Reflection.js";
+import { float, fromString, bool, int64, list as list_2, int, string, guid, object } from "./fable_modules/Thoth.Json.10.4.1/Decode.fs.js";
+import { equals, uncurry2 } from "./fable_modules/fable-library-js.4.27.0/Util.js";
 import { singleton } from "./fable_modules/fable-library-js.4.27.0/AsyncBuilder.js";
 import { sleep, awaitPromise } from "./fable_modules/fable-library-js.4.27.0/Async.js";
 import { subscribeSse, importFile, fetchJson } from "../fetch.js";
@@ -12,7 +12,7 @@ import { guid as guid_1, object as object_1, toString } from "./fable_modules/Th
 import { decodeProject } from "./ProjectJson.js";
 import { empty, singleton as singleton_1, ofArray, append, map, toArray } from "./fable_modules/fable-library-js.4.27.0/List.js";
 import { filter, map as map_1, defaultArg } from "./fable_modules/fable-library-js.4.27.0/Option.js";
-import { checkForUpdatesFallback, checkForUpdatesTauri } from "../tauriInterop.js";
+import { writeErrorReportTauri, checkForUpdatesFallback, checkForUpdatesTauri } from "../tauriInterop.js";
 
 export const defaultHostBase = "http://127.0.0.1:17170";
 
@@ -102,7 +102,7 @@ export function ModelStatusDto_$reflection() {
 }
 
 export class JobEventDto extends Record {
-    constructor(JobId, Phase, Step, Message, Status, Timestamp) {
+    constructor(JobId, Phase, Step, Message, Status, Timestamp, Hardware, ElapsedMs, IsColdRun, StepIndex, StepTotal) {
         super();
         this.JobId = JobId;
         this.Phase = Phase;
@@ -110,11 +110,16 @@ export class JobEventDto extends Record {
         this.Message = Message;
         this.Status = Status;
         this.Timestamp = Timestamp;
+        this.Hardware = Hardware;
+        this.ElapsedMs = ElapsedMs;
+        this.IsColdRun = IsColdRun;
+        this.StepIndex = StepIndex;
+        this.StepTotal = StepTotal;
     }
 }
 
 export function JobEventDto_$reflection() {
-    return record_type("LMVideoStudio.Client.Api.JobEventDto", [], JobEventDto, () => [["JobId", class_type("System.Guid")], ["Phase", string_type], ["Step", string_type], ["Message", string_type], ["Status", string_type], ["Timestamp", string_type]]);
+    return record_type("LMVideoStudio.Client.Api.JobEventDto", [], JobEventDto, () => [["JobId", class_type("System.Guid")], ["Phase", string_type], ["Step", string_type], ["Message", string_type], ["Status", string_type], ["Timestamp", string_type], ["Hardware", option_type(string_type)], ["ElapsedMs", option_type(int64_type)], ["IsColdRun", option_type(bool_type)], ["StepIndex", option_type(int32_type)], ["StepTotal", option_type(int32_type)]]);
 }
 
 const summaryDecoder = (path_3) => ((v) => object((get$) => {
@@ -124,13 +129,39 @@ const summaryDecoder = (path_3) => ((v) => object((get$) => {
 
 const summariesDecoder = (path) => ((value) => list_2(uncurry2(summaryDecoder), path, value));
 
-const jobEventDecoder = (path_6) => ((v) => object((get$) => {
-    let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5;
-    return new JobEventDto((objectArg = get$.Required, objectArg.Field("jobId", guid)), (objectArg_1 = get$.Required, objectArg_1.Field("phase", string)), (objectArg_2 = get$.Required, objectArg_2.Field("step", string)), (objectArg_3 = get$.Required, objectArg_3.Field("message", string)), (objectArg_4 = get$.Required, objectArg_4.Field("status", string)), (objectArg_5 = get$.Required, objectArg_5.Field("timestamp", string)));
-}, path_6, v));
+const jobEventDecoder = (path_8) => ((v) => object((get$) => {
+    let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8, objectArg_9, objectArg_10;
+    return new JobEventDto((objectArg = get$.Required, objectArg.Field("jobId", guid)), (objectArg_1 = get$.Required, objectArg_1.Field("phase", string)), (objectArg_2 = get$.Required, objectArg_2.Field("step", string)), (objectArg_3 = get$.Required, objectArg_3.Field("message", string)), (objectArg_4 = get$.Required, objectArg_4.Field("status", string)), (objectArg_5 = get$.Required, objectArg_5.Field("timestamp", string)), (objectArg_6 = get$.Optional, objectArg_6.Field("hardware", string)), (objectArg_7 = get$.Optional, objectArg_7.Field("elapsedMs", uncurry2(int64))), (objectArg_8 = get$.Optional, objectArg_8.Field("isColdRun", bool)), (objectArg_9 = get$.Optional, objectArg_9.Field("stepIndex", uncurry2(int))), (objectArg_10 = get$.Optional, objectArg_10.Field("stepTotal", uncurry2(int))));
+}, path_8, v));
+
+function reportApiFailure(method, path, status, message) {
+    throw 1;
+    if ((() => {
+        throw 1;
+    })()) {
+        return undefined;
+    }
+    else if ((status === 0) ? true : (status >= 500)) {
+        return (() => {
+            throw 1;
+        })();
+    }
+    else {
+        return undefined;
+    }
+}
 
 function fetchAsync(url, method, body) {
-    return singleton.Delay(() => singleton.TryWith(singleton.Delay(() => singleton.Bind(awaitPromise(fetchJson(url)(method)(body)), (_arg) => singleton.Return(_arg))), (_arg_1) => singleton.Return([0, _arg_1.message])));
+    return singleton.Delay(() => singleton.TryWith(singleton.Delay(() => singleton.Bind(awaitPromise(fetchJson(url)(method)(body)), (_arg) => {
+        let matchValue, req;
+        const result = _arg;
+        return singleton.Combine((matchValue = reportApiFailure(method, url, result[0], result[1]), (matchValue == null) ? (singleton.Zero()) : ((req = matchValue, ((() => {
+            throw 1;
+        })(), singleton.Zero())))), singleton.Delay(() => singleton.Return(result)));
+    })), (_arg_1) => {
+        throw 1;
+        return singleton.Return([0, _arg_1.message]);
+    }));
 }
 
 function isHostHealthy() {
@@ -336,10 +367,13 @@ export function generateBlockThumbnail(projectId, blockId, prompt, variantCount)
     });
 }
 
-export function updateBlock(projectId, blockId, voiceoverScript, imagePrompt, crossfadeDurationMs) {
+export function updateBlock(projectId, blockId, voiceoverScript, imagePrompt, crossfadeDurationMs, moodTags) {
     return singleton.Delay(() => {
         const transitionFields = defaultArg(map_1((ms) => singleton_1(["transitions", object_1([["toNext", object_1([["type", "crossfade"], ["durationMs", ms]])]])]), crossfadeDurationMs), empty());
-        const body = toString(0, object_1(append(singleton_1(["voiceoverScript", voiceoverScript]), append(defaultArg(map_1((p) => singleton_1(["imagePrompt", p]), imagePrompt), empty()), transitionFields))));
+        const moodFields = defaultArg(map_1((tags) => singleton_1(["moodTags", (() => {
+            throw 1;
+        })()]), moodTags), empty());
+        const body = toString(0, object_1(append(singleton_1(["voiceoverScript", voiceoverScript]), append(defaultArg(map_1((p) => singleton_1(["imagePrompt", p]), imagePrompt), empty()), append(transitionFields, moodFields)))));
         return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}`, "PATCH", body), (_arg) => {
             const text = _arg[1];
             const status = _arg[0] | 0;
@@ -600,10 +634,17 @@ export function exportSharePack(projectId) {
 }
 
 export function checkForUpdates() {
-    return singleton.Delay(() => singleton.TryWith(singleton.Delay(() => singleton.Bind(awaitPromise(checkForUpdatesTauri()), (_arg) => {
+    return singleton.Delay(() => singleton.TryWith(singleton.Delay(() => (equals((() => {
+        try {
+            return window.__LMVS_BUILD_FLAVOR__;
+        }
+        catch (matchValue) {
+            return undefined;
+        }
+    })(), "microsoft-store") ? singleton.Return(new FSharpResult$2(0, ["Updates are managed by the Microsoft Store"])) : singleton.Bind(awaitPromise(checkForUpdatesTauri()), (_arg) => {
         const tauriResult = _arg;
         return (!(tauriResult == null) && !isNullOrWhiteSpace(tauriResult)) ? singleton.Return(new FSharpResult$2(0, [tauriResult])) : singleton.Bind(awaitPromise(checkForUpdatesFallback("0.1.0")), (_arg_1) => singleton.Return(new FSharpResult$2(0, [_arg_1])));
-    })), (_arg_2) => singleton.Return(new FSharpResult$2(1, [_arg_2.message]))));
+    }))), (_arg_2) => singleton.Return(new FSharpResult$2(1, [_arg_2.message]))));
 }
 
 export function subscribeEvents(onEvent) {
@@ -614,6 +655,190 @@ export function subscribeEvents(onEvent) {
         else {
             onEvent(matchValue.fields[0]);
         }
+    });
+}
+
+export function submitErrorReport(json) {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/api/v1/reports`, "POST", json), (_arg) => {
+        const text = _arg[1];
+        const status = _arg[0] | 0;
+        return ((status >= 200) && (status < 300)) ? singleton.Return(new FSharpResult$2(0, [text])) : ((status === 0) ? singleton.Return(new FSharpResult$2(1, [`Host request failed: ${text}`])) : singleton.Return(new FSharpResult$2(1, [text])));
+    }));
+}
+
+export function flushErrorReports() {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/api/v1/reports/flush`, "POST", ""), (_arg) => {
+        const text = _arg[1];
+        const status = _arg[0] | 0;
+        return ((status >= 200) && (status < 300)) ? singleton.Return(new FSharpResult$2(0, [text])) : singleton.Return(new FSharpResult$2(1, [text]));
+    }));
+}
+
+export function submitErrorReportFallback(json) {
+    return singleton.Delay(() => singleton.TryWith(singleton.Delay(() => singleton.Bind(awaitPromise(writeErrorReportTauri(json)), (_arg) => singleton.Return(new FSharpResult$2(0, [_arg])))), (_arg_1) => singleton.Return(new FSharpResult$2(1, [_arg_1.message]))));
+}
+
+export class ConnectedAccountDto extends Record {
+    constructor(Provider, Connected, AccountName, AccountId, PageName, ExpiresAtUtc, Configured) {
+        super();
+        this.Provider = Provider;
+        this.Connected = Connected;
+        this.AccountName = AccountName;
+        this.AccountId = AccountId;
+        this.PageName = PageName;
+        this.ExpiresAtUtc = ExpiresAtUtc;
+        this.Configured = Configured;
+    }
+}
+
+export function ConnectedAccountDto_$reflection() {
+    return record_type("LMVideoStudio.Client.Api.ConnectedAccountDto", [], ConnectedAccountDto, () => [["Provider", string_type], ["Connected", bool_type], ["AccountName", option_type(string_type)], ["AccountId", option_type(string_type)], ["PageName", option_type(string_type)], ["ExpiresAtUtc", option_type(string_type)], ["Configured", bool_type]]);
+}
+
+export class ConnectedAccountsDto extends Record {
+    constructor(Configured, Accounts) {
+        super();
+        this.Configured = Configured;
+        this.Accounts = Accounts;
+    }
+}
+
+export function ConnectedAccountsDto_$reflection() {
+    return record_type("LMVideoStudio.Client.Api.ConnectedAccountsDto", [], ConnectedAccountsDto, () => [["Configured", bool_type], ["Accounts", list_type(ConnectedAccountDto_$reflection())]]);
+}
+
+export class SharePackExportDto extends Record {
+    constructor(OutputDir, Files, CaptionPath, CaptionText, ReadmePath, MediaBase) {
+        super();
+        this.OutputDir = OutputDir;
+        this.Files = Files;
+        this.CaptionPath = CaptionPath;
+        this.CaptionText = CaptionText;
+        this.ReadmePath = ReadmePath;
+        this.MediaBase = MediaBase;
+    }
+}
+
+export function SharePackExportDto_$reflection() {
+    return record_type("LMVideoStudio.Client.Api.SharePackExportDto", [], SharePackExportDto, () => [["OutputDir", string_type], ["Files", list_type(string_type)], ["CaptionPath", string_type], ["CaptionText", string_type], ["ReadmePath", string_type], ["MediaBase", string_type]]);
+}
+
+export class OAuthStartDto extends Record {
+    constructor(AuthorizationUrl, State, Provider) {
+        super();
+        this.AuthorizationUrl = AuthorizationUrl;
+        this.State = State;
+        this.Provider = Provider;
+    }
+}
+
+export function OAuthStartDto_$reflection() {
+    return record_type("LMVideoStudio.Client.Api.OAuthStartDto", [], OAuthStartDto, () => [["AuthorizationUrl", string_type], ["State", string_type], ["Provider", string_type]]);
+}
+
+export class SharePackUploadResultDto extends Record {
+    constructor(Platform, VideoId, Url, Message) {
+        super();
+        this.Platform = Platform;
+        this.VideoId = VideoId;
+        this.Url = Url;
+        this.Message = Message;
+    }
+}
+
+export function SharePackUploadResultDto_$reflection() {
+    return record_type("LMVideoStudio.Client.Api.SharePackUploadResultDto", [], SharePackUploadResultDto, () => [["Platform", string_type], ["VideoId", option_type(string_type)], ["Url", option_type(string_type)], ["Message", string_type]]);
+}
+
+const connectedAccountDecoder = (path_7) => ((v) => object((get$) => {
+    let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6;
+    return new ConnectedAccountDto((objectArg = get$.Required, objectArg.Field("provider", string)), (objectArg_1 = get$.Required, objectArg_1.Field("connected", bool)), (objectArg_2 = get$.Optional, objectArg_2.Field("accountName", string)), (objectArg_3 = get$.Optional, objectArg_3.Field("accountId", string)), (objectArg_4 = get$.Optional, objectArg_4.Field("pageName", string)), (objectArg_5 = get$.Optional, objectArg_5.Field("expiresAtUtc", string)), (objectArg_6 = get$.Required, objectArg_6.Field("configured", bool)));
+}, path_7, v));
+
+const connectedAccountsDecoder = (path_2) => ((v) => object((get$) => {
+    let objectArg, objectArg_1;
+    return new ConnectedAccountsDto((objectArg = get$.Required, objectArg.Field("configured", bool)), (objectArg_1 = get$.Required, objectArg_1.Field("accounts", (path_1, value_1) => list_2(uncurry2(connectedAccountDecoder), path_1, value_1))));
+}, path_2, v));
+
+const sharePackExportDecoder = (path_7) => ((v) => object((get$) => {
+    let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5;
+    return new SharePackExportDto((objectArg = get$.Required, objectArg.Field("outputDir", string)), (objectArg_1 = get$.Required, objectArg_1.Field("files", (path_2, value_2) => list_2(string, path_2, value_2))), (objectArg_2 = get$.Required, objectArg_2.Field("captionPath", string)), defaultArg((objectArg_3 = get$.Optional, objectArg_3.Field("captionText", string)), ""), (objectArg_4 = get$.Required, objectArg_4.Field("readmePath", string)), (objectArg_5 = get$.Required, objectArg_5.Field("mediaBase", string)));
+}, path_7, v));
+
+const oauthStartDecoder = (path_3) => ((v) => object((get$) => {
+    let objectArg, objectArg_1, objectArg_2;
+    return new OAuthStartDto((objectArg = get$.Required, objectArg.Field("authorizationUrl", string)), (objectArg_1 = get$.Required, objectArg_1.Field("state", string)), (objectArg_2 = get$.Required, objectArg_2.Field("provider", string)));
+}, path_3, v));
+
+const sharePackUploadResultDecoder = (path_4) => ((v) => object((get$) => {
+    let objectArg, objectArg_1, objectArg_2, objectArg_3;
+    return new SharePackUploadResultDto((objectArg = get$.Required, objectArg.Field("platform", string)), (objectArg_1 = get$.Optional, objectArg_1.Field("videoId", string)), (objectArg_2 = get$.Optional, objectArg_2.Field("url", string)), (objectArg_3 = get$.Required, objectArg_3.Field("message", string)));
+}, path_4, v));
+
+export function getConnectedAccounts() {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/settings/connected-accounts`, "GET", undefined), (_arg) => {
+        const text = _arg[1];
+        const status = _arg[0] | 0;
+        if ((status >= 200) && (status < 300)) {
+            const matchValue = fromString(uncurry2(connectedAccountsDecoder), text);
+            return (matchValue.tag === 1) ? singleton.Return(new FSharpResult$2(1, [matchValue.fields[0]])) : singleton.Return(new FSharpResult$2(0, [matchValue.fields[0]]));
+        }
+        else {
+            return singleton.Return(new FSharpResult$2(1, [text]));
+        }
+    }));
+}
+
+export function startOAuth(provider) {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/oauth/${provider}/start`, "GET", undefined), (_arg) => {
+        const text = _arg[1];
+        const status = _arg[0] | 0;
+        if ((status >= 200) && (status < 300)) {
+            const matchValue = fromString(uncurry2(oauthStartDecoder), text);
+            return (matchValue.tag === 1) ? singleton.Return(new FSharpResult$2(1, [matchValue.fields[0]])) : singleton.Return(new FSharpResult$2(0, [matchValue.fields[0]]));
+        }
+        else {
+            return singleton.Return(new FSharpResult$2(1, [text]));
+        }
+    }));
+}
+
+export function disconnectOAuth(provider) {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/oauth/${provider}`, "DELETE", undefined), (_arg) => {
+        const text = _arg[1];
+        const status = _arg[0] | 0;
+        return ((status >= 200) && (status < 300)) ? singleton.Return(new FSharpResult$2(0, [text])) : singleton.Return(new FSharpResult$2(1, [text]));
+    }));
+}
+
+export function exportSharePackDetailed(projectId) {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/export/share-pack`, "POST", ""), (_arg) => {
+        const text = _arg[1];
+        const status = _arg[0] | 0;
+        if ((status >= 200) && (status < 300)) {
+            const matchValue = fromString(uncurry2(sharePackExportDecoder), text);
+            return (matchValue.tag === 1) ? singleton.Return(new FSharpResult$2(1, [matchValue.fields[0]])) : singleton.Return(new FSharpResult$2(0, [matchValue.fields[0]]));
+        }
+        else {
+            return singleton.Return(new FSharpResult$2(1, [text]));
+        }
+    }));
+}
+
+export function uploadSharePack(projectId, platform, title, description) {
+    return singleton.Delay(() => {
+        const body = toString(0, object_1(append(singleton_1(["platform", platform]), append(defaultArg(map_1((t) => singleton_1(["title", t]), title), empty()), defaultArg(map_1((d) => singleton_1(["description", d]), description), empty())))));
+        return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/export/share-pack/upload`, "POST", body), (_arg) => {
+            const text = _arg[1];
+            const status = _arg[0] | 0;
+            if ((status >= 200) && (status < 300)) {
+                const matchValue = fromString(uncurry2(sharePackUploadResultDecoder), text);
+                return (matchValue.tag === 1) ? singleton.Return(new FSharpResult$2(1, [matchValue.fields[0]])) : singleton.Return(new FSharpResult$2(0, [matchValue.fields[0]]));
+            }
+            else {
+                return singleton.Return(new FSharpResult$2(1, [text]));
+            }
+        });
     });
 }
 
