@@ -22,24 +22,27 @@ jobs:
       - name: Restore .NET tools
         run: dotnet tool restore
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: |
-            src/LMVideoStudio.Client/package-lock.json
-            src/LMVideoStudio.Tauri/package-lock.json
-
-      - name: Setup Rust (aarch64-apple-darwin)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
+      # macos-latest has ~7 GB RAM; parallel MSBuild restore launches one
+      # `dotnet paket restore --project …` per fsproj (obj/ is not in git), which OOMs (exit 137).
+      # Restore Paket once up front, then serialize dotnet restore/build (matches ci.yml pattern).
+      - name: Restore Paket and .NET solution
+        run: |
+          dotnet paket restore
+          if [ -f LMVideoStudio.sln ]; then
+            dotnet restore LMVideoStudio.sln -m:1
+            dotnet build LMVideoStudio.sln -c Release --no-restore -m:1
+          elif [ -d src ]; then
+            proj="$(find src -name '*Host*.fsproj' -print -quit || true)"
+            if [ -n "$proj" ]; then
+              dotnet restore "$proj" -m:1
+              dotnet build "$proj" -c Release --no-restore -m:1
+            fi
+          fi
 
       - name: dotnet test
         run: |
           if [ -f LMVideoStudio.sln ]; then
-            dotnet test LMVideoStudio.sln -c Release --verbosity normal
+            dotnet test LMVideoStudio.sln -c Release --no-build --verbosity normal
           elif [ -d tests ]; then
             dotnet test tests -c Release --verbosity normal
           else
@@ -55,6 +58,7 @@ jobs:
           fi
           out="$RUNNER_TEMP/lmvs-host-publish"
           dotnet publish "$proj" -c Release -r osx-arm64 -o "$out" \
+            -m:1 \
             --self-contained true \
             -p:PublishSingleFile=true \
             -p:IncludeNativeLibrariesForSelfExtract=true
@@ -69,6 +73,20 @@ jobs:
             exit 1
           fi
           echo "Self-contained Host publish OK ($(( size / 1048576 )) MB)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            src/LMVideoStudio.Client/package-lock.json
+            src/LMVideoStudio.Tauri/package-lock.json
+
+      - name: Setup Rust (aarch64-apple-darwin)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
 
       - name: Sidecar scripts syntax check
         run: |

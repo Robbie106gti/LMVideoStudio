@@ -182,6 +182,9 @@ if (Test-Path $Sln) {
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Step "Ensure self-contained Host sidecar"
+Ensure-LmvsHostSidecar -RepoRoot $RepoRoot -OutputDir (Join-Path $RepoRoot "sidecars") | Out-Null
+
 if (-not $SkipSidecars) {
     Write-Step "Build sidecars (Host + worker)"
     $sidecarScript = Join-Path $RepoRoot "scripts\build-sidecars.ps1"

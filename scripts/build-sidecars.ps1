@@ -92,41 +92,6 @@ function Copy-FfmpegBundle([string]$BinDest) {
     return $copied
 }
 
-function Publish-HostSidecar([string]$OutputDir) {
-    $srcRoot = Join-Path $RepoRoot "src"
-    if (-not (Test-Path $srcRoot)) {
-        Write-Host "src/ not present yet - skip Host publish" -ForegroundColor DarkGray
-        return $false
-    }
-    $proj = Get-ChildItem -Path $srcRoot -Recurse -Filter "*Host*.fsproj" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $proj) {
-        Write-Host "No *Host*.fsproj under src/ - skip Host publish" -ForegroundColor DarkGray
-        return $false
-    }
-    $publishDir = Join-Path $OutputDir "host_publish"
-    if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
-    Write-Host "Publishing Host (self-contained single-file): $($proj.FullName)" -ForegroundColor Cyan
-    & dotnet publish $proj.FullName -c Release -r win-x64 -o $publishDir `
-        --self-contained true `
-        -p:PublishSingleFile=true `
-        -p:IncludeNativeLibrariesForSelfExtract=true
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet publish failed with exit code $LASTEXITCODE"
-    }
-    $exe = Get-ChildItem -Path $publishDir -Filter "LMVideoStudio.Host.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $exe) {
-        $exe = Get-ChildItem -Path $publishDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-    }
-    if ($exe) {
-        $hostDest = Join-Path $OutputDir $exe.Name
-        Copy-Item $exe.FullName $hostDest -Force
-        Write-Host "Host executable: $hostDest ($([math]::Round($exe.Length / 1MB, 1)) MB)" -ForegroundColor Green
-    } else {
-        Write-Host "Publish succeeded but no .exe in $publishDir (non-Windows target?)" -ForegroundColor Yellow
-    }
-    return $true
-}
-
 Write-Host "=== build-sidecars (Phase 0) ===" -ForegroundColor Cyan
 
 Assert-LmvsBuildPrerequisites
@@ -204,7 +169,7 @@ Set-Content -Path (Join-Path $SidecarRoot "run_worker.cmd") -Value $launch -Enco
 
 if (-not $SkipHostPublish) {
     try {
-        Publish-HostSidecar $SidecarsDir | Out-Null
+        Ensure-LmvsHostSidecar -RepoRoot $RepoRoot -OutputDir $SidecarsDir | Out-Null
     } catch {
         Write-Host "Host publish skipped/failed: $($_.Exception.Message)" -ForegroundColor Yellow
     }

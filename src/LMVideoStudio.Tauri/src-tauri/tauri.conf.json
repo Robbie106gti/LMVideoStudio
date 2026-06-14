@@ -37,7 +37,12 @@
       "../../../docs/project.schema.json",
       "../../../config/**/*",
       "../../../scripts/**/*.ps1",
-      "../../../sidecars/lmvs_worker/**/*"
+      "../../../sidecars/lmvs_worker/lmvs_worker/**/*",
+      "../../../sidecars/lmvs_worker/lib/**/*",
+      "../../../sidecars/lmvs_worker/.venv/**/*",
+      "../../../sidecars/lmvs_worker/bin/**/*",
+      "../../../sidecars/lmvs_worker/run_worker.cmd",
+      "../../../sidecars/lmvs_worker/requirements-worker.txt"
     ],
     "icon": [
       "icons/icon.ico"

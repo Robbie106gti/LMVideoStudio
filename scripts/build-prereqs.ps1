@@ -119,3 +119,76 @@ function Write-LmvsToolVersions {
     if (Test-LmvsCommandExists "rustc") { Write-Host "  rustc:  $(rustc --version)" }
     if (Test-LmvsCommandExists "cargo") { Write-Host "  cargo:  $(cargo --version)" }
 }
+
+function Publish-LmvsHostSidecar {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$OutputDir,
+        [string]$RuntimeId = "win-x64",
+        [int]$MinBytes = 5MB
+    )
+
+    $srcRoot = Join-Path $RepoRoot "src"
+    if (-not (Test-Path $srcRoot)) {
+        throw "src/ not present — cannot publish Host sidecar"
+    }
+
+    $proj = Get-ChildItem -Path $srcRoot -Recurse -Filter "*Host*.fsproj" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $proj) {
+        throw "No *Host*.fsproj under src/ — cannot publish Host sidecar"
+    }
+
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+    $publishDir = Join-Path $OutputDir "host_publish"
+    if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+
+    Write-Host "Publishing Host (self-contained single-file): $($proj.FullName)" -ForegroundColor Cyan
+    & dotnet publish $proj.FullName -c Release -r $RuntimeId -o $publishDir `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet publish failed with exit code $LASTEXITCODE"
+    }
+
+    $exe = Get-ChildItem -Path $publishDir -Filter "LMVideoStudio.Host.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $exe) {
+        $exe = Get-ChildItem -Path $publishDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
+    if (-not $exe) {
+        throw "Host publish succeeded but no .exe in $publishDir"
+    }
+
+    $hostDest = Join-Path $OutputDir $exe.Name
+    Copy-Item $exe.FullName $hostDest -Force
+    if ($exe.Length -lt $MinBytes) {
+        throw "Host publish produced a $($exe.Length) byte executable; expected >= $MinBytes for self-contained single-file (not dotnet build output)."
+    }
+
+    Write-Host "Host executable: $hostDest ($([math]::Round($exe.Length / 1MB, 1)) MB)" -ForegroundColor Green
+    return $hostDest
+}
+
+function Ensure-LmvsHostSidecar {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [string]$OutputDir = "",
+        [int]$MinBytes = 5MB
+    )
+
+    if (-not $OutputDir) {
+        $OutputDir = Join-Path $RepoRoot "sidecars"
+    }
+
+    $hostExe = Join-Path $OutputDir "LMVideoStudio.Host.exe"
+    if ((Test-Path $hostExe) -and (Get-Item $hostExe).Length -ge $MinBytes) {
+        Write-Host "  Host sidecar OK: $hostExe ($([math]::Round((Get-Item $hostExe).Length / 1MB, 1)) MB)" -ForegroundColor DarkGray
+        return $hostExe
+    }
+
+    if (Test-Path $hostExe) {
+        Write-Host "  Replacing framework-dependent Host stub ($((Get-Item $hostExe).Length) bytes) with self-contained publish..." -ForegroundColor Yellow
+    }
+
+    return Publish-LmvsHostSidecar -RepoRoot $RepoRoot -OutputDir $OutputDir -MinBytes $MinBytes
+}

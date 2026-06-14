@@ -24,6 +24,8 @@ use tauri::{AppHandle, Manager};
 pub const HOST_PORT: u16 = 17170;
 const WORKER_PORT: u16 = 8765;
 const HOST_HEALTH_TIMEOUT_SECS: u64 = 60;
+/// Self-contained single-file Host publish is typically >= 5 MiB; framework-dependent apphost is ~150 KiB.
+const MIN_HOST_BUNDLE_BYTES: u64 = 5 * 1024 * 1024;
 
 fn build_flavor_env() -> String {
     std::env::var("LMVS_BUILD_FLAVOR").unwrap_or_else(|_| {
@@ -94,6 +96,15 @@ impl SidecarManager {
             return;
         };
 
+        if !is_packaged_host_bundle(&entry) {
+            let size = fs::metadata(&entry).map(|m| m.len()).unwrap_or(0);
+            eprintln!(
+                "LMVideoStudio: Host sidecar is a framework-dependent stub ({size} bytes, expected >= {} MiB self-contained publish). Rebuild with .\\scripts\\build-installer.ps1",
+                MIN_HOST_BUNDLE_BYTES / 1024 / 1024
+            );
+            return;
+        }
+
         let port = HOST_PORT.to_string();
         let repo = self.repo_root.to_string_lossy().into_owned();
         let flavor = build_flavor_env();
@@ -106,7 +117,7 @@ impl SidecarManager {
                 .env("LMVS_HOST_PORT", &port)
                 .env("LMVS_BUILD_FLAVOR", &flavor)
                 .stdout(Stdio::null())
-                .stderr(Stdio::null())
+                .stderr(sidecar_stderr())
                 .spawn()
         } else {
             Command::new(&entry)
@@ -115,12 +126,22 @@ impl SidecarManager {
                 .env("LMVS_HOST_PORT", &port)
                 .env("LMVS_BUILD_FLAVOR", &flavor)
                 .stdout(Stdio::null())
-                .stderr(Stdio::null())
+                .stderr(sidecar_stderr())
                 .spawn()
         };
 
         match spawn_result {
-            Ok(child) => self.host_child = Some(child),
+            Ok(mut child) => {
+                thread::sleep(Duration::from_millis(500));
+                if let Ok(Some(status)) = child.try_wait() {
+                    eprintln!(
+                        "LMVideoStudio: Host exited immediately with {status} (see {:?})",
+                        sidecar_log_path("host")
+                    );
+                    return;
+                }
+                self.host_child = Some(child);
+            }
             Err(err) => eprintln!("LMVideoStudio: failed to spawn Host at {}: {err}", entry.display()),
         }
     }
@@ -422,6 +443,48 @@ fn sidecar_file_suffix() -> &'static str {
     }
 }
 
+fn is_packaged_host_bundle(path: &Path) -> bool {
+    if path.extension().is_some_and(|ext| ext == "dll") {
+        return true;
+    }
+    fs::metadata(path)
+        .map(|meta| meta.len() >= MIN_HOST_BUNDLE_BYTES)
+        .unwrap_or(false)
+}
+
+fn sidecar_logs_dir() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        return PathBuf::from(local).join("LMVideoStudio").join("logs");
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Ok(home) = std::env::var("HOME") {
+        return PathBuf::from(home)
+            .join("Library")
+            .join("Logs")
+            .join("LMVideoStudio");
+    }
+
+    std::env::temp_dir().join("LMVideoStudio").join("logs")
+}
+
+fn sidecar_log_path(name: &str) -> PathBuf {
+    let dir = sidecar_logs_dir();
+    let _ = fs::create_dir_all(&dir);
+    dir.join(format!("{name}-sidecar.log"))
+}
+
+fn sidecar_stderr() -> Stdio {
+    let path = sidecar_log_path("host");
+    fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map(Stdio::from)
+        .unwrap_or(Stdio::null())
+}
+
 pub fn host_health_timeout_secs() -> u64 {
     HOST_HEALTH_TIMEOUT_SECS
 }
@@ -485,5 +548,21 @@ mod tests {
             root.join(".venv").join("bin").join("python")
         };
         assert_eq!(worker_venv_python(&root), expected);
+    }
+
+    #[test]
+    fn packaged_host_bundle_rejects_framework_dependent_stub() {
+        let dir = temp_dir("stub");
+        let exe = dir.join(format!("LMVideoStudio.Host{}", sidecar_file_suffix()));
+        fs::write(&exe, b"stub").expect("write stub");
+        assert!(!is_packaged_host_bundle(&exe));
+    }
+
+    #[test]
+    fn packaged_host_bundle_accepts_dev_dll() {
+        let dir = temp_dir("dll");
+        let dll = dir.join("LMVideoStudio.Host.dll");
+        fs::write(&dll, b"tiny").expect("write dll");
+        assert!(is_packaged_host_bundle(&dll));
     }
 }

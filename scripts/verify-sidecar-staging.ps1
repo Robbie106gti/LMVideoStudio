@@ -68,6 +68,16 @@ if (-not (Test-Path $ffmpeg)) {
     Write-Host "  ffmpeg: OK" -ForegroundColor DarkGray
 }
 
+# hf_cache and models/ are runtime-downloaded; excluded from Tauri bundle.resources (WiX 2 GiB per-file limit).
+$hfCache = Join-Path $WorkerRoot "hf_cache"
+if (Test-Path $hfCache) {
+    Write-Host "  hf_cache: present locally (excluded from installer; models download on first use)" -ForegroundColor DarkGray
+}
+$modelsDir = Join-Path $WorkerRoot "models"
+if (Test-Path $modelsDir) {
+    Write-Host "  models/: present locally (excluded from installer bundle)" -ForegroundColor DarkGray
+}
+
 if ($TauriSrcDir) {
     $tauriSidecars = Join-Path $TauriSrcDir "sidecars"
     $hostStaged = Get-ChildItem -Path $tauriSidecars -Filter "LMVideoStudio.Host*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -75,6 +85,11 @@ if ($TauriSrcDir) {
 
     if (-not $hostStaged) {
         $errors += "Tauri externalBin Host not staged under $tauriSidecars"
+    } elseif ($hostStaged.Length -lt $MinHostExeBytes) {
+        $errors += @(
+            "Staged Host sidecar is a framework-dependent stub ($($hostStaged.Length) bytes, need >= $MinHostExeBytes).",
+            "  Re-run: .\scripts\build-installer.ps1   (Ensure-LmvsHostSidecar publishes self-contained Host)"
+        )
     }
     if (-not $workerStaged) {
         $errors += "Tauri externalBin run_worker not staged under $tauriSidecars\lmvs_worker"

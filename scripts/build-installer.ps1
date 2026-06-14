@@ -29,6 +29,7 @@ $TauriManifest = Join-Path $TauriDir "src-tauri\tauri.conf.json"
 $ClientDir = Join-Path $RepoRoot "src\LMVideoStudio.Client"
 $Sln = Join-Path $RepoRoot "LMVideoStudio.sln"
 $VerifyScript = Join-Path $RepoRoot "scripts\verify-sidecar-staging.ps1"
+$VerifyMsiScript = Join-Path $RepoRoot "scripts\verify-msi-wix1946.ps1"
 $WorkerStubRs = Join-Path $RepoRoot "scripts\run_worker_stub.rs"
 
 if ($SkipVenvCopy -and -not $AllowSpikeVenvFallback) {
@@ -58,6 +59,48 @@ function Get-RustHostTriple {
     $line = (rustc -Vv 2>$null) | Where-Object { $_ -match '^host:' } | Select-Object -First 1
     if ($line -match 'host:\s+(\S+)') { return $Matches[1] }
     return "x86_64-pc-windows-msvc"
+}
+
+function Get-TauriBundleTargets([object]$TauriConfig) {
+    $raw = $TauriConfig.bundle.targets
+    if (-not $raw -or $raw -eq "all") { return @("msi", "nsis") }
+    if ($raw -is [string]) { return @($raw) }
+    return @($raw)
+}
+
+function Get-FreshBundleArtifacts {
+    param(
+        [string]$BundleRoot,
+        [datetime]$Since
+    )
+
+    $artifacts = @{
+        Msi  = @()
+        Nsis = @()
+    }
+    if (-not (Test-Path $BundleRoot)) { return $artifacts }
+
+    $artifacts.Msi = @(Get-ChildItem (Join-Path $BundleRoot "msi") -Filter *.msi -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -ge $Since })
+    $artifacts.Nsis = @(Get-ChildItem (Join-Path $BundleRoot "nsis") -Filter *-setup.exe -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -ge $Since })
+    return $artifacts
+}
+
+function Get-TauriFailureKind {
+    param(
+        [string]$Log,
+        [int]$ExitCode
+    )
+
+    if ($ExitCode -eq 0) { return $null }
+    if ($Log -match 'failed to run.*light\.exe|LGHT\d+|WiX|Running light to produce') {
+        return "msi-linker"
+    }
+    if ($Log -match 'updater|minisign|signing|signature') {
+        return "updater-signing"
+    }
+    return "other"
 }
 
 function Stage-TauriExternalBins {
@@ -118,6 +161,9 @@ if (Test-Path $Sln) {
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Step "Ensure self-contained Host sidecar"
+Ensure-LmvsHostSidecar -RepoRoot $RepoRoot -OutputDir (Join-Path $RepoRoot "sidecars") | Out-Null
+
 if (-not $SkipSidecars) {
     Write-Step "Build sidecars (Host + worker)"
     $sidecarScript = Join-Path $RepoRoot "scripts\build-sidecars.ps1"
@@ -159,18 +205,58 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Step "Tauri bundle (unsigned)"
 Write-Host "  First run downloads Rust crates; allow several minutes." -ForegroundColor DarkGray
+$bundleTargets = Get-TauriBundleTargets $tauri
+$wantsMsi = $bundleTargets -contains "msi"
+$wantsNsis = $bundleTargets -contains "nsis"
+$bundleRoot = Join-Path $TauriSrcDir "target\release\bundle"
+$buildStartedAt = $null
 Push-Location $TauriDir
 try {
     if (-not (Test-Path "node_modules")) { Install-Npm $TauriDir }
     $env:TAURI_DISABLE_UPDATER = "true"
-    npm run tauri build
+    $buildStartedAt = Get-Date
+
+    $tauriOutput = npm run tauri build 2>&1
     $tauriExit = $LASTEXITCODE
-    $bundleRoot = Join-Path $TauriSrcDir "target\release\bundle"
-    $hasBundle = (Test-Path $bundleRoot) -and @(Get-ChildItem $bundleRoot -Recurse -Include *.exe,*.msi -ErrorAction SilentlyContinue).Count -gt 0
-    if ($tauriExit -ne 0 -and $hasBundle) {
-        Write-Host "  Tauri reported updater signing failure; installer bundles were still produced." -ForegroundColor Yellow
-    } elseif ($tauriExit -ne 0) {
-        exit $tauriExit
+    $tauriLog = ($tauriOutput | Out-String)
+    $tauriOutput | Write-Host
+
+    $fresh = Get-FreshBundleArtifacts -BundleRoot $bundleRoot -Since $buildStartedAt
+    $failureKind = Get-TauriFailureKind -Log $tauriLog -ExitCode $tauriExit
+    $updaterDisabled = ($env:TAURI_DISABLE_UPDATER -eq "true")
+
+    if ($tauriExit -ne 0) {
+        switch ($failureKind) {
+            "msi-linker" {
+                Write-Host "  MSI bundling failed (WiX light.exe). NSIS may still have succeeded." -ForegroundColor Red
+                if ($tauriLog -match 'LGHT0263|too large') {
+                    Write-Host "  Hint: a bundled resource exceeds WiX/MSI 2 GiB file limit (exclude sidecars/lmvs_worker/hf_cache from bundle.resources)." -ForegroundColor Yellow
+                }
+            }
+            "updater-signing" {
+                if (-not $updaterDisabled -and ($fresh.Msi.Count + $fresh.Nsis.Count) -gt 0) {
+                    Write-Host "  Tauri reported updater/signing issues; fresh installer bundles were still produced." -ForegroundColor Yellow
+                } else {
+                    Write-Host "  Tauri bundle failed during updater/signing." -ForegroundColor Red
+                }
+            }
+            default {
+                Write-Host "  Tauri bundle failed (exit $tauriExit)." -ForegroundColor Red
+            }
+        }
+
+        $freshOk = ($wantsMsi -and $fresh.Msi.Count -gt 0) -or ($wantsNsis -and $fresh.Nsis.Count -gt 0)
+        $msiMissing = $wantsMsi -and $fresh.Msi.Count -eq 0
+        if ($msiMissing -or (-not $freshOk -and $tauriExit -ne 0)) {
+            $staleMsi = @(Get-ChildItem (Join-Path $bundleRoot "msi") -Filter *.msi -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt $buildStartedAt })
+            if ($msiMissing -and $staleMsi.Count -gt 0) {
+                Write-Host "  Stale MSI left on disk (not rebuilt this run):" -ForegroundColor DarkYellow
+                $staleMsi | ForEach-Object { Write-Host "    $($_.FullName)" -ForegroundColor DarkYellow }
+                Write-Host "  Do not install stale MSIs — they may show WiX Warning 1946 (AppUserModel.ID)." -ForegroundColor DarkYellow
+            }
+            exit $tauriExit
+        }
     }
 } finally {
     Remove-Item Env:TAURI_DISABLE_UPDATER -ErrorAction SilentlyContinue
@@ -178,13 +264,26 @@ try {
 }
 
 $bundleRoot = Join-Path $TauriDir "src-tauri\target\release\bundle"
-Write-Step "Done"
-Write-Host "Installer artifacts (if build succeeded):" -ForegroundColor Green
-Get-ChildItem $bundleRoot -Recurse -Include *-setup.exe,*.msi -ErrorAction SilentlyContinue | ForEach-Object {
-    Write-Host "  $($_.FullName)"
-}
-if (-not (Test-Path $bundleRoot)) {
-    Write-Host "  $bundleRoot" -ForegroundColor DarkGray
+$artifactSince = if ($buildStartedAt) { $buildStartedAt } else { (Get-Date).AddDays(-1) }
+$fresh = Get-FreshBundleArtifacts -BundleRoot $bundleRoot -Since $artifactSince
+$hasFreshArtifacts = ($fresh.Msi.Count + $fresh.Nsis.Count) -gt 0
+
+if ($hasFreshArtifacts) {
+    if ($fresh.Msi.Count -gt 0 -and (Test-Path $VerifyMsiScript)) {
+        Write-Step "Verify MSI shortcuts (WiX 1946)"
+        foreach ($msi in $fresh.Msi) {
+            & $VerifyMsiScript -MsiPath $msi.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+    }
+
+    Write-Step "Done"
+    Write-Host "Installer artifacts from this build:" -ForegroundColor Green
+    $fresh.Msi | ForEach-Object { Write-Host "  $($_.FullName)" }
+    $fresh.Nsis | ForEach-Object { Write-Host "  $($_.FullName)" }
+} else {
+    Write-Step "Build finished with no fresh installer artifacts"
+    Write-Host "  Expected output under: $bundleRoot" -ForegroundColor DarkGray
 }
 Write-Host ""
 Write-Host "Install on a test VM, then verify Host (17170) and worker (8765) health endpoints." -ForegroundColor DarkGray

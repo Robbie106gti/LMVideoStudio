@@ -36,8 +36,9 @@ host_out.txt
 *.log
 out/
 
-# Model caches (HF, torch)
+# Model caches (HF, torch) — not bundled in MSI (WiX 2 GiB/file limit; downloaded at runtime)
 .cache/
+**/hf_cache/
 models/
 
 # Secrets

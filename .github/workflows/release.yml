@@ -40,14 +40,20 @@ jobs:
           dotnet test LMVideoStudio.sln -c Release --verbosity normal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Ensure self-contained Host sidecar
+        shell: pwsh
+        run: |
+          . .\scripts\build-prereqs.ps1
+          Ensure-LmvsHostSidecar -RepoRoot $env:GITHUB_WORKSPACE
+
       - name: Build sidecar layout (no venv copy in CI)
         shell: pwsh
         run: |
           if (-not (Test-Path spike\.venv)) {
-            Write-Host "spike\.venv missing — skipping sidecar build (full installer requires local venv copy)"
+            Write-Host "spike\.venv missing — skipping worker venv copy (Host already published above)"
             exit 0
           }
-          .\scripts\build-sidecars.ps1 -SkipVenvCopy
+          .\scripts\build-sidecars.ps1 -SkipVenvCopy -SkipHostPublish
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build installer (unsigned)
