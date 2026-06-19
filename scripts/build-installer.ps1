@@ -103,6 +103,43 @@ function Get-TauriFailureKind {
     return "other"
 }
 
+function Initialize-TauriBundlePathJunctions {
+    param(
+        [string]$TauriSrcDir,
+        [string]$RepoRoot
+    )
+
+    # WiX light.exe uses unresolved Source paths; ../../../sidecars/... exceeds MAX_PATH
+    # for deep .venv files (LGHT0103). Short junctions under src-tauri/b/ keep paths under 260.
+    $bundleRoot = Join-Path $TauriSrcDir "b"
+    $repoLink = Join-Path $bundleRoot "r"
+    $workerLink = Join-Path $bundleRoot "w"
+    $workerTarget = Join-Path $RepoRoot "sidecars\lmvs_worker"
+
+    if (-not (Test-Path $workerTarget)) {
+        throw "Missing worker sidecar root for bundle junction: $workerTarget"
+    }
+
+    New-Item -ItemType Directory -Force -Path $bundleRoot | Out-Null
+
+    foreach ($pair in @(
+            @{ Link = $repoLink; Target = $RepoRoot; Label = "b/r" },
+            @{ Link = $workerLink; Target = $workerTarget; Label = "b/w" }
+        )) {
+        $link = $pair.Link
+        if (Test-Path -LiteralPath $link) {
+            $item = Get-Item -LiteralPath $link -Force
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                cmd /c "rmdir `"$link`"" | Out-Null
+            } else {
+                throw "Bundle path junction blocked by existing path (not a junction): $link"
+            }
+        }
+        New-Item -ItemType Junction -Path $link -Target $pair.Target | Out-Null
+        Write-Host "  junction $($pair.Label) -> $($pair.Target)" -ForegroundColor DarkGray
+    }
+}
+
 function Stage-TauriExternalBins {
     param(
         [string]$TauriSrcDir,
@@ -196,6 +233,9 @@ try {
     Pop-Location
 }
 
+Write-Step "Stage Tauri bundle path junctions (WiX MAX_PATH)"
+Initialize-TauriBundlePathJunctions -TauriSrcDir $TauriSrcDir -RepoRoot $RepoRoot
+
 Write-Step "Stage Tauri external sidecars"
 $TauriSrcDir = Join-Path $TauriDir "src-tauri"
 Stage-TauriExternalBins -TauriSrcDir $TauriSrcDir -SidecarsRoot (Join-Path $RepoRoot "sidecars")
@@ -231,6 +271,9 @@ try {
                 Write-Host "  MSI bundling failed (WiX light.exe). NSIS may still have succeeded." -ForegroundColor Red
                 if ($tauriLog -match 'LGHT0263|too large') {
                     Write-Host "  Hint: a bundled resource exceeds WiX/MSI 2 GiB file limit (exclude sidecars/lmvs_worker/hf_cache from bundle.resources)." -ForegroundColor Yellow
+                }
+                if ($tauriLog -match 'LGHT0103') {
+                    Write-Host "  Hint: a bundled file path exceeds MAX_PATH (260); ensure build-installer created src-tauri/b/ junctions." -ForegroundColor Yellow
                 }
             }
             "updater-signing" {

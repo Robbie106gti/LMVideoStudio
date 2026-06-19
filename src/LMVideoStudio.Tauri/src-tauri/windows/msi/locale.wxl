@@ -1,0 +1,6 @@
+<WixLocalization Culture="en-us" Codepage="65001" xmlns="http://schemas.microsoft.com/wix/2006/localization"><String Id="TauriLanguage">1033</String>
+<String Id="TauriCodepage">65001</String>
+<String Id="LaunchApp">Launch LMVideoStudio</String>
+<String Id="DowngradeErrorMessage">A newer version of LMVideoStudio is already installed.</String>
+<String Id="PathEnvVarFeature">Add the install location of the LMVideoStudio executable to the PATH system environment variable. This allows the LMVideoStudio executable to be called from any location.</String>
+<String Id="InstallAppFeature">Installs LMVideoStudio.</String></WixLocalization>

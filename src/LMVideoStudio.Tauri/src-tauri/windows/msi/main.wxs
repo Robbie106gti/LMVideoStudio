@@ -18,7 +18,8 @@
             UpgradeCode="{{upgrade_code}}"
             Language="!(loc.TauriLanguage)"
             Manufacturer="{{manufacturer}}"
-            Version="{{version}}">
+            Version="{{version}}"
+            Codepage="65001">
 
         <Package Id="*"
                  Keywords="Installer"
@@ -26,7 +27,7 @@
                  Languages="0"
                  Compressed="yes"
                  InstallScope="perMachine"
-                 SummaryCodepage="!(loc.TauriCodepage)"/>
+                 SummaryCodepage="1252"/>
 
         <!-- https://docs.microsoft.com/en-us/windows/win32/msi/reinstallmode -->
         <!-- reinstall all files; rewrite all registry entries; reinstall all shortcuts -->
@@ -47,7 +48,9 @@
             <RemoveShortcuts>Installed AND NOT UPGRADINGPRODUCTCODE</RemoveShortcuts>
         </InstallExecuteSequence>
 
-        <Media Id="1" Cabinet="app.cab" EmbedCab="yes" />
+        <!-- Worker .venv is ~6+ GiB; single embedded CAB exceeds WiX 2 GiB limit (LGHT0001). -->
+        <?define CabTemplate="cab{0}.cab" ?>
+        <MediaTemplate EmbedCab="no" CabinetTemplate="$(var.CabTemplate)" MaximumUncompressedMediaSize="1500" />
 
         {{#if banner_path}}
         <WixVariable Id="WixUIBannerBmp" Value="{{banner_path}}" />
@@ -380,3 +383,4 @@
         <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLDIR]" After="CostFinalize"/>
     </Product>
 </Wix>
+

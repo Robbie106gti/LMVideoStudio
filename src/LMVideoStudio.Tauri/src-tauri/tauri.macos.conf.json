@@ -18,17 +18,17 @@
       "sidecars/lmvs_worker/run_worker"
     ],
     "resources": [
-      "../../../docs/project.schema.json",
-      "../../../config/**/*",
-      "../../../scripts/**/*.ps1",
-      "../../../scripts/**/*.sh",
-      "../../../sidecars/lmvs_worker/lmvs_worker/**/*",
-      "../../../sidecars/lmvs_worker/lib/**/*",
-      "../../../sidecars/lmvs_worker/.venv/**/*",
-      "../../../sidecars/lmvs_worker/bin/**/*",
-      "../../../sidecars/lmvs_worker/run_worker.sh",
-      "../../../sidecars/lmvs_worker/run_worker.cmd",
-      "../../../sidecars/lmvs_worker/requirements-worker.txt"
+      "./b/r/docs/project.schema.json",
+      "./b/r/config/**/*",
+      "./b/r/scripts/**/*.ps1",
+      "./b/r/scripts/**/*.sh",
+      "./b/w/lmvs_worker/**/*",
+      "./b/w/lib/**/*",
+      "./b/w/.venv/**/*",
+      "./b/w/bin/**/*",
+      "./b/w/run_worker.sh",
+      "./b/w/run_worker.cmd",
+      "./b/w/requirements-worker.txt"
     ]
   },
   "plugins": {
