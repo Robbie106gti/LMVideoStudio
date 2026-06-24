@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="TestMocks.fs" />
     <Compile Include="HostSerialCollection.fs" />
+    <Compile Include="TestCleanup.fs" />
     <Compile Include="TestHostFactory.fs" />
     <Compile Include="ApiIntegrationTests.fs" />
     <Compile Include="ProjectCrudTests.fs" />

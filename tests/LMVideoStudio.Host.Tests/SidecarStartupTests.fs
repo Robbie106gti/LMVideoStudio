@@ -34,7 +34,7 @@ type SidecarStartupTests() =
     [<Fact>]
     member _.``GET health returns ok when host fixture running`` () =
         task {
-            let fixture = TestHostFactory.TestHostFixture(None)
+            use fixture = TestHostFactory.TestHostFixture(None)
             let! response = fixture.Client.GetAsync("/health")
             response.IsSuccessStatusCode |> should equal true
             let! body = response.Content.ReadAsStringAsync()

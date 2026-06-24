@@ -41,21 +41,7 @@ module FfmpegOrphanRegressionTests =
         FfmpegExport.killAllActive()
 
     let private createProjectWithBlock (fixture: TestHostFactory.TestHostFixture) name =
-        task {
-            let content = new StringContent($"{{\"name\":\"{name}\"}}", Encoding.UTF8, "application/json")
-            let! createResponse = fixture.Client.PostAsync("/projects", content)
-            createResponse.EnsureSuccessStatusCode() |> ignore
-            let! createBody = createResponse.Content.ReadAsStringAsync()
-            let projectId = JsonDocument.Parse(createBody).RootElement.GetProperty("id").GetGuid()
-
-            use multipart = new MultipartFormDataContent()
-            let pngBytes = [| 0x89uy; 0x50uy; 0x4Euy; 0x47uy; 0x0Duy; 0x0Auy; 0x1Auy; 0x0Auy |]
-            let fileContent = new ByteArrayContent(pngBytes)
-            fileContent.Headers.ContentType <- MediaTypeHeaderValue("image/png")
-            multipart.Add(fileContent, "file", "frame.png")
-            let! _ = fixture.Client.PostAsync($"/projects/{projectId}/blocks/import", multipart)
-            return projectId
-        }
+        fixture.CreateProjectWithBlock name
 
     let private waitJobTerminal (ch: System.Threading.Channels.Channel<JobEvent>) (timeoutMs: int) =
         task {

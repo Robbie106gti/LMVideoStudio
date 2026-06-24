@@ -22,22 +22,7 @@ module ExportAndGenerationTests =
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 
-        let createProjectWithBlock name =
-            task {
-                let content = new StringContent($"{{\"name\":\"{name}\"}}", Encoding.UTF8, "application/json")
-                let! createResponse = fixture.Client.PostAsync("/projects", content)
-                createResponse.EnsureSuccessStatusCode() |> ignore
-                let! createBody = createResponse.Content.ReadAsStringAsync()
-                let projectId = JsonDocument.Parse(createBody).RootElement.GetProperty("id").GetGuid()
-
-                use multipart = new MultipartFormDataContent()
-                let pngBytes = [| 0x89uy; 0x50uy; 0x4Euy; 0x47uy; 0x0Duy; 0x0Auy; 0x1Auy; 0x0Auy |]
-                let fileContent = new ByteArrayContent(pngBytes)
-                fileContent.Headers.ContentType <- MediaTypeHeaderValue("image/png")
-                multipart.Add(fileContent, "file", "frame.png")
-                let! _ = fixture.Client.PostAsync($"/projects/{projectId}/blocks/import", multipart)
-                return projectId
-            }
+        let createProjectWithBlock name = fixture.CreateProjectWithBlock name
 
         [<Fact>]
         let ``POST preview returns 202 with jobId`` () =
@@ -273,15 +258,10 @@ module PremiereExportUnitTests =
                         Generation = None
                         Artifacts = None } ] }
 
-        let folder = Path.Combine(Path.GetTempPath(), "lmvs-premiere-" + Guid.NewGuid().ToString("N"))
-        Directory.CreateDirectory folder |> ignore
-
-        try
-            let xml = PremiereExport.generate folder project
-            xml.Contains("<xmeml") |> should equal true
-            xml.Contains("XML test") |> should equal true
-            xml.Contains("<width>1920</width>") |> should equal true
-            xml.Contains("<start>0</start>") |> should equal true
-        finally
-            if Directory.Exists folder then
-                Directory.Delete(folder, true)
+        use temp = new TestCleanup.TempDirectory("lmvs-premiere-")
+        let folder = temp.Path
+        let xml = PremiereExport.generate folder project
+        xml.Contains("<xmeml") |> should equal true
+        xml.Contains("XML test") |> should equal true
+        xml.Contains("<width>1920</width>") |> should equal true
+        xml.Contains("<start>0</start>") |> should equal true

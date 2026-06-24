@@ -17,14 +17,7 @@ module ProjectCrudTests =
     type CrudTests() =
         let fixture = TestHostFactory.TestHostFixture(None)
 
-        let createProject name =
-            task {
-                let content = new StringContent($"{{\"name\":\"{name}\"}}", Encoding.UTF8, "application/json")
-                let! response = fixture.Client.PostAsync("/projects", content)
-                response.EnsureSuccessStatusCode() |> ignore
-                let! body = response.Content.ReadAsStringAsync()
-                return JsonDocument.Parse(body).RootElement.GetProperty("id").GetGuid()
-            }
+        let createProject name = fixture.CreateProject name
 
         [<Fact>]
         let ``GET project by id returns project`` () =

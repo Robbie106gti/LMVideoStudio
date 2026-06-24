@@ -77,3 +77,9 @@ module ErrorReportingTests =
                 let text = File.ReadAllText path
                 text.Contains("boom") |> should equal true
             | Error err -> failwith err
+
+        interface IDisposable with
+            member _.Dispose() =
+                Environment.SetEnvironmentVariable("LMVS_REPORTS_ROOT", null)
+                (fixture :> IDisposable).Dispose()
+                TestCleanup.deleteDirectorySafe reportsRoot

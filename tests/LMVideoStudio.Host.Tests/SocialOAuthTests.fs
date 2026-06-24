@@ -212,3 +212,6 @@ module SocialOAuthTests =
 
                 response.StatusCode |> should equal HttpStatusCode.BadRequest
             }
+
+        interface IDisposable with
+            member _.Dispose() = (fixture :> IDisposable).Dispose()

@@ -11,8 +11,8 @@ open LMVideoStudio.Domain
 module GpuQueueTests =
     [<Fact>]
     let ``IsWarmRun true when warmup marker present`` () =
-        let repoRoot = Path.Combine(Path.GetTempPath(), "lmvs-gpuq-" + Guid.NewGuid().ToString("N"))
-        Directory.CreateDirectory repoRoot |> ignore
+        use temp = new TestCleanup.TempDirectory("lmvs-gpuq-")
+        let repoRoot = temp.Path
         let markerDir = Path.Combine(repoRoot, ".lmvs")
         Directory.CreateDirectory markerDir |> ignore
         File.WriteAllText(Path.Combine(markerDir, "warmup_complete"), "ok")
@@ -22,16 +22,11 @@ module GpuQueueTests =
 
         gpu.IsWarmRun() |> should equal true
 
-        try
-            Directory.Delete(repoRoot, recursive = true)
-        with _ ->
-            ()
-
     [<Fact>]
     let ``RunJob completes fast work and releases gate`` () =
         task {
-            let repoRoot = Path.Combine(Path.GetTempPath(), "lmvs-gpuq-" + Guid.NewGuid().ToString("N"))
-            Directory.CreateDirectory repoRoot |> ignore
+            use temp = new TestCleanup.TempDirectory("lmvs-gpuq-")
+            let repoRoot = temp.Path
 
             use worker = PythonWorkerProvider.PythonWorkerProvider("http://127.0.0.1:1")
             let gpu = GpuQueueService(SingleFlightGpuQueue(), worker, repoRoot)
@@ -41,9 +36,4 @@ module GpuQueueTests =
 
             a |> should equal 1
             b |> should equal 2
-
-            try
-                Directory.Delete(repoRoot, recursive = true)
-            with _ ->
-                ()
         }

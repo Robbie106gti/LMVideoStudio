@@ -16,6 +16,10 @@ module ApiIntegrationTests =
     type ApiTests() =
         let fixture = TestHostFactory.TestHostFixture(None)
 
+        let trackProjectFromJson (json: string) =
+            use doc = System.Text.Json.JsonDocument.Parse json
+            fixture.TrackProject(doc.RootElement.GetProperty("id").GetGuid())
+
         [<Fact>]
         let ``GET health returns ok`` () =
             task {
@@ -41,6 +45,7 @@ module ApiIntegrationTests =
                 let! response = fixture.Client.PostAsync("/projects", content)
                 response.StatusCode |> should equal HttpStatusCode.Created
                 let! body = response.Content.ReadAsStringAsync()
+                trackProjectFromJson body
                 body.Contains("Integration test") |> should equal true
                 body.Contains("schemaVersion") |> should equal true
             }
@@ -88,6 +93,7 @@ module ApiIntegrationTests =
             let project = Project.create "Schema store"
             match services.Store.Save project with
             | Ok () ->
+                fixture.TrackSavedProject project
                 let json = Json.encodeProject project
                 match services.Store.ValidateJson json with
                 | Ok _ -> ()
@@ -103,6 +109,7 @@ module ApiIntegrationTests =
                 let! createResponse = fixture.Client.PostAsync("/projects", createContent)
                 createResponse.StatusCode |> should equal HttpStatusCode.Created
                 let! createBody = createResponse.Content.ReadAsStringAsync()
+                trackProjectFromJson createBody
                 let projectId = System.Text.Json.JsonDocument.Parse(createBody).RootElement.GetProperty("id").GetGuid()
 
                 use multipart = new MultipartFormDataContent()
@@ -154,6 +161,7 @@ module ApiIntegrationTests =
                 let! createResponse = fixture.Client.PostAsync("/projects", createContent)
                 createResponse.StatusCode |> should equal HttpStatusCode.Created
                 let! createBody = createResponse.Content.ReadAsStringAsync()
+                trackProjectFromJson createBody
                 let projectId = System.Text.Json.JsonDocument.Parse(createBody).RootElement.GetProperty("id").GetGuid()
 
                 let services = buildHostServices (fixture.RepoRoot, None)
@@ -202,6 +210,7 @@ module ApiIntegrationTests =
                 let! createResponse = fixture.Client.PostAsync("/projects", createContent)
                 createResponse.StatusCode |> should equal HttpStatusCode.Created
                 let! createBody = createResponse.Content.ReadAsStringAsync()
+                trackProjectFromJson createBody
                 let projectId = System.Text.Json.JsonDocument.Parse(createBody).RootElement.GetProperty("id").GetGuid()
 
                 let! response =
@@ -225,6 +234,7 @@ module ApiIntegrationTests =
                 let! createResponse = fixture.Client.PostAsync("/projects", createContent)
                 createResponse.StatusCode |> should equal HttpStatusCode.Created
                 let! createBody = createResponse.Content.ReadAsStringAsync()
+                trackProjectFromJson createBody
                 let projectId = System.Text.Json.JsonDocument.Parse(createBody).RootElement.GetProperty("id").GetGuid()
 
                 use multipart = new MultipartFormDataContent()
@@ -264,6 +274,7 @@ module ApiIntegrationTests =
                 let! createResponse = fixture.Client.PostAsync("/projects", createContent)
                 createResponse.StatusCode |> should equal HttpStatusCode.Created
                 let! createBody = createResponse.Content.ReadAsStringAsync()
+                trackProjectFromJson createBody
                 let projectId = System.Text.Json.JsonDocument.Parse(createBody).RootElement.GetProperty("id").GetGuid()
 
                 let! response = fixture.Client.GetAsync($"/projects/{projectId}/preview")
