@@ -102,10 +102,10 @@ function Clear-StaleDevPorts {
 }
 
 function Ensure-DevPortsAvailable {
-    # Host port: never auto-kill — another dev stack or Host may already be running.
+    # Host port: never auto-kill - another dev stack or Host may already be running.
     $hostPids = Get-PortListenerProcessIds -Port $HostPort
     if ($hostPids.Count -gt 0) {
-        Write-Host "ERROR: Host port $HostPort is already in use — another LMVideoStudio Host may be running." -ForegroundColor Red
+        Write-Host "ERROR: Host port $HostPort is already in use - another LMVideoStudio Host may be running." -ForegroundColor Red
         foreach ($procId in $hostPids) {
             $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
             $name = if ($proc) { $proc.ProcessName } else { "unknown" }
@@ -489,6 +489,17 @@ function Start-SplitPaneDev {
     Write-Host ""
 }
 
+function Assert-HostBuilds {
+    Write-Host "Checking Host build ..." -ForegroundColor DarkGray
+    dotnet build $HostProject -v minimal
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "ERROR: Host failed to build - fix compile errors above, then retry make dev." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host ""
+}
+
 # --- Main ---
 
 if ($Test) {
@@ -513,6 +524,7 @@ if ($SkipWorker) {
 $includeWorker = Get-WorkerAvailable
 Prepare-Client
 Ensure-RootNpmDeps
+Assert-HostBuilds
 
 if ($SplitPanes) {
     Start-SplitPaneDev -IncludeWorker $includeWorker

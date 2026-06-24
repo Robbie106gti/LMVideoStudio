@@ -130,12 +130,12 @@ function Publish-LmvsHostSidecar {
 
     $srcRoot = Join-Path $RepoRoot "src"
     if (-not (Test-Path $srcRoot)) {
-        throw "src/ not present — cannot publish Host sidecar"
+        throw "src/ not present - cannot publish Host sidecar"
     }
 
     $proj = Get-ChildItem -Path $srcRoot -Recurse -Filter "*Host*.fsproj" -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $proj) {
-        throw "No *Host*.fsproj under src/ — cannot publish Host sidecar"
+        throw "No *Host*.fsproj under src/ - cannot publish Host sidecar"
     }
 
     New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null

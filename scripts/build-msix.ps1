@@ -200,8 +200,8 @@ if (-not $SkipSidecars) {
 }
 
 Write-Step "Verify sidecar layout"
-$verifyArgs = @()
-if ($AllowSpikeVenvFallback) { $verifyArgs += "-AllowSpikeVenvFallback" }
+$verifyArgs = @{}
+if ($AllowSpikeVenvFallback) { $verifyArgs['AllowSpikeVenvFallback'] = $true }
 & $VerifyScript @verifyArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -220,7 +220,9 @@ try {
 Write-Step "Stage Tauri external sidecars"
 Stage-TauriExternalBins -TauriSrcDir $TauriSrcDir -SidecarsRoot (Join-Path $RepoRoot "sidecars")
 
-& $VerifyScript -TauriSrcDir $TauriSrcDir $(if ($AllowSpikeVenvFallback) { "-AllowSpikeVenvFallback" })
+$verifyArgs = @{ TauriSrcDir = $TauriSrcDir }
+if ($AllowSpikeVenvFallback) { $verifyArgs['AllowSpikeVenvFallback'] = $true }
+& $VerifyScript @verifyArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Step "Tauri bundle (microsoft-store config)"

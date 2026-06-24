@@ -25,7 +25,8 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $env:LMVS_REPO_ROOT = $RepoRoot
 
 $TauriDir = Join-Path $RepoRoot "src\LMVideoStudio.Tauri"
-$TauriManifest = Join-Path $TauriDir "src-tauri\tauri.conf.json"
+$TauriSrcDir = Join-Path $TauriDir "src-tauri"
+$TauriManifest = Join-Path $TauriSrcDir "tauri.conf.json"
 $ClientDir = Join-Path $RepoRoot "src\LMVideoStudio.Client"
 $Sln = Join-Path $RepoRoot "LMVideoStudio.sln"
 $VerifyScript = Join-Path $RepoRoot "scripts\verify-sidecar-staging.ps1"
@@ -216,8 +217,8 @@ if (-not $SkipSidecars) {
 }
 
 Write-Step "Verify sidecar layout"
-$verifyArgs = @()
-if ($AllowSpikeVenvFallback) { $verifyArgs += "-AllowSpikeVenvFallback" }
+$verifyArgs = @{}
+if ($AllowSpikeVenvFallback) { $verifyArgs['AllowSpikeVenvFallback'] = $true }
 & $VerifyScript @verifyArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -237,10 +238,11 @@ Write-Step "Stage Tauri bundle path junctions (WiX MAX_PATH)"
 Initialize-TauriBundlePathJunctions -TauriSrcDir $TauriSrcDir -RepoRoot $RepoRoot
 
 Write-Step "Stage Tauri external sidecars"
-$TauriSrcDir = Join-Path $TauriDir "src-tauri"
 Stage-TauriExternalBins -TauriSrcDir $TauriSrcDir -SidecarsRoot (Join-Path $RepoRoot "sidecars")
 
-& $VerifyScript -TauriSrcDir $TauriSrcDir $(if ($AllowSpikeVenvFallback) { "-AllowSpikeVenvFallback" })
+$verifyArgs = @{ TauriSrcDir = $TauriSrcDir }
+if ($AllowSpikeVenvFallback) { $verifyArgs['AllowSpikeVenvFallback'] = $true }
+& $VerifyScript @verifyArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Step "Tauri bundle (unsigned)"
@@ -296,7 +298,7 @@ try {
             if ($msiMissing -and $staleMsi.Count -gt 0) {
                 Write-Host "  Stale MSI left on disk (not rebuilt this run):" -ForegroundColor DarkYellow
                 $staleMsi | ForEach-Object { Write-Host "    $($_.FullName)" -ForegroundColor DarkYellow }
-                Write-Host "  Do not install stale MSIs — they may show WiX Warning 1946 (AppUserModel.ID)." -ForegroundColor DarkYellow
+                Write-Host "  Do not install stale MSIs - they may show WiX Warning 1946 (AppUserModel.ID)." -ForegroundColor DarkYellow
             }
             exit $tauriExit
         }

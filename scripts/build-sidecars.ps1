@@ -176,8 +176,8 @@ if (-not $SkipHostPublish) {
 }
 
 $verifyScript = Join-Path $PSScriptRoot "verify-sidecar-staging.ps1"
-$verifyArgs = @()
-if ($SkipVenvCopy) { $verifyArgs += "-AllowSpikeVenvFallback" }
+$verifyArgs = @{}
+if ($SkipVenvCopy) { $verifyArgs['AllowSpikeVenvFallback'] = $true }
 & $verifyScript @verifyArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
