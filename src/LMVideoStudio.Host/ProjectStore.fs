@@ -265,6 +265,85 @@ module ProjectStore =
                     | Ok () -> Ok(updatedBlock, updated)
                     | Error err -> Error err
 
+        member this.ImportBlockReferenceImage(projectId: Guid, blockId: Guid, fileName: string, bytes: byte[]) =
+            match this.Load projectId with
+            | Error err -> Error err
+            | Ok project ->
+                match project.Blocks |> List.tryFind (fun b -> b.Id = blockId) with
+                | None -> Error $"Block not found: {blockId}"
+                | Some block ->
+                    let assetsDir = Path.Combine(projectFolder projectId, "assets", "references")
+                    Directory.CreateDirectory assetsDir |> ignore
+                    let safeName = Path.GetFileName fileName
+                    let ext = Path.GetExtension safeName
+
+                    let destName =
+                        if String.IsNullOrWhiteSpace ext then
+                            $"ref_{blockId:N}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.png"
+                        else
+                            $"ref_{blockId:N}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}{ext}"
+
+                    let dest = Path.Combine(assetsDir, destName)
+                    File.WriteAllBytes(dest, bytes)
+                    let relPath = $"assets/references/{destName}"
+
+                    let generation =
+                        { Seed = block.Generation |> Option.bind (fun g -> g.Seed)
+                          ReferenceAssetPath = Some relPath
+                          ThumbnailVariants = block.Generation |> Option.bind (fun g -> g.ThumbnailVariants) }
+
+                    let updatedBlock = { block with Generation = Some generation }
+
+                    let updated =
+                        { project with
+                            Blocks =
+                                project.Blocks
+                                |> List.map (fun b -> if b.Id = blockId then updatedBlock else b) }
+                        |> Project.touch
+
+                    match this.Save updated with
+                    | Ok () -> Ok(updatedBlock, updated)
+                    | Error err -> Error err
+
+        member this.SetBlockReferenceFromThumbnail(projectId: Guid, blockId: Guid) =
+            match this.Load projectId with
+            | Error err -> Error err
+            | Ok project ->
+                match project.Blocks |> List.tryFind (fun b -> b.Id = blockId) with
+                | None -> Error $"Block not found: {blockId}"
+                | Some block ->
+                    match block.ThumbnailPath with
+                    | None -> Error "Block has no thumbnail to use as reference"
+                    | Some thumbPath ->
+                        let generation =
+                            { Seed = block.Generation |> Option.bind (fun g -> g.Seed)
+                              ReferenceAssetPath = Some thumbPath
+                              ThumbnailVariants = block.Generation |> Option.bind (fun g -> g.ThumbnailVariants) }
+
+                        let updatedBlock = { block with Generation = Some generation }
+
+                        let updated =
+                            { project with
+                                Blocks =
+                                    project.Blocks
+                                    |> List.map (fun b -> if b.Id = blockId then updatedBlock else b) }
+                            |> Project.touch
+
+                        match this.Save updated with
+                        | Ok () -> Ok(updatedBlock, updated)
+                        | Error err -> Error err
+
+        member this.ClearBlockReferenceImage(projectId: Guid, blockId: Guid) =
+            match this.UpdateBlock(projectId, blockId, fun block ->
+                match block.Generation with
+                | None -> block
+                | Some g -> { block with Generation = Some { g with ReferenceAssetPath = None } }) with
+            | Error err -> Error err
+            | Ok project ->
+                match project.Blocks |> List.tryFind (fun b -> b.Id = blockId) with
+                | None -> Error $"Block not found: {blockId}"
+                | Some b -> Ok(b, project)
+
         member this.ImportStylePackLogo(projectId: Guid, fileName: string, bytes: byte[]) =
             match this.Load projectId with
             | Error err -> Error err

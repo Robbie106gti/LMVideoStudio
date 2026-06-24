@@ -3,8 +3,14 @@ module LMVideoStudio.Client.Views.StoryboardTimeline
 open System
 open Feliz
 open LMVideoStudio.Client.Api
+open LMVideoStudio.Client.FormatHelpers
+open LMVideoStudio.Client.PromptQuickButtons
 open LMVideoStudio.Client.Views.SharePackPanel
 open LMVideoStudio.Domain
+
+type VariantModalMode =
+    | Compare
+    | Enlarge of string
 
 type TimelineMsg =
     | ImportImage of Browser.Types.File
@@ -21,6 +27,16 @@ type TimelineMsg =
     | SaveBlockFields
     | GenerateThumbnail
     | SelectThumbnailVariant of string
+    | OpenVariantModal
+    | CloseVariantModal
+    | EnlargeVariant of string
+    | BackToVariantCompare
+    | ApplyPromptQuickButton of string
+    | RefreshPromptQuickButtons
+    | ImportReferenceImage of Browser.Types.File
+    | ClearReferenceImage
+    | UseThumbnailAsReference
+    | SetReferenceStrength of float
     | ImportAudio of Browser.Types.File
     | RefreshMockupPreview
     | StartBake
@@ -48,6 +64,10 @@ type TimelineModel =
       ImagePromptDraft: string
       MoodTagsDraft: string
       CrossfadeDurationDraft: int
+      ImagePromptQuickButtons: QuickButton list
+      ReferenceStrengthDraft: float
+      MediaRevision: int64
+      VariantModal: VariantModalMode option
       SharePack: SharePackModel option }
 
 module StoryboardTimeline =
@@ -68,32 +88,60 @@ module StoryboardTimeline =
           ImagePromptDraft = ""
           MoodTagsDraft = ""
           CrossfadeDurationDraft = 300
+          ImagePromptQuickButtons = loadAll ()
+          ReferenceStrengthDraft = 0.32
+          MediaRevision = 0L
+          VariantModal = None
           SharePack = None }
 
     let private sortedBlocks (project: Project) =
         project.Blocks |> List.sortBy (fun b -> b.Order)
 
-    let private mediaCacheBust (project: Project) =
-        project.UpdatedAt
-        |> Option.map (fun d -> d.ToUnixTimeMilliseconds())
-        |> Option.defaultValue (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+    let private mediaCacheBust (model: TimelineModel) =
+        let projectBust =
+            model.Project.UpdatedAt
+            |> Option.map (fun d -> d.ToUnixTimeMilliseconds())
+            |> Option.defaultValue 0L
 
-    let private blockThumbnailUrl (projectId: Guid) (project: Project) (block: StoryboardBlock) =
+        max model.MediaRevision projectBust
+        |> fun bust ->
+            if bust = 0L then
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            else
+                bust
+
+    let private mediaPreviewSrc (model: TimelineModel) (path: string) =
+        let bust = mediaCacheBust model
+        previewMediaUrl model.Project.Id path bust, $"{path}-{bust}"
+
+    let private blockThumbnailUrl (model: TimelineModel) (block: StoryboardBlock) =
         block.ThumbnailPath
-        |> Option.map (fun path -> previewMediaUrl projectId path (mediaCacheBust project))
+        |> Option.map (fun path ->
+            let bust = mediaCacheBust model
+            previewMediaUrl model.Project.Id path bust)
 
     let private looksLikeFilename (prompt: string) =
         if String.IsNullOrWhiteSpace prompt then
             false
         else
-            let lower = prompt.Trim().ToLowerInvariant()
+            let t = prompt.Trim()
+            let lower = t.ToLowerInvariant()
 
-            lower.EndsWith ".png"
-            || lower.EndsWith ".jpg"
-            || lower.EndsWith ".jpeg"
-            || lower.EndsWith ".webp"
-            || lower.EndsWith ".gif"
-            || (prompt.Contains('\\') && not (prompt.Contains ' '))
+            if
+                lower.EndsWith ".png"
+                || lower.EndsWith ".jpg"
+                || lower.EndsWith ".jpeg"
+                || lower.EndsWith ".webp"
+                || lower.EndsWith ".gif"
+                || (t.Contains('\\') && not (t.Contains ' '))
+            then
+                true
+            else
+                let digits = t |> Seq.filter Char.IsDigit |> Seq.length
+                t.Length >= 12 && (digits >= t.Length * 2 / 3 || (t.Contains('_') && digits >= 8))
+
+    /// Exported for App — filenames / social IDs are not valid SD prompts.
+    let isUnusablePromptDraft = looksLikeFilename
 
     let private blockPlaceholderLabel (block: StoryboardBlock) =
         match block.Title with
@@ -177,10 +225,145 @@ module StoryboardTimeline =
                     VoiceoverDraft = block.VoiceoverScript |> Option.defaultValue ""
                     ImagePromptDraft = block.ImagePrompt |> Option.defaultValue ""
                     MoodTagsDraft = String.concat ", " block.MoodTags
-                    CrossfadeDurationDraft = blockCrossfadeMs block model.Project }
-            | None -> { model with SelectedBlockId = None }
+                    CrossfadeDurationDraft = blockCrossfadeMs block model.Project
+                    VariantModal = None }
+            | None -> { model with SelectedBlockId = None; VariantModal = None }
         | None ->
-            { model with SelectedBlockId = None }
+            { model with SelectedBlockId = None; VariantModal = None }
+
+    let private variantModalView (model: TimelineModel) (block: StoryboardBlock) (variants: string list) dispatch =
+        let variantCard vi path selected enlargeMsg =
+            let src, imgKey = mediaPreviewSrc model path
+            Html.div [
+                prop.className "flex flex-col gap-2"
+                prop.children [
+                    Html.button [
+                        prop.type' "button"
+                        prop.className (
+                            "rounded-lg border overflow-hidden bg-surface "
+                            + (if selected then
+                                   "border-accent ring-2 ring-accent"
+                               else
+                                   "border-surface-border hover:border-accent/60")
+                        )
+                        prop.onClick (fun _ -> dispatch enlargeMsg)
+                        prop.children [
+                            Html.img [
+                                prop.key imgKey
+                                prop.className "w-full aspect-video object-cover"
+                                prop.src src
+                                prop.alt $"Variant {vi + 1}"
+                            ]
+                        ]
+                    ]
+                    Html.div [
+                        prop.className "flex gap-2"
+                        prop.children [
+                            Html.button [
+                                prop.type' "button"
+                                prop.className (
+                                    "flex-1 px-2 py-1.5 rounded-md text-xs font-medium "
+                                    + (if selected then
+                                           "bg-accent text-white"
+                                       else
+                                           "border border-surface-border hover:border-accent")
+                                )
+                                prop.text (if selected then "Selected" else "Use this")
+                                prop.onClick (fun _ -> dispatch (SelectThumbnailVariant path))
+                            ]
+                            Html.button [
+                                prop.type' "button"
+                                prop.className "px-2 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent"
+                                prop.text "Large"
+                                prop.onClick (fun _ -> dispatch (EnlargeVariant path))
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+
+        Html.div [
+            prop.className "fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            prop.onClick (fun ev ->
+                if ev.target = ev.currentTarget then
+                    dispatch CloseVariantModal)
+            prop.children [
+                Html.div [
+                    prop.className "w-full max-w-5xl max-h-[90vh] rounded-xl border border-surface-border bg-surface-raised shadow-xl flex flex-col"
+                    prop.onClick (fun ev -> ev.stopPropagation())
+                    prop.children [
+                        Html.div [
+                            prop.className "px-5 py-4 border-b border-surface-border flex items-center justify-between gap-3"
+                            prop.children [
+                                Html.div [
+                                    prop.children [
+                                        Html.h2 [
+                                            prop.className "text-lg font-semibold"
+                                            prop.text "Compare thumbnail variants"
+                                        ]
+                                        Html.p [
+                                            prop.className "text-xs text-slate-500 mt-0.5"
+                                            prop.text "Pick one for this block, or open a variant full size."
+                                        ]
+                                    ]
+                                ]
+                                Html.button [
+                                    prop.type' "button"
+                                    prop.className "px-3 py-1.5 rounded-md border border-surface-border text-sm hover:border-accent"
+                                    prop.text "Close"
+                                    prop.onClick (fun _ -> dispatch CloseVariantModal)
+                                ]
+                            ]
+                        ]
+                        match model.VariantModal with
+                        | Some (Enlarge path) ->
+                            Html.div [
+                                prop.className "p-5 flex-1 overflow-auto flex flex-col items-center gap-4"
+                                prop.children [
+                                    Html.button [
+                                        prop.type' "button"
+                                        prop.className "self-start px-3 py-1.5 rounded-md border border-surface-border text-sm hover:border-accent"
+                                        prop.text "← Back to comparison"
+                                        prop.onClick (fun _ -> dispatch BackToVariantCompare)
+                                    ]
+                                    (let src, imgKey = mediaPreviewSrc model path in
+                                     Html.img [
+                                         prop.key imgKey
+                                         prop.className "max-w-full max-h-[70vh] object-contain rounded-lg border border-surface-border"
+                                         prop.src src
+                                         prop.alt "Variant full size"
+                                     ])
+                                    Html.button [
+                                        prop.type' "button"
+                                        prop.className "px-4 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium"
+                                        prop.text "Use this variant"
+                                        prop.onClick (fun _ -> dispatch (SelectThumbnailVariant path))
+                                    ]
+                                ]
+                            ]
+                        | _ ->
+                            Html.div [
+                                prop.className "p-5 overflow-auto"
+                                prop.children [
+                                    Html.div [
+                                        prop.className "grid grid-cols-1 sm:grid-cols-3 gap-4"
+                                        prop.children (
+                                            variants
+                                            |> List.mapi (fun vi path ->
+                                                let selected =
+                                                    block.ThumbnailPath
+                                                    |> Option.map ((=) path)
+                                                    |> Option.defaultValue (vi = 0)
+
+                                                variantCard vi path selected (EnlargeVariant path))
+                                        )
+                                    ]
+                                ]
+                            ]
+                    ]
+                ]
+            ]
+        ]
 
     let view (model: TimelineModel) dispatch =
         let blocks = sortedBlocks model.Project
@@ -266,16 +449,17 @@ module StoryboardTimeline =
                                 Html.button [
                                     prop.className "px-4 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium disabled:opacity-50"
                                     prop.disabled (model.Saving || model.Previewing)
-                                    prop.title "CPU FFmpeg libx264 stitch — not GPU"
+                                    prop.title "Stitches block thumbnails with CPU FFmpeg Ken Burns zoom. Timing/layout check only — not AI video."
                                     prop.text (
-                                        if model.Previewing then "Rendering preview…"
-                                        else "Refresh mockup preview"
+                                        if model.Previewing then "Stitching preview…"
+                                        else "Stitch Ken Burns preview"
                                     )
                                     prop.onClick (fun _ -> dispatch RefreshMockupPreview)
                                 ]
                                 Html.button [
                                     prop.className "px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm font-medium disabled:opacity-50"
                                     prop.disabled (model.Baking || model.Saving)
+                                    prop.title "1080p Ken Burns stitch; optional GPU upscale per block when enabled."
                                     prop.text (if model.Baking then "Baking…" else "Bake final MP4")
                                     prop.onClick (fun _ -> dispatch StartBake)
                                 ]
@@ -312,8 +496,12 @@ module StoryboardTimeline =
                         prop.className "px-6 py-4 border-b border-surface-border bg-surface-raised"
                         prop.children [
                             Html.h2 [
-                                prop.className "text-sm font-semibold mb-2"
-                                prop.text "Mockup preview (640p Ken Burns stitch)"
+                                prop.className "text-sm font-semibold mb-1"
+                                prop.text "Quick preview (640p Ken Burns · CPU)"
+                            ]
+                            Html.p [
+                                prop.className "text-xs text-slate-500 mb-2"
+                                prop.text "Zoom/pan on still thumbnails for timing — not AI-generated motion."
                             ]
                             Html.video [
                                 prop.className "w-full max-w-2xl rounded-lg border border-surface-border bg-black"
@@ -329,8 +517,12 @@ module StoryboardTimeline =
                         prop.className "px-6 py-4 border-b border-surface-border bg-surface-raised"
                         prop.children [
                             Html.h2 [
-                                prop.className "text-sm font-semibold mb-2"
-                                prop.text "Bake export (1080p Ken Burns stitch)"
+                                prop.className "text-sm font-semibold mb-1"
+                                prop.text "Final export (1080p Ken Burns · CPU)"
+                            ]
+                            Html.p [
+                                prop.className "text-xs text-slate-500 mb-2"
+                                prop.text "Higher-resolution stitch; GPU upscale applies when enabled on blocks."
                             ]
                             Html.video [
                                 prop.className "w-full max-w-2xl rounded-lg border border-surface-border bg-black"
@@ -391,12 +583,20 @@ module StoryboardTimeline =
                                                         dispatch (DropOnIndex i))
                                                     prop.onClick (fun _ -> dispatch (SelectBlock(Some block.Id)))
                                                     prop.children [
-                                                        match blockThumbnailUrl model.Project.Id model.Project block with
+                                                        match blockThumbnailUrl model block with
                                                         | Some url ->
+                                                            let imgKey =
+                                                                block.ThumbnailPath
+                                                                |> Option.map (fun p ->
+                                                                    let _, k = mediaPreviewSrc model p
+                                                                    k)
+                                                                |> Option.defaultValue url
+
                                                             Html.div [
                                                                 prop.className "aspect-video bg-surface overflow-hidden"
                                                                 prop.children [
                                                                     Html.img [
+                                                                        prop.key imgKey
                                                                         prop.className "w-full h-full object-cover"
                                                                         prop.src url
                                                                         prop.alt (
@@ -484,13 +684,136 @@ module StoryboardTimeline =
                                                             prop.className "mt-1 text-xs text-amber-400/90"
                                                             prop.text "This looks like a filename — use a text description for AI generation, or import the image instead."
                                                         ]
+                                                    if not model.ImagePromptQuickButtons.IsEmpty then
+                                                        Html.div [
+                                                            prop.className "mt-2 space-y-1"
+                                                            prop.children [
+                                                                Html.p [
+                                                                    prop.className "text-xs text-slate-500"
+                                                                    prop.text "Quick prompts"
+                                                                ]
+                                                                Html.div [
+                                                                    prop.className "flex flex-wrap gap-1.5"
+                                                                    prop.children (
+                                                                        model.ImagePromptQuickButtons
+                                                                        |> List.map (fun qb ->
+                                                                            Html.button [
+                                                                                prop.type' "button"
+                                                                                prop.className "px-2 py-1 rounded-md border border-surface-border text-xs hover:border-accent hover:text-accent"
+                                                                                prop.title qb.Prompt
+                                                                                prop.text qb.Label
+                                                                                prop.onClick (fun _ ->
+                                                                                    dispatch (ApplyPromptQuickButton qb.Prompt))
+                                                                            ])
+                                                                    )
+                                                                ]
+                                                            ]
+                                                        ]
+                                                ]
+                                            ]
+                                            Html.div [
+                                                prop.className "space-y-2 rounded-md border border-surface-border p-3"
+                                                prop.children [
+                                                    Html.label [
+                                                        prop.className "block text-xs text-slate-500 mb-1"
+                                                        prop.text "Reference image (optional, img2img)"
+                                                    ]
+                                                    block.Generation
+                                                    |> Option.bind (fun g -> g.ReferenceAssetPath)
+                                                    |> Option.map (fun path ->
+                                                        Html.div [
+                                                            prop.className "space-y-2"
+                                                            prop.children [
+                                                                (let src, imgKey = mediaPreviewSrc model path in
+                                                                 Html.img [
+                                                                     prop.key imgKey
+                                                                     prop.className "w-full max-h-32 object-contain rounded border border-surface-border bg-surface"
+                                                                     prop.src src
+                                                                     prop.alt "Reference for generation"
+                                                                 ])
+                                                                Html.p [
+                                                                    prop.className "text-xs text-slate-500 truncate"
+                                                                    prop.title path
+                                                                    prop.text path
+                                                                ]
+                                                                Html.button [
+                                                                    prop.type' "button"
+                                                                    prop.className "w-full px-2 py-1.5 rounded-md border border-surface-border text-xs hover:border-red-400 hover:text-red-300"
+                                                                    prop.text "Remove reference"
+                                                                    prop.onClick (fun _ -> dispatch ClearReferenceImage)
+                                                                ]
+                                                            ]
+                                                        ])
+                                                    |> Option.defaultWith (fun () ->
+                                                    Html.p [
+                                                        prop.className "text-xs text-slate-500"
+                                                        prop.text "Upload a photo or use the block thumbnail to guide GPU generation. Top bar Import image adds a timeline block — use this section to attach a reference for img2img."
+                                                    ])
+                                                    Html.label [
+                                                        prop.className "block px-3 py-2 rounded-md border border-surface-border cursor-pointer hover:border-accent text-sm text-center"
+                                                        prop.children [
+                                                            Html.input [
+                                                                prop.type' "file"
+                                                                prop.accept "image/*"
+                                                                prop.className "hidden"
+                                                                prop.onChange (fun (ev: Browser.Types.Event) ->
+                                                                    let input = ev.target :?> Browser.Types.HTMLInputElement
+                                                                    let files = input.files
+
+                                                                    if not (isNull files) && files.length > 0 then
+                                                                        dispatch (ImportReferenceImage files.[0]))
+                                                            ]
+                                                            Html.span [ prop.text "Upload reference image" ]
+                                                        ]
+                                                    ]
+                                                    block.ThumbnailPath
+                                                    |> Option.filter (fun thumb ->
+                                                        block.Generation
+                                                        |> Option.bind (fun g -> g.ReferenceAssetPath)
+                                                        |> Option.map ((<>) thumb)
+                                                        |> Option.defaultValue true)
+                                                    |> Option.map (fun _ ->
+                                                        Html.button [
+                                                            prop.type' "button"
+                                                            prop.className "w-full px-2 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent"
+                                                            prop.text "Use block thumbnail as reference"
+                                                            prop.onClick (fun _ -> dispatch UseThumbnailAsReference)
+                                                        ])
+                                                    |> Option.defaultValue Html.none
+                                                    Html.div [
+                                                        prop.children [
+                                                            Html.label [
+                                                                prop.className "block text-xs text-slate-500 mb-1"
+                                                                prop.text (
+                                                                    $"Reference strength: {formatFloat 2 model.ReferenceStrengthDraft} (lower = closer to photo; 0.5–0.6 to add props/outfits)"
+                                                                )
+                                                            ]
+                                                            Html.input [
+                                                                prop.type' "range"
+                                                                prop.min 0.15
+                                                                prop.max 0.65
+                                                                prop.step 0.05
+                                                                prop.className "w-full"
+                                                                prop.value (string model.ReferenceStrengthDraft)
+                                                                prop.onChange (fun (v: string) ->
+                                                                    match System.Double.TryParse v with
+                                                                    | true, n -> dispatch (SetReferenceStrength n)
+                                                                    | _ -> ())
+                                                            ]
+                                                        ]
+                                                    ]
                                                 ]
                                             ]
                                             Html.button [
                                                 prop.className "w-full px-3 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium disabled:opacity-50"
                                                 prop.disabled model.Generating
                                                 prop.text (
-                                                    if model.Generating then "Generating 3 variants…" else "Generate 3 thumbnail variants"
+                                                    if model.Generating then
+                                                        "Generating 3 variants…"
+                                                    else
+                                                        match block.Generation |> Option.bind (fun g -> g.ReferenceAssetPath) with
+                                                        | Some _ -> "Generate 3 thumbnails from reference (GPU)"
+                                                        | None -> "Generate 3 thumbnails (GPU)"
                                                 )
                                                 prop.onClick (fun _ -> dispatch GenerateThumbnail)
                                             ]
@@ -501,9 +824,20 @@ module StoryboardTimeline =
                                                 Html.div [
                                                     prop.className "space-y-2"
                                                     prop.children [
-                                                        Html.p [
-                                                            prop.className "text-xs text-slate-500"
-                                                            prop.text "Pick a variant"
+                                                        Html.div [
+                                                            prop.className "flex items-center justify-between gap-2"
+                                                            prop.children [
+                                                                Html.p [
+                                                                    prop.className "text-xs text-slate-500"
+                                                                    prop.text "Pick a variant"
+                                                                ]
+                                                                Html.button [
+                                                                    prop.type' "button"
+                                                                    prop.className "text-xs text-accent hover:underline"
+                                                                    prop.text "Compare large…"
+                                                                    prop.onClick (fun _ -> dispatch OpenVariantModal)
+                                                                ]
+                                                            ]
                                                         ]
                                                         Html.div [
                                                             prop.className "grid grid-cols-3 gap-2"
@@ -515,7 +849,10 @@ module StoryboardTimeline =
                                                                         |> Option.map ((=) path)
                                                                         |> Option.defaultValue (vi = 0)
 
+                                                                    let src, imgKey = mediaPreviewSrc model path
+
                                                                     Html.button [
+                                                                        prop.key imgKey
                                                                         prop.type' "button"
                                                                         prop.className (
                                                                             "aspect-video rounded border overflow-hidden "
@@ -525,12 +862,12 @@ module StoryboardTimeline =
                                                                                    "border-surface-border hover:border-accent/60")
                                                                         )
                                                                         prop.onClick (fun _ -> dispatch (SelectThumbnailVariant path))
+                                                                        prop.onDoubleClick (fun _ -> dispatch OpenVariantModal)
                                                                         prop.children [
                                                                             Html.img [
+                                                                                prop.key imgKey
                                                                                 prop.className "w-full h-full object-cover"
-                                                                                prop.src (
-                                                                                    previewMediaUrl model.Project.Id path (mediaCacheBust model.Project)
-                                                                                )
+                                                                                prop.src src
                                                                                 prop.alt $"Variant {vi + 1}"
                                                                             ]
                                                                         ]
@@ -560,7 +897,7 @@ module StoryboardTimeline =
                                                     ]
                                                     Html.p [
                                                         prop.className "mt-1 text-xs text-slate-500"
-                                                        prop.text "Per-block transition override for mockup preview and bake."
+                                                        prop.text "Crossfade between blocks in Ken Burns preview and bake export."
                                                     ]
                                                 ]
                                             ]
@@ -637,6 +974,14 @@ module StoryboardTimeline =
                         |> Option.defaultValue Html.none
                     ]
                 ]
+                match model.VariantModal, selected with
+                | Some _, Some block ->
+                    block.Generation
+                    |> Option.bind (fun g -> g.ThumbnailVariants)
+                    |> Option.filter (fun vs -> vs.Length > 1)
+                    |> Option.map (fun variants -> variantModalView model block variants dispatch)
+                    |> Option.defaultValue Html.none
+                | _ -> Html.none
             ]
         ]
 
@@ -650,16 +995,33 @@ module StoryboardTimeline =
         { model with Project = reorder model.Project blockId 1 }
 
     let withProject project model =
+        selectBlock
+            { model with
+                Project = project
+                Saving = false
+                Generating = false
+                Error = None }
+            model.SelectedBlockId
+
+    let withProjectAfterGenerate project model =
+        let revision = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+
         let model' =
             selectBlock
                 { model with
                     Project = project
                     Saving = false
                     Generating = false
-                    Error = None }
+                    Error = None
+                    MediaRevision = revision }
                 model.SelectedBlockId
 
-        model'
+        match selectedBlock model' with
+        | Some block ->
+            match block.Generation |> Option.bind (fun g -> g.ThumbnailVariants) with
+            | Some vs when vs.Length > 1 -> { model' with VariantModal = Some Compare }
+            | _ -> model'
+        | None -> model'
 
     let withSharePack sharePack model =
         { model with SharePack = Some sharePack; Saving = false; Error = None }

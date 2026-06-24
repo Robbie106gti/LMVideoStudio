@@ -1,14 +1,17 @@
 import { Record, Union } from "../fable_modules/fable-library-js.4.27.0/Types.js";
-import { record_type, bool_type, option_type, union_type, string_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
+import { record_type, list_type, bool_type, option_type, union_type, string_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
 import { ConnectedAccountsDto_$reflection, ModelStatusDto_$reflection, SystemStatusDto_$reflection } from "../Api.js";
+import { builtIn, loadCustom, QuickButton_$reflection } from "../PromptQuickButtons.js";
 import { createObj, equals } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { readConsent } from "../ErrorReporting.js";
 import { createElement } from "react";
 import { empty, singleton, append, delay, toList } from "../fable_modules/fable-library-js.4.27.0/Seq.js";
-import { tryFind, map as map_1, ofArray } from "../fable_modules/fable-library-js.4.27.0/List.js";
+import { tryFind, singleton as singleton_1, isEmpty, map as map_1, ofArray } from "../fable_modules/fable-library-js.4.27.0/List.js";
 import { Interop_reactApi } from "../fable_modules/Feliz.2.6.0/Interop.fs.js";
 import { orElse, bind, map, defaultArg } from "../fable_modules/fable-library-js.4.27.0/Option.js";
+import { formatVramGb } from "../FormatHelpers.js";
 import { defaultOf } from "../fable_modules/fable-library-js.4.27.0/Util.js";
+import { isNullOrWhiteSpace } from "../fable_modules/fable-library-js.4.27.0/String.js";
 
 export class SettingsMsg extends Union {
     constructor(tag, fields) {
@@ -17,16 +20,16 @@ export class SettingsMsg extends Union {
         this.fields = fields;
     }
     cases() {
-        return ["CheckUpdates", "RunBootstrap", "ScanConflicts", "RepairSetup", "RefreshModelStatus", "SyncModelsCheck", "SyncModelsPull", "DismissFirstRun", "CloseProject", "ToggleErrorReportingConsent", "FlushErrorReports", "SendPendingErrorReport", "RefreshConnectedAccounts", "ConnectOAuth", "DisconnectOAuth"];
+        return ["CheckUpdates", "RunBootstrap", "ScanConflicts", "RepairSetup", "RefreshModelStatus", "SyncModelsCheck", "SyncModelsPull", "DismissFirstRun", "CloseProject", "ToggleErrorReportingConsent", "FlushErrorReports", "SendPendingErrorReport", "RefreshConnectedAccounts", "ConnectOAuth", "DisconnectOAuth", "SetQuickButtonLabel", "SetQuickButtonPrompt", "AddQuickButton", "RemoveQuickButton"];
     }
 }
 
 export function SettingsMsg_$reflection() {
-    return union_type("LMVideoStudio.Client.Views.Settings.SettingsMsg", [], SettingsMsg, () => [[], [], [], [], [], [], [], [], [], [], [], [], [], [["Item", string_type]], [["Item", string_type]]]);
+    return union_type("LMVideoStudio.Client.Views.Settings.SettingsMsg", [], SettingsMsg, () => [[], [], [], [], [], [], [], [], [], [], [], [], [], [["Item", string_type]], [["Item", string_type]], [["Item", string_type]], [["Item", string_type]], [], [["Item", string_type]]]);
 }
 
 export class SettingsModel extends Record {
-    constructor(Status, ModelStatus, Message, CheckingUpdates, SyncingModels, ShowFirstRunBanner, ErrorReportingConsent, ErrorReportingBusy, ConnectedAccounts, OAuthBusy) {
+    constructor(Status, ModelStatus, Message, CheckingUpdates, SyncingModels, ShowFirstRunBanner, ErrorReportingConsent, ErrorReportingBusy, ConnectedAccounts, OAuthBusy, QuickButtonsCustom, QuickButtonLabelDraft, QuickButtonPromptDraft) {
         super();
         this.Status = Status;
         this.ModelStatus = ModelStatus;
@@ -38,11 +41,14 @@ export class SettingsModel extends Record {
         this.ErrorReportingBusy = ErrorReportingBusy;
         this.ConnectedAccounts = ConnectedAccounts;
         this.OAuthBusy = OAuthBusy;
+        this.QuickButtonsCustom = QuickButtonsCustom;
+        this.QuickButtonLabelDraft = QuickButtonLabelDraft;
+        this.QuickButtonPromptDraft = QuickButtonPromptDraft;
     }
 }
 
 export function SettingsModel_$reflection() {
-    return record_type("LMVideoStudio.Client.Views.Settings.SettingsModel", [], SettingsModel, () => [["Status", option_type(SystemStatusDto_$reflection())], ["ModelStatus", option_type(ModelStatusDto_$reflection())], ["Message", option_type(string_type)], ["CheckingUpdates", bool_type], ["SyncingModels", bool_type], ["ShowFirstRunBanner", bool_type], ["ErrorReportingConsent", bool_type], ["ErrorReportingBusy", bool_type], ["ConnectedAccounts", option_type(ConnectedAccountsDto_$reflection())], ["OAuthBusy", option_type(string_type)]]);
+    return record_type("LMVideoStudio.Client.Views.Settings.SettingsModel", [], SettingsModel, () => [["Status", option_type(SystemStatusDto_$reflection())], ["ModelStatus", option_type(ModelStatusDto_$reflection())], ["Message", option_type(string_type)], ["CheckingUpdates", bool_type], ["SyncingModels", bool_type], ["ShowFirstRunBanner", bool_type], ["ErrorReportingConsent", bool_type], ["ErrorReportingBusy", bool_type], ["ConnectedAccounts", option_type(ConnectedAccountsDto_$reflection())], ["OAuthBusy", option_type(string_type)], ["QuickButtonsCustom", list_type(QuickButton_$reflection())], ["QuickButtonLabelDraft", string_type], ["QuickButtonPromptDraft", string_type]]);
 }
 
 const Settings_bootstrapDoneKey = "lmvs_bootstrap_done";
@@ -84,7 +90,7 @@ function Settings_isMicrosoftStoreBuild() {
 }
 
 export function Settings_init() {
-    return new SettingsModel(undefined, undefined, undefined, false, false, !Settings_readBootstrapDone(), readConsent(), false, undefined, undefined);
+    return new SettingsModel(undefined, undefined, undefined, false, false, !Settings_readBootstrapDone(), readConsent(), false, undefined, undefined, loadCustom(), "", "");
 }
 
 export function Settings_markBootstrapStarted() {
@@ -96,13 +102,13 @@ export function Settings_markBootstrapStarted() {
 }
 
 export function Settings_view(model, dispatch) {
-    let elems_15;
-    return createElement("div", createObj(ofArray([["className", "max-w-xl mx-auto p-8 space-y-6"], (elems_15 = toList(delay(() => append(singleton(createElement("h1", {
+    let elems_21;
+    return createElement("div", createObj(ofArray([["className", "max-w-xl mx-auto p-8 space-y-6"], (elems_21 = toList(delay(() => append(singleton(createElement("h1", {
         className: "text-2xl font-bold",
         children: "Settings",
     })), delay(() => {
         let value_8;
-        return append(singleton(createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_8 = "Mockup export uses CPU (FFmpeg libx264). AI thumbnails and upscale use GPU (Python worker / ROCm). Check Task Manager GPU tab during Generate, not during mockup refresh.", ["children", value_8])])))), delay(() => {
+        return append(singleton(createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_8 = "Generate thumbnails uses GPU (Stable Diffusion). Stitch Ken Burns preview and bake export use CPU (FFmpeg). Preview is a timing check on stills, not AI video.", ["children", value_8])])))), delay(() => {
             let elems_1, elems;
             return append(model.ShowFirstRunBanner ? singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-accent/40 bg-accent/10 p-4 space-y-3"], (elems_1 = [createElement("p", {
                 className: "text-sm",
@@ -136,7 +142,7 @@ export function Settings_view(model, dispatch) {
                         let rocm;
                         const matchValue = d.Rocm;
                         rocm = ((matchValue == null) ? "GPU status unknown" : (matchValue ? "ROCm/CUDA active" : "CPU only (no GPU)"));
-                        const vram = defaultArg(map((gb) => (`%P(F1) GB VRAM`), d.VramGb), "VRAM unknown");
+                        const vram = defaultArg(map(formatVramGb, d.VramGb), "VRAM unknown");
                         return createElement("div", {
                             children: `Worker GPU: ${defaultArg(d.DeviceName, "GPU device unknown")} — ${rocm}, ${vram}`,
                         });
@@ -215,95 +221,150 @@ export function Settings_view(model, dispatch) {
                             dispatch(new SettingsMsg(11, []));
                         },
                     })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_8))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_9))])])))), delay(() => {
-                        let elems_13, value_151, elems_12;
-                        return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-3"], (elems_13 = [createElement("h2", {
-                            className: "text-sm font-semibold text-slate-300",
-                            children: "Social upload (OAuth)",
-                        }), createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_151 = "Optional direct upload to YouTube and Meta (Facebook Page). Copy-to-clipboard and open-upload assist work without OAuth. Configure config/social-oauth.json from the example file.", ["children", value_151])]))), defaultArg(map((dto) => {
-                            let value_155;
-                            if (!dto.Configured) {
-                                return createElement("p", createObj(ofArray([["className", "text-xs text-amber-400/90"], (value_155 = "OAuth apps not configured — copy config/social-oauth.json.example to config/social-oauth.json and add your client IDs.", ["children", value_155])])));
-                            }
-                            else {
-                                return defaultOf();
-                            }
-                        }, model.ConnectedAccounts), createElement("p", {
-                            className: "text-xs text-slate-500",
-                            children: "Loading connection status…",
-                        })), createElement("div", createObj(ofArray([["className", "grid gap-2 sm:grid-cols-2"], (elems_12 = toList(delay(() => map_1((tupledArg) => {
-                            let elems_11, elems_10;
-                            const provider = tupledArg[0];
-                            const account = bind((dto_1) => tryFind((a) => (a.Provider === provider), dto_1.Accounts), model.ConnectedAccounts);
-                            const connected = defaultArg(map((a_1) => a_1.Connected, account), false);
-                            const name_80 = defaultArg(bind((a_2) => orElse(a_2.AccountName, a_2.PageName), account), "Not connected");
-                            const busy = equals(model.OAuthBusy, provider);
-                            return createElement("div", createObj(ofArray([["className", "rounded-md border border-surface-border p-3 space-y-2"], (elems_11 = [createElement("div", {
-                                className: "text-sm font-medium text-slate-200",
-                                children: tupledArg[1],
-                            }), createElement("p", {
-                                className: "text-xs text-slate-500 truncate",
-                                children: connected ? (`Connected: ${name_80}`) : "Not connected",
-                            }), createElement("div", createObj(ofArray([["className", "flex gap-2"], (elems_10 = toList(delay(() => {
-                                let value_185;
-                                return append(connected ? singleton(createElement("button", {
-                                    className: "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent disabled:opacity-50",
-                                    disabled: busy,
-                                    children: busy ? "Working…" : "Disconnect",
-                                    onClick: (_arg_7) => {
-                                        dispatch(new SettingsMsg(14, [provider]));
+                        let elems_15;
+                        return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-3"], (elems_15 = toList(delay(() => append(singleton(createElement("h2", {
+                            className: "text-sm font-semibold",
+                            children: "Image prompt quick buttons",
+                        })), delay(() => {
+                            let value_151;
+                            return append(singleton(createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_151 = "Custom shortcuts appear in the block inspector next to built-in shot presets (establishing, close-up, etc.). Stored locally in this browser.", ["children", value_151])])))), delay(() => {
+                                let elems_10;
+                                return append(singleton(createElement("div", createObj(ofArray([["className", "flex flex-wrap gap-1.5"], (elems_10 = map_1((qb) => createElement("span", {
+                                    className: "px-2 py-1 rounded-md bg-surface border border-surface-border text-xs text-slate-400",
+                                    title: qb.Prompt,
+                                    children: `${qb.Label} (built-in)`,
+                                }), builtIn), ["children", Interop_reactApi.Children.toArray(Array.from(elems_10))])])))), delay(() => {
+                                    let elems_13;
+                                    return append(isEmpty(model.QuickButtonsCustom) ? singleton(createElement("p", {
+                                        className: "text-xs text-slate-500",
+                                        children: "No custom quick buttons yet.",
+                                    })) : singleton(createElement("ul", createObj(ofArray([["className", "space-y-2 text-sm"], (elems_13 = map_1((qb_1) => {
+                                        let elems_12, elems_11, value_179;
+                                        return createElement("li", createObj(ofArray([["className", "flex items-start justify-between gap-2 rounded-md border border-surface-border px-3 py-2"], (elems_12 = [createElement("div", createObj(singleton_1((elems_11 = [createElement("div", {
+                                            className: "font-medium text-slate-200",
+                                            children: qb_1.Label,
+                                        }), createElement("p", {
+                                            className: "text-xs text-slate-500 mt-0.5 line-clamp-2",
+                                            children: qb_1.Prompt,
+                                        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_11))])))), createElement("button", createObj(ofArray([(value_179 = "shrink-0 px-2 py-1 rounded-md border border-surface-border text-xs hover:border-red-400 hover:text-red-300", ["className", value_179]), ["children", "Remove"], ["onClick", (_arg_7) => {
+                                            dispatch(new SettingsMsg(18, [qb_1.Label]));
+                                        }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_12))])])));
+                                    }, model.QuickButtonsCustom), ["children", Interop_reactApi.Children.toArray(Array.from(elems_13))])])))), delay(() => {
+                                        let elems_14;
+                                        return append(singleton(createElement("div", createObj(ofArray([["className", "grid gap-2 sm:grid-cols-2"], (elems_14 = [createElement("input", {
+                                            className: "rounded-md bg-surface border border-surface-border px-3 py-2 text-sm",
+                                            placeholder: "Button label",
+                                            value: model.QuickButtonLabelDraft,
+                                            onChange: (ev_1) => {
+                                                dispatch(new SettingsMsg(15, [ev_1.target.value]));
+                                            },
+                                        }), createElement("input", {
+                                            className: "rounded-md bg-surface border border-surface-border px-3 py-2 text-sm sm:col-span-2",
+                                            placeholder: "Prompt text to insert",
+                                            value: model.QuickButtonPromptDraft,
+                                            onChange: (ev_2) => {
+                                                dispatch(new SettingsMsg(16, [ev_2.target.value]));
+                                            },
+                                        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_14))])])))), delay(() => {
+                                            let value_203;
+                                            return singleton(createElement("button", createObj(ofArray([(value_203 = "px-3 py-2 rounded-md border border-accent text-accent text-sm hover:bg-accent/10 disabled:opacity-50", ["className", value_203]), ["disabled", isNullOrWhiteSpace(model.QuickButtonLabelDraft) ? true : isNullOrWhiteSpace(model.QuickButtonPromptDraft)], ["children", "Add quick button"], ["onClick", (_arg_8) => {
+                                                dispatch(new SettingsMsg(17, []));
+                                            }]]))));
+                                        }));
+                                    }));
+                                }));
+                            }));
+                        })))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_15))])])))), delay(() => {
+                            let elems_19, value_219, elems_18;
+                            return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-3"], (elems_19 = [createElement("h2", {
+                                className: "text-sm font-semibold text-slate-300",
+                                children: "Social upload (OAuth)",
+                            }), createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_219 = "Optional direct upload to YouTube and Meta (Facebook Page). Copy-to-clipboard and open-upload assist work without OAuth. Configure config/social-oauth.json from the example file.", ["children", value_219])]))), defaultArg(map((dto) => {
+                                let value_223;
+                                if (!dto.Configured) {
+                                    return createElement("p", createObj(ofArray([["className", "text-xs text-amber-400/90"], (value_223 = "OAuth apps not configured — copy config/social-oauth.json.example to config/social-oauth.json and add your client IDs.", ["children", value_223])])));
+                                }
+                                else {
+                                    return defaultOf();
+                                }
+                            }, model.ConnectedAccounts), createElement("p", {
+                                className: "text-xs text-slate-500",
+                                children: "Loading connection status…",
+                            })), createElement("div", createObj(ofArray([["className", "grid gap-2 sm:grid-cols-2"], (elems_18 = toList(delay(() => map_1((tupledArg) => {
+                                let elems_17, elems_16;
+                                const provider = tupledArg[0];
+                                const account = bind((dto_1) => tryFind((a) => (a.Provider === provider), dto_1.Accounts), model.ConnectedAccounts);
+                                const connected = defaultArg(map((a_1) => a_1.Connected, account), false);
+                                const name_112 = defaultArg(bind((a_2) => orElse(a_2.AccountName, a_2.PageName), account), "Not connected");
+                                const busy = equals(model.OAuthBusy, provider);
+                                return createElement("div", createObj(ofArray([["className", "rounded-md border border-surface-border p-3 space-y-2"], (elems_17 = [createElement("div", {
+                                    className: "text-sm font-medium text-slate-200",
+                                    children: tupledArg[1],
+                                }), createElement("p", {
+                                    className: "text-xs text-slate-500 truncate",
+                                    children: connected ? (`Connected: ${name_112}`) : "Not connected",
+                                }), createElement("div", createObj(ofArray([["className", "flex gap-2"], (elems_16 = toList(delay(() => {
+                                    let value_253;
+                                    return append(connected ? singleton(createElement("button", {
+                                        className: "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent disabled:opacity-50",
+                                        disabled: busy,
+                                        children: busy ? "Working…" : "Disconnect",
+                                        onClick: (_arg_9) => {
+                                            dispatch(new SettingsMsg(14, [provider]));
+                                        },
+                                    })) : singleton(createElement("button", createObj(ofArray([(value_253 = "px-3 py-1.5 rounded-md border border-accent text-accent text-xs hover:bg-accent/10 disabled:opacity-50", ["className", value_253]), ["disabled", busy], ["children", busy ? "Opening…" : "Connect"], ["onClick", (_arg_10) => {
+                                        dispatch(new SettingsMsg(13, [provider]));
+                                    }]])))), delay(() => singleton(createElement("button", {
+                                        className: "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent",
+                                        children: "Refresh",
+                                        onClick: (_arg_11) => {
+                                            dispatch(new SettingsMsg(12, []));
+                                        },
+                                    }))));
+                                })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_16))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_17))])])));
+                            }, ofArray([["youtube", "YouTube"], ["meta", "Meta (Facebook Page)"]])))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_18))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_19))])])))), delay(() => {
+                                let elems_20, btn;
+                                return append(singleton(createElement("div", createObj(ofArray([["className", "flex flex-col gap-2"], (elems_20 = [createElement("button", {
+                                    className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                    children: "Close project",
+                                    onClick: (_arg_12) => {
+                                        dispatch(new SettingsMsg(8, []));
                                     },
-                                })) : singleton(createElement("button", createObj(ofArray([(value_185 = "px-3 py-1.5 rounded-md border border-accent text-accent text-xs hover:bg-accent/10 disabled:opacity-50", ["className", value_185]), ["disabled", busy], ["children", busy ? "Opening…" : "Connect"], ["onClick", (_arg_8) => {
-                                    dispatch(new SettingsMsg(13, [provider]));
-                                }]])))), delay(() => singleton(createElement("button", {
-                                    className: "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent",
-                                    children: "Refresh",
-                                    onClick: (_arg_9) => {
-                                        dispatch(new SettingsMsg(12, []));
+                                }), (btn = createElement("button", {
+                                    className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                    children: "Check for updates",
+                                    disabled: model.CheckingUpdates,
+                                    onClick: (_arg_13) => {
+                                        dispatch(new SettingsMsg(0, []));
                                     },
-                                }))));
-                            })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_10))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_11))])])));
-                        }, ofArray([["youtube", "YouTube"], ["meta", "Meta (Facebook Page)"]])))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_12))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_13))])])))), delay(() => {
-                            let elems_14, btn;
-                            return append(singleton(createElement("div", createObj(ofArray([["className", "flex flex-col gap-2"], (elems_14 = [createElement("button", {
-                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                                children: "Close project",
-                                onClick: (_arg_10) => {
-                                    dispatch(new SettingsMsg(8, []));
-                                },
-                            }), (btn = createElement("button", {
-                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                                children: "Check for updates",
-                                disabled: model.CheckingUpdates,
-                                onClick: (_arg_11) => {
-                                    dispatch(new SettingsMsg(0, []));
-                                },
-                            }), Settings_isMicrosoftStoreBuild() ? defaultOf() : btn), createElement("button", {
-                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                                children: "Run bootstrap",
-                                onClick: (_arg_12) => {
-                                    dispatch(new SettingsMsg(1, []));
-                                },
-                            }), createElement("button", {
-                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                                children: "Repair setup",
-                                onClick: (_arg_13) => {
-                                    dispatch(new SettingsMsg(3, []));
-                                },
-                            }), createElement("button", {
-                                className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
-                                children: "Scan GPU conflicts",
-                                onClick: (_arg_14) => {
-                                    dispatch(new SettingsMsg(2, []));
-                                },
-                            })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_14))])])))), delay(() => singleton(defaultArg(map((m_1) => createElement("p", {
-                                className: "text-sm text-slate-400",
-                                children: m_1,
-                            }), model.Message), defaultOf()))));
+                                }), Settings_isMicrosoftStoreBuild() ? defaultOf() : btn), createElement("button", {
+                                    className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                    children: "Run bootstrap",
+                                    onClick: (_arg_14) => {
+                                        dispatch(new SettingsMsg(1, []));
+                                    },
+                                }), createElement("button", {
+                                    className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                    children: "Repair setup",
+                                    onClick: (_arg_15) => {
+                                        dispatch(new SettingsMsg(3, []));
+                                    },
+                                }), createElement("button", {
+                                    className: "px-4 py-2 rounded-md border border-surface-border text-left hover:border-accent",
+                                    children: "Scan GPU conflicts",
+                                    onClick: (_arg_16) => {
+                                        dispatch(new SettingsMsg(2, []));
+                                    },
+                                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_20))])])))), delay(() => singleton(defaultArg(map((m_1) => createElement("p", {
+                                    className: "text-sm text-slate-400",
+                                    children: m_1,
+                                }), model.Message), defaultOf()))));
+                            }));
                         }));
                     }));
                 }));
             }))));
         }));
-    })))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_15))])])));
+    })))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_21))])])));
 }
 

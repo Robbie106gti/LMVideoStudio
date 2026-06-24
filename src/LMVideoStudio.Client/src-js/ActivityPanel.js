@@ -2,13 +2,13 @@ import { Record } from "./fable_modules/fable-library-js.4.27.0/Types.js";
 import { JobEventDto_$reflection } from "./Api.js";
 import { record_type, option_type, bool_type, list_type } from "./fable_modules/fable-library-js.4.27.0/Reflection.js";
 import { LastErrorSummary_$reflection } from "./ErrorReporting.js";
-import { map as map_2, isEmpty, ofArray, tryFind, empty, mapIndexed, cons, tryFindIndex, truncate, filter } from "./fable_modules/fable-library-js.4.27.0/List.js";
+import { map as map_1, isEmpty, ofArray, tryFind, empty, mapIndexed, cons, tryFindIndex, truncate, filter } from "./fable_modules/fable-library-js.4.27.0/List.js";
 import { createObj, equals, equalArrays } from "./fable_modules/fable-library-js.4.27.0/Util.js";
-import { map as map_1, defaultArg, toArray, orElse } from "./fable_modules/fable-library-js.4.27.0/Option.js";
-import { replace, split, substring, join } from "./fable_modules/fable-library-js.4.27.0/String.js";
-import { map } from "./fable_modules/fable-library-js.4.27.0/Array.js";
+import { activityPhaseTitle } from "./JobUiLabels.js";
 import { singleton, append, delay, toList, iterate } from "./fable_modules/fable-library-js.4.27.0/Seq.js";
+import { map, defaultArg, toArray } from "./fable_modules/fable-library-js.4.27.0/Option.js";
 import { op_Division, toInt64 } from "./fable_modules/fable-library-js.4.27.0/BigInt.js";
+import { join } from "./fable_modules/fable-library-js.4.27.0/String.js";
 import { createElement } from "react";
 import { Interop_reactApi } from "./fable_modules/Feliz.2.6.0/Interop.fs.js";
 import { defaultOf } from "./fable_modules/fable-library-js.4.27.0/Util.js";
@@ -56,7 +56,7 @@ function eventKey(e) {
  */
 export function mergeEvent(incoming, events) {
     let matchValue, index;
-    const withoutStaleRunning = filter((e) => !((((e.JobId === incoming.JobId) && (e.Phase === incoming.Phase)) && isActiveStatus(e.Status)) && (isTerminalStatus(incoming.Status) ? true : (isActiveStatus(incoming.Status) && (e.Step !== incoming.Step)))), events);
+    const withoutStaleRunning = filter((e) => !(((isTerminalStatus(incoming.Status) && (e.JobId === incoming.JobId)) && isActiveStatus(e.Status)) ? true : ((((e.JobId === incoming.JobId) && (e.Phase === incoming.Phase)) && isActiveStatus(e.Status)) && (isTerminalStatus(incoming.Status) ? true : (isActiveStatus(incoming.Status) && (e.Step !== incoming.Step))))), events);
     return truncate(maxEvents, (matchValue = tryFindIndex((e_1) => equalArrays(eventKey(e_1), eventKey(incoming)), withoutStaleRunning), (matchValue == null) ? cons(incoming, withoutStaleRunning) : ((index = (matchValue | 0), mapIndexed((i, e_2) => {
         if (i === index) {
             return incoming;
@@ -76,60 +76,27 @@ export function setLastError(state, summary) {
 }
 
 /**
+ * Newest still-running job for the footer hint (events are newest-first).
+ */
+export function activeJobHint(events) {
+    return tryFind((e) => {
+        if (isActiveStatus(e.Status)) {
+            return !((e.Phase === "mockup_preview") && equals(e.Hardware, "gpu"));
+        }
+        else {
+            return false;
+        }
+    }, events);
+}
+
+/**
  * Most recent running GPU/bootstrap job for status bar hints.
  */
 export function activeGpuHint(events) {
-    return orElse(tryFind((e) => {
-        if (isActiveStatus(e.Status)) {
-            return equals(e.Hardware, "gpu");
-        }
-        else {
-            return false;
-        }
-    }, events), tryFind((e_1) => {
-        if (isActiveStatus(e_1.Status)) {
-            if ((e_1.Phase === "bootstrap") ? true : (e_1.Phase === "image_generate")) {
-                return true;
-            }
-            else {
-                return e_1.Phase === "audio_generate";
-            }
-        }
-        else {
-            return false;
-        }
-    }, events));
+    return activeJobHint(events);
 }
 
-function titleCaseWords(s) {
-    return join(" ", map((w) => {
-        if (w.length === 0) {
-            return w;
-        }
-        else {
-            return substring(w, 0, 1).toUpperCase() + substring(w, 1).toLowerCase();
-        }
-    }, split(s, [" "], undefined, 0)));
-}
-
-function formatPhase(phase) {
-    switch (phase) {
-        case "mockup_preview":
-            return "Mockup preview (CPU FFmpeg)";
-        case "image_generate":
-            return "Image generate (GPU worker)";
-        case "model_sync":
-            return "Model sync";
-        case "bootstrap":
-            return "Bootstrap";
-        case "bake":
-            return "Bake";
-        case "audio_generate":
-            return "Voiceover (GPU queue)";
-        default:
-            return titleCaseWords(replace(phase, "_", " "));
-    }
-}
+const formatPhase = activityPhaseTitle;
 
 function statusClass(status) {
     switch (status) {
@@ -195,7 +162,7 @@ export function view(state) {
         return append(singleton(createElement("div", createObj(ofArray([(value_2 = "px-4 py-3 border-b border-surface-border font-semibold text-sm uppercase tracking-wide text-slate-400", ["className", value_2]), ["children", "Activity"]])))), delay(() => append(singleton(createElement("div", {
             className: "px-4 py-2 text-xs text-slate-500 border-b border-surface-border",
             children: state.Connected ? "Listening to Host events (SSE)" : "Connecting to event stream…",
-        })), delay(() => append(singleton(defaultArg(map_1((err) => {
+        })), delay(() => append(singleton(defaultArg(map((err) => {
             let elems;
             return createElement("div", createObj(ofArray([["className", "px-4 py-2 text-xs border-b border-red-500/30 bg-red-500/10 text-red-300"], (elems = [createElement("div", {
                 className: "font-semibold mb-1",
@@ -208,7 +175,7 @@ export function view(state) {
             return isEmpty(state.Events) ? singleton(createElement("p", {
                 className: "px-4 py-3 text-sm text-slate-500",
                 children: "No recent activity.",
-            })) : singleton(createElement("ul", createObj(ofArray([["className", "flex-1 overflow-y-auto p-3 space-y-2 text-sm"], (elems_3 = map_2((e) => {
+            })) : singleton(createElement("ul", createObj(ofArray([["className", "flex-1 overflow-y-auto p-3 space-y-2 text-sm"], (elems_3 = map_1((e) => {
                 let elems_2, elems_1;
                 return createElement("li", createObj(ofArray([["className", "rounded-md bg-surface p-2 border border-surface-border"], (elems_2 = [createElement("div", createObj(ofArray([["className", "text-xs mb-1 flex items-center justify-between gap-2"], (elems_1 = [createElement("span", {
                     className: "text-slate-500 truncate",
@@ -218,7 +185,7 @@ export function view(state) {
                     children: statusLabel(e.Status),
                 })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_1))])]))), createElement("div", {
                     children: e.Message,
-                }), defaultArg(map_1((meta) => createElement("div", {
+                }), defaultArg(map((meta) => createElement("div", {
                     className: "text-[10px] text-slate-500 mt-1 uppercase tracking-wide",
                     children: meta,
                 }), formatMeta(e)), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems_2))])])));

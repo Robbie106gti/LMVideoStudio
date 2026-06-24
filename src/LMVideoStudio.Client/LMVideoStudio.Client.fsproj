@@ -30,6 +30,14 @@
 
     <Compile Include="Api.fs" />
 
+    <Compile Include="FormatHelpers.fs" />
+
+    <Compile Include="JobUiLabels.fs" />
+
+    <Compile Include="AppNavigation.fs" />
+
+    <Compile Include="PromptQuickButtons.fs" />
+
     <Compile Include="ActivityPanel.fs" />
 
     <Compile Include="Views/ProjectHub.fs" />

@@ -75,7 +75,8 @@ def torch_device_info() -> dict[str, Any]:
     if cuda_available:
         props = torch.cuda.get_device_properties(0)
         info["device_name"] = torch.cuda.get_device_name(0)
-        info["vram_gb"] = round(props.total_memory / 1e9, 1)
+        # PyTorch reports bytes; use GiB (1024^3) so a "16 GB" card shows 16, not ~17 from / 1e9.
+        info["vram_gb"] = round(props.total_memory / (1024**3), 1)
     elif mps_available:
         info["device_name"] = "Apple Metal (MPS)"
     return info

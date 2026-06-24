@@ -3,6 +3,8 @@ module LMVideoStudio.Client.Views.Shell
 open Feliz
 open LMVideoStudio.Client.Api
 open LMVideoStudio.Client.ActivityPanel
+open LMVideoStudio.Client.FormatHelpers
+open LMVideoStudio.Client.JobUiLabels
 
 type ShellTab =
     | Hub
@@ -26,18 +28,11 @@ module Shell =
           Activity = activity
           SystemStatus = None }
 
-    let private formatPhase phase =
-        match phase with
-        | "mockup_preview" -> "Preview"
-        | "image_generate" -> "Generate"
-        | "bootstrap" -> "Bootstrap"
-        | "bake" -> "Bake"
-        | "audio_generate" -> "Voiceover"
-        | other -> other.Replace('_', ' ')
+    let private formatPhase = footerPhaseTitle
 
     let statusBar (status: SystemStatusDto option) (activity: ActivityPanelState) =
-        let gpuJob =
-            activeGpuHint activity.Events
+        let jobHint =
+            activeJobHint activity.Events
             |> Option.map (fun e ->
                 let cold =
                     e.IsColdRun
@@ -63,7 +58,7 @@ module Shell =
                         s.WorkerDevice
                         |> Option.bind (fun d ->
                             if d.Rocm = Some true then
-                                d.VramGb |> Option.map (fun gb -> $"GPU {gb:F0}GB · {warmup}")
+                                d.VramGb |> Option.map (fun gb -> $"{formatGpuStatusGb gb} · {warmup}")
                             else
                                 None)
 
@@ -76,7 +71,7 @@ module Shell =
                         )
                     ])
                 |> Option.defaultValue (Html.span [ prop.className "shrink-0"; prop.text "Host —" ])
-                gpuJob
+                jobHint
                 |> Option.map (fun text ->
                     Html.span [
                         prop.className "truncate text-amber-400/90"

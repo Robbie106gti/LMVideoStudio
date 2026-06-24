@@ -252,6 +252,35 @@ export function getProject(projectId) {
     }));
 }
 
+function extractProjectJsonField(text) {
+    try {
+        const doc = JSON.parse(text);
+        return doc.projectJson;
+    }
+    catch (matchValue) {
+        try {
+            const doc_1 = JSON.parse(text);
+            return JSON.stringify(doc_1.projectJson);
+        }
+        catch (matchValue_1) {
+            return undefined;
+        }
+    }
+}
+
+function decodeProjectFromResponse(text, projectId) {
+    return singleton.Delay(() => {
+        const matchValue = extractProjectJsonField(text);
+        if (matchValue == null) {
+            return singleton.ReturnFrom(getProject(projectId));
+        }
+        else {
+            const matchValue_1 = decodeProject(matchValue);
+            return (matchValue_1.tag === 1) ? singleton.ReturnFrom(getProject(projectId)) : singleton.Return(new FSharpResult$2(0, [matchValue_1.fields[0]]));
+        }
+    });
+}
+
 export function deleteProject(projectId) {
     return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}`, "DELETE", undefined), (_arg) => {
         const text = _arg[1];
@@ -339,32 +368,13 @@ export function runRepair() {
     return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/system/repair`, "POST", ""), (_arg) => singleton.Return(undefined)));
 }
 
-export function generateBlockThumbnail(projectId, blockId, prompt, variantCount) {
+export function generateBlockThumbnail(projectId, blockId, prompt, variantCount, referenceStrength, useThumbnailAsReference) {
     return singleton.Delay(() => {
-        const body = toString(0, object_1(append(ofArray([["profile", "mockup"], ["variantCount", variantCount], ["upscale", true]]), defaultArg(map_1((p) => singleton_1(["prompt", p]), filter((arg) => !isNullOrWhiteSpace(arg), prompt)), empty()))));
+        const body = toString(0, object_1(append(ofArray([["profile", "mockup"], ["variantCount", variantCount], ["upscale", true], ["referenceStrength", referenceStrength], ["useThumbnailAsReference", useThumbnailAsReference]]), defaultArg(map_1((p) => singleton_1(["prompt", p]), filter((arg) => !isNullOrWhiteSpace(arg), prompt)), empty()))));
         return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}/generate`, "POST", body), (_arg) => {
             const text = _arg[1];
             const status = _arg[0] | 0;
-            if ((status >= 200) && (status < 300)) {
-                let projectJson;
-                try {
-                    const doc = JSON.parse(text);
-                    projectJson = doc.projectJson;
-                }
-                catch (matchValue) {
-                    projectJson = undefined;
-                }
-                if (projectJson == null) {
-                    return singleton.ReturnFrom(getProject(projectId));
-                }
-                else {
-                    const json = projectJson;
-                    return singleton.Return(decodeProject(json));
-                }
-            }
-            else {
-                return singleton.Return(new FSharpResult$2(1, [text]));
-            }
+            return ((status >= 200) && (status < 300)) ? singleton.ReturnFrom(decodeProjectFromResponse(text, projectId)) : singleton.Return(new FSharpResult$2(1, [text]));
         });
     });
 }
@@ -380,6 +390,46 @@ export function updateBlock(projectId, blockId, voiceoverScript, imagePrompt, cr
             return ((status >= 200) && (status < 300)) ? singleton.Return(decodeProject(text)) : singleton.Return(new FSharpResult$2(1, [text]));
         });
     });
+}
+
+function importBlockAssetResponse(projectId, status, text) {
+    return singleton.Delay(() => {
+        if (status === 0) {
+            return singleton.Return(new FSharpResult$2(1, [`Host request failed: ${text}`]));
+        }
+        else if ((status >= 200) && (status < 300)) {
+            let projectJson;
+            try {
+                const doc = JSON.parse(text);
+                projectJson = doc.projectJson;
+            }
+            catch (matchValue) {
+                projectJson = undefined;
+            }
+            if (projectJson == null) {
+                return singleton.ReturnFrom(getProject(projectId));
+            }
+            else {
+                const json = projectJson;
+                return singleton.Return(decodeProject(json));
+            }
+        }
+        else {
+            return singleton.Return(new FSharpResult$2(1, [text]));
+        }
+    });
+}
+
+export function importBlockReferenceImage(projectId, blockId, file) {
+    return singleton.Delay(() => singleton.TryWith(singleton.Delay(() => singleton.Bind(awaitPromise(importFile(`${hostBase()}/projects/${projectId}/blocks/${blockId}/reference-image/import`)(file)), (_arg) => singleton.ReturnFrom(importBlockAssetResponse(projectId, _arg[0], _arg[1])))), (_arg_1) => singleton.Return(new FSharpResult$2(1, [_arg_1.message]))));
+}
+
+export function useBlockThumbnailAsReference(projectId, blockId) {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}/reference-image/use-thumbnail`, "POST", ""), (_arg) => singleton.ReturnFrom(importBlockAssetResponse(projectId, _arg[0], _arg[1]))));
+}
+
+export function clearBlockReferenceImage(projectId, blockId) {
+    return singleton.Delay(() => singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}/reference-image`, "DELETE", undefined), (_arg) => singleton.ReturnFrom(importBlockAssetResponse(projectId, _arg[0], _arg[1]))));
 }
 
 export function importBlockAudio(projectId, blockId, file) {

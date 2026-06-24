@@ -664,6 +664,50 @@ module Program =
                     })
 
                 POST
+                >=> routef "/projects/%O/blocks/%O/reference-image/import" (fun (projectId: Guid, blockId: Guid) next ctx ->
+                    task {
+                        if not ctx.Request.HasFormContentType then
+                            do! writeJson ctx 400 (jsonObj {| error = "multipart form required" |})
+                        else
+                            let! form = ctx.Request.ReadFormAsync()
+                            let file = form.Files |> Seq.tryHead
+
+                            match file with
+                            | None -> do! writeJson ctx 400 (jsonObj {| error = "file required" |})
+                            | Some f ->
+                                use ms = new MemoryStream()
+                                do! f.CopyToAsync(ms)
+                                let bytes = ms.ToArray()
+
+                                match services.Store.ImportBlockReferenceImage(projectId, blockId, f.FileName, bytes) with
+                                | Ok(block, project) ->
+                                    do! writeJson ctx 201 (blockImportResponse block project)
+                                | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
+
+                        return! next ctx
+                    })
+
+                POST
+                >=> routef "/projects/%O/blocks/%O/reference-image/use-thumbnail" (fun (projectId: Guid, blockId: Guid) next ctx ->
+                    task {
+                        match services.Store.SetBlockReferenceFromThumbnail(projectId, blockId) with
+                        | Ok(block, project) -> do! writeJson ctx 200 (blockImportResponse block project)
+                        | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
+
+                        return! next ctx
+                    })
+
+                DELETE
+                >=> routef "/projects/%O/blocks/%O/reference-image" (fun (projectId: Guid, blockId: Guid) next ctx ->
+                    task {
+                        match services.Store.ClearBlockReferenceImage(projectId, blockId) with
+                        | Ok(block, project) -> do! writeJson ctx 200 (blockImportResponse block project)
+                        | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
+
+                        return! next ctx
+                    })
+
+                POST
                 >=> routef "/projects/%O/preview" (fun (projectId: Guid) next ctx ->
                     handleStartPreview services projectId ctx next)
 

@@ -262,7 +262,9 @@ module Bootstrap =
                                                   Width = 256
                                                   Height = 256
                                                   Steps = 8
-                                                  Seed = 0 }
+                                                  Seed = 0
+                                                  ImageBase64 = None
+                                                  Strength = 0.35 }
                                     )
 
                                 let markerDir = Path.GetDirectoryName warmupMarkerPath

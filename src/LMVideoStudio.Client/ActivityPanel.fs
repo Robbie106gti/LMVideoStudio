@@ -3,6 +3,7 @@ module LMVideoStudio.Client.ActivityPanel
 open Feliz
 open LMVideoStudio.Client.Api
 open LMVideoStudio.Client.ErrorReporting
+open LMVideoStudio.Client.JobUiLabels
 
 type ActivityPanelState =
     { Events: JobEventDto list
@@ -26,11 +27,15 @@ let mergeEvent (incoming: JobEventDto) (events: JobEventDto list) : JobEventDto 
         events
         |> List.filter (fun e ->
             not (
-                e.JobId = incoming.JobId
-                && e.Phase = incoming.Phase
-                && isActiveStatus e.Status
-                && (isTerminalStatus incoming.Status
-                    || (isActiveStatus incoming.Status && e.Step <> incoming.Step))
+                // Completed/failed/cancelled for a job clears any stale running rows for that job.
+                (isTerminalStatus incoming.Status
+                 && e.JobId = incoming.JobId
+                 && isActiveStatus e.Status)
+                || (e.JobId = incoming.JobId
+                    && e.Phase = incoming.Phase
+                    && isActiveStatus e.Status
+                    && (isTerminalStatus incoming.Status
+                        || (isActiveStatus incoming.Status && e.Step <> incoming.Step)))
             ))
 
     let merged =
@@ -49,33 +54,18 @@ let init () =
 
 let setLastError state summary = { state with LastError = Some summary }
 
-/// Most recent running GPU/bootstrap job for status bar hints.
-let activeGpuHint (events: JobEventDto list) =
+/// Newest still-running job for the footer hint (events are newest-first).
+let activeJobHint (events: JobEventDto list) =
     events
-    |> List.tryFind (fun e -> isActiveStatus e.Status && e.Hardware = Some "gpu")
-    |> Option.orElse (
-        events
-        |> List.tryFind (fun e ->
-            isActiveStatus e.Status
-            && (e.Phase = "bootstrap" || e.Phase = "image_generate" || e.Phase = "audio_generate"))
-    )
+    |> List.tryFind (fun e ->
+        isActiveStatus e.Status
+        && not (e.Phase = "mockup_preview" && e.Hardware = Some "gpu"))
+    // Legacy: thumbnail GPU work was mis-tagged as mockup_preview before Host fix.
 
-let private titleCaseWords (s: string) =
-    s.Split(' ')
-    |> Array.map (fun w ->
-        if w.Length = 0 then w
-        else w.Substring(0, 1).ToUpperInvariant() + w.Substring(1).ToLowerInvariant())
-    |> String.concat " "
+/// Most recent running GPU/bootstrap job for status bar hints.
+let activeGpuHint events = activeJobHint events
 
-let private formatPhase phase =
-    match phase with
-    | "mockup_preview" -> "Mockup preview (CPU FFmpeg)"
-    | "image_generate" -> "Image generate (GPU worker)"
-    | "model_sync" -> "Model sync"
-    | "bootstrap" -> "Bootstrap"
-    | "bake" -> "Bake"
-    | "audio_generate" -> "Voiceover (GPU queue)"
-    | other -> other.Replace('_', ' ') |> titleCaseWords
+let private formatPhase = activityPhaseTitle
 
 let private statusClass status =
     match status with

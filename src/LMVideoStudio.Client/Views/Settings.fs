@@ -6,6 +6,8 @@ open Feliz
 open Fable.Core.JsInterop
 open LMVideoStudio.Client.Api
 open LMVideoStudio.Client.ErrorReporting
+open LMVideoStudio.Client.FormatHelpers
+open LMVideoStudio.Client.PromptQuickButtons
 
 
 
@@ -41,6 +43,14 @@ type SettingsMsg =
 
     | DisconnectOAuth of string
 
+    | SetQuickButtonLabel of string
+
+    | SetQuickButtonPrompt of string
+
+    | AddQuickButton
+
+    | RemoveQuickButton of string
+
 
 
 type SettingsModel =
@@ -63,7 +73,13 @@ type SettingsModel =
 
       ConnectedAccounts: ConnectedAccountsDto option
 
-      OAuthBusy: string option }
+      OAuthBusy: string option
+
+      QuickButtonsCustom: QuickButton list
+
+      QuickButtonLabelDraft: string
+
+      QuickButtonPromptDraft: string }
 
 
 
@@ -119,7 +135,13 @@ module Settings =
 
           ConnectedAccounts = None
 
-          OAuthBusy = None }
+          OAuthBusy = None
+
+          QuickButtonsCustom = loadCustom ()
+
+          QuickButtonLabelDraft = ""
+
+          QuickButtonPromptDraft = "" }
 
 
 
@@ -151,7 +173,7 @@ module Settings =
 
                     prop.className "text-sm text-slate-400"
 
-                    prop.text "Mockup export uses CPU (FFmpeg libx264). AI thumbnails and upscale use GPU (Python worker / ROCm). Check Task Manager GPU tab during Generate, not during mockup refresh."
+                    prop.text "Generate thumbnails uses GPU (Stable Diffusion). Stitch Ken Burns preview and bake export use CPU (FFmpeg). Preview is a timing check on stills, not AI video."
 
                 ]
 
@@ -269,7 +291,7 @@ module Settings =
 
                                         let vram =
                                             d.VramGb
-                                            |> Option.map (fun gb -> $"{gb:F1} GB VRAM")
+                                            |> Option.map formatVramGb
                                             |> Option.defaultValue "VRAM unknown"
 
                                         let device =
@@ -502,6 +524,180 @@ module Settings =
                                 ]
 
                             ]
+
+                        ]
+
+                    ]
+
+                ]
+
+
+
+                Html.div [
+
+                    prop.className "rounded-lg border border-surface-border p-4 space-y-3"
+
+                    prop.children [
+
+                        Html.h2 [
+
+                            prop.className "text-sm font-semibold"
+
+                            prop.text "Image prompt quick buttons"
+
+                        ]
+
+                        Html.p [
+
+                            prop.className "text-xs text-slate-500"
+
+                            prop.text "Custom shortcuts appear in the block inspector next to built-in shot presets (establishing, close-up, etc.). Stored locally in this browser."
+
+                        ]
+
+                        Html.div [
+
+                            prop.className "flex flex-wrap gap-1.5"
+
+                            prop.children (
+
+                                builtIn
+
+                                |> List.map (fun qb ->
+
+                                    Html.span [
+
+                                        prop.className "px-2 py-1 rounded-md bg-surface border border-surface-border text-xs text-slate-400"
+
+                                        prop.title qb.Prompt
+
+                                        prop.text $"{qb.Label} (built-in)"
+
+                                    ])
+
+                            )
+
+                        ]
+
+                        if model.QuickButtonsCustom.IsEmpty then
+
+                            Html.p [
+
+                                prop.className "text-xs text-slate-500"
+
+                                prop.text "No custom quick buttons yet."
+
+                            ]
+
+                        else
+
+                            Html.ul [
+
+                                prop.className "space-y-2 text-sm"
+
+                                prop.children (
+
+                                    model.QuickButtonsCustom
+
+                                    |> List.map (fun qb ->
+
+                                        Html.li [
+
+                                            prop.className "flex items-start justify-between gap-2 rounded-md border border-surface-border px-3 py-2"
+
+                                            prop.children [
+
+                                                Html.div [
+
+                                                    prop.children [
+
+                                                        Html.div [
+
+                                                            prop.className "font-medium text-slate-200"
+
+                                                            prop.text qb.Label
+
+                                                        ]
+
+                                                        Html.p [
+
+                                                            prop.className "text-xs text-slate-500 mt-0.5 line-clamp-2"
+
+                                                            prop.text qb.Prompt
+
+                                                        ]
+
+                                                    ]
+
+                                                ]
+
+                                                Html.button [
+
+                                                    prop.className "shrink-0 px-2 py-1 rounded-md border border-surface-border text-xs hover:border-red-400 hover:text-red-300"
+
+                                                    prop.text "Remove"
+
+                                                    prop.onClick (fun _ -> dispatch (RemoveQuickButton qb.Label))
+
+                                                ]
+
+                                            ]
+
+                                        ])
+
+                                )
+
+                            ]
+
+                        Html.div [
+
+                            prop.className "grid gap-2 sm:grid-cols-2"
+
+                            prop.children [
+
+                                Html.input [
+
+                                    prop.className "rounded-md bg-surface border border-surface-border px-3 py-2 text-sm"
+
+                                    prop.placeholder "Button label"
+
+                                    prop.value model.QuickButtonLabelDraft
+
+                                    prop.onChange (SetQuickButtonLabel >> dispatch)
+
+                                ]
+
+                                Html.input [
+
+                                    prop.className "rounded-md bg-surface border border-surface-border px-3 py-2 text-sm sm:col-span-2"
+
+                                    prop.placeholder "Prompt text to insert"
+
+                                    prop.value model.QuickButtonPromptDraft
+
+                                    prop.onChange (SetQuickButtonPrompt >> dispatch)
+
+                                ]
+
+                            ]
+
+                        ]
+
+                        Html.button [
+
+                            prop.className "px-3 py-2 rounded-md border border-accent text-accent text-sm hover:bg-accent/10 disabled:opacity-50"
+
+                            prop.disabled (
+
+                                System.String.IsNullOrWhiteSpace model.QuickButtonLabelDraft
+
+                                || System.String.IsNullOrWhiteSpace model.QuickButtonPromptDraft
+
+                            )
+
+                            prop.text "Add quick button"
+
+                            prop.onClick (fun _ -> dispatch AddQuickButton)
 
                         ]
 

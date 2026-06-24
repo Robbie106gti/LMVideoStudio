@@ -71,7 +71,7 @@ module SetupWizard =
                                     ]
                                 | Complete ->
                                     Html.p [
-                                        prop.text "Setup marked complete. Import images on the timeline, generate thumbnail variants, and refresh your mockup preview."
+                                        prop.text "Setup complete. Import images, generate GPU thumbnails, then stitch a Ken Burns preview to check timing."
                                     ]
                                 model.Message
                                 |> Option.map (fun m ->

@@ -204,6 +204,27 @@ let getProject (projectId: Guid) =
             return Error text
     }
 
+let private extractProjectJsonField (text: string) =
+    try
+        let doc = JS.JSON.parse text
+        Some (doc?projectJson |> unbox<string>)
+    with _ ->
+        try
+            let doc = JS.JSON.parse text
+            Some (JS.JSON.stringify (doc?projectJson))
+        with _ ->
+            None
+
+let private decodeProjectFromResponse text projectId =
+    async {
+        match extractProjectJsonField text with
+        | Some json ->
+            match decodeProject json with
+            | Ok project -> return Ok project
+            | Error _ -> return! getProject projectId
+        | None -> return! getProject projectId
+    }
+
 let deleteProject (projectId: Guid) =
     async {
         let! status, text = fetchAsync $"{hostBase()}/projects/{projectId}" "DELETE" None
@@ -304,12 +325,14 @@ let runRepair () =
         return ()
     }
 
-let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string option) (variantCount: int) =
+let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string option) (variantCount: int) (referenceStrength: float) (useThumbnailAsReference: bool) =
     async {
         let fields =
             [ "profile", Encode.string "mockup"
               "variantCount", Encode.int variantCount
-              "upscale", Encode.bool true ]
+              "upscale", Encode.bool true
+              "referenceStrength", Encode.float referenceStrength
+              "useThumbnailAsReference", Encode.bool useThumbnailAsReference ]
             @ (prompt
                |> Option.filter (not << System.String.IsNullOrWhiteSpace)
                |> Option.map (fun p -> [ "prompt", Encode.string p ])
@@ -321,17 +344,7 @@ let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string opt
             fetchAsync $"{hostBase()}/projects/{projectId}/blocks/{blockId}/generate" "POST" body
 
         if status >= 200 && status < 300 then
-            let projectJson =
-                try
-                    let doc = JS.JSON.parse text
-                    let nested = doc?projectJson |> unbox<string>
-                    Some nested
-                with _ ->
-                    None
-
-            match projectJson with
-            | Some json -> return decodeProject json
-            | None -> return! getProject projectId
+            return! decodeProjectFromResponse text projectId
         else
             return Error text
     }
@@ -372,6 +385,52 @@ let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (ima
             return decodeProject text
         else
             return Error text
+    }
+
+let private importBlockAssetResponse projectId status text =
+    async {
+        if status = 0 then
+            return Error $"Host request failed: {text}"
+        elif status >= 200 && status < 300 then
+            let projectJson =
+                try
+                    let doc = JS.JSON.parse text
+                    let nested = doc?projectJson |> unbox<string>
+                    Some nested
+                with _ ->
+                    None
+
+            match projectJson with
+            | Some json -> return decodeProject json
+            | None -> return! getProject projectId
+        else
+            return Error text
+    }
+
+let importBlockReferenceImage (projectId: Guid) (blockId: Guid) (file: Browser.Types.File) =
+    async {
+        try
+            let! status, text =
+                importFile $"{hostBase()}/projects/{projectId}/blocks/{blockId}/reference-image/import" file
+                |> Async.AwaitPromise
+
+            return! importBlockAssetResponse projectId status text
+        with ex ->
+            return Error ex.Message
+    }
+
+let useBlockThumbnailAsReference (projectId: Guid) (blockId: Guid) =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/projects/{projectId}/blocks/{blockId}/reference-image/use-thumbnail" "POST" (Some "")
+
+        return! importBlockAssetResponse projectId status text
+    }
+
+let clearBlockReferenceImage (projectId: Guid) (blockId: Guid) =
+    async {
+        let! status, text = fetchAsync $"{hostBase()}/projects/{projectId}/blocks/{blockId}/reference-image" "DELETE" None
+
+        return! importBlockAssetResponse projectId status text
     }
 
 let importBlockAudio (projectId: Guid) (blockId: Guid) (file: Browser.Types.File) =

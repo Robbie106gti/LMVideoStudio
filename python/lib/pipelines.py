@@ -59,6 +59,44 @@ def unload_sd_pipeline() -> None:
     unload_torch()
 
 
+def _prepare_init_image(init_image, width: int, height: int):
+    """Cover-crop reference to fill the SD canvas (no black letterbox bars)."""
+    from PIL import Image
+
+    img = init_image.convert("RGB")
+    w, h = img.size
+    resample = (
+        Image.Resampling.NEAREST
+        if max(w, h) <= 256
+        else Image.Resampling.LANCZOS
+    )
+    scale = max(width / w, height / h)
+    nw = max(1, int(w * scale))
+    nh = max(1, int(h * scale))
+    resized = img.resize((nw, nh), resample)
+    left = max(0, (nw - width) // 2)
+    top = max(0, (nh - height) // 2)
+    return resized.crop((left, top, left + width, top + height))
+
+
+DEFAULT_NEGATIVE_PROMPT = (
+    "deformed, blurry, bad anatomy, extra limbs, duplicate face, disfigured, "
+    "poorly drawn face, mutation, ugly, watermark, text, logo"
+)
+
+
+def _sd_canvas_size(width: int, height: int) -> tuple[int, int]:
+    """SD 1.5 works best near 512px on the long edge; dimensions must be multiples of 8."""
+    aspect = width / max(height, 1)
+    if aspect >= 1.0:
+        sd_w = 512
+        sd_h = max(8, int(round(512 / aspect / 8)) * 8)
+    else:
+        sd_h = 512
+        sd_w = max(8, int(round(512 * aspect / 8)) * 8)
+    return sd_w, sd_h
+
+
 def generate_image(
     prompt: str,
     *,
@@ -66,12 +104,43 @@ def generate_image(
     height: int = 512,
     steps: int = 20,
     seed: int = 42,
+    init_image=None,
+    strength: float = 0.35,
+    negative_prompt: str | None = None,
 ):
     import torch
     from PIL import Image
 
     pipe = get_sd_pipeline()
     generator = torch.Generator(device="cuda").manual_seed(seed)
+
+    if init_image is not None:
+        from diffusers import StableDiffusionImg2ImgPipeline
+
+        img2img = StableDiffusionImg2ImgPipeline.from_pipe(pipe)
+        sd_w, sd_h = _sd_canvas_size(width, height)
+        init_rgb = _prepare_init_image(init_image, sd_w, sd_h)
+        img_steps = max(steps, 28)
+        strength_clamped = max(0.05, min(0.95, strength))
+        print(
+            f"[lmvs] img2img canvas={sd_w}x{sd_h} strength={strength_clamped:.2f} "
+            f"steps={img_steps} target={width}x{height}",
+            flush=True,
+        )
+        result = img2img(
+            prompt=prompt,
+            negative_prompt=negative_prompt or DEFAULT_NEGATIVE_PROMPT,
+            image=init_rgb,
+            strength=strength_clamped,
+            num_inference_steps=img_steps,
+            guidance_scale=6.0,
+            generator=generator,
+        )
+        out = result.images[0]
+        if (out.width, out.height) != (width, height):
+            out = out.resize((width, height), Image.Resampling.LANCZOS)
+        return out
+
     result = pipe(
         prompt,
         width=width,

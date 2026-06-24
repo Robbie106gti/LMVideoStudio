@@ -42,6 +42,8 @@ class GenerateRequest(BaseModel):
     height: int = 512
     steps: int = 20
     seed: int = 42
+    image_base64: str | None = None
+    strength: float = Field(default=0.35, ge=0.05, le=0.95)
 
 
 class UpscaleRequest(BaseModel):
@@ -104,17 +106,24 @@ def _device_payload() -> dict[str, Any]:
 @app.post("/image/generate")
 def image_generate(req: GenerateRequest):
     unload_upsampler()
+    init_image = None
+    if req.image_base64:
+        raw = base64.b64decode(req.image_base64)
+        init_image = Image.open(io.BytesIO(raw))
     image = generate_image(
         req.prompt,
         width=req.width,
         height=req.height,
         steps=req.steps,
         seed=req.seed,
+        init_image=init_image,
+        strength=req.strength,
     )
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     return {
         "image_base64": base64.b64encode(buf.getvalue()).decode("ascii"),
+        "mode": "img2img" if init_image is not None else "txt2img",
         "device": _device_payload(),
     }
 

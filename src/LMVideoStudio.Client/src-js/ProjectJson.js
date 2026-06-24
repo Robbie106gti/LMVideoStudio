@@ -1,6 +1,8 @@
 import { SequencePresetModule_toSchemaValue, Project, TransitionSpecModule_defaultMockup, RenderDefaults, RenderProfileModule_defaultBake, RenderProfileModule_defaultMockup, ProjectModule_defaultMockupDurationSec, SequencePreset, SequencePresetModule_fromSchemaValue, StoryboardBlock, BlockGeneration, BlockSource, TransitionType } from "./LMVideoStudio.Domain/Types.js";
-import { fromString, float, list as list_2, map, string, int, guid, object } from "./fable_modules/Thoth.Json.10.4.1/Decode.fs.js";
-import { equals, uncurry2 } from "./fable_modules/fable-library-js.4.27.0/Util.js";
+import { fromString, float, list as list_2, map, int, guid, object, string, fail, succeed, andThen } from "./fable_modules/Thoth.Json.10.4.1/Decode.fs.js";
+import { equals, uncurry2, uncurry3 } from "./fable_modules/fable-library-js.4.27.0/Util.js";
+import { tryParse, minValue } from "./fable_modules/fable-library-js.4.27.0/DateOffset.js";
+import { FSharpRef } from "./fable_modules/fable-library-js.4.27.0/Types.js";
 import { map as map_1, filter, defaultArg } from "./fable_modules/fable-library-js.4.27.0/Option.js";
 import { map as map_2, toArray, singleton as singleton_1, isEmpty, empty } from "./fable_modules/fable-library-js.4.27.0/List.js";
 import { toString, guid as guid_1, object as object_1 } from "./fable_modules/Thoth.Json.10.4.1/Encode.fs.js";
@@ -36,6 +38,20 @@ function blockSourceCodec(_arg) {
     }
 }
 
+const dateTimeOffsetDecoder = (path_2) => ((value_1) => andThen(uncurry3((s) => {
+    let matchValue;
+    let outArg = minValue();
+    matchValue = [tryParse(s, new FSharpRef(() => outArg, (v) => {
+        outArg = v;
+    })), outArg];
+    if (matchValue[0]) {
+        return (arg10$0040) => ((arg20$0040) => succeed(matchValue[1], arg10$0040, arg20$0040));
+    }
+    else {
+        return (path_1) => ((arg20$0040_1) => fail(`Invalid date: ${s}`, path_1, arg20$0040_1));
+    }
+}), string, path_2, value_1));
+
 const blockDecoder = (path_16) => ((v_1) => object((get$) => {
     let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8, objectArg_9, objectArg_10, objectArg_11;
     return new StoryboardBlock((objectArg = get$.Required, objectArg.Field("id", guid)), (objectArg_1 = get$.Required, objectArg_1.Field("order", uncurry2(int))), (objectArg_2 = get$.Optional, objectArg_2.Field("title", string)), (objectArg_3 = get$.Required, objectArg_3.Field("source", (path_3, value_3) => map(blockSourceCodec, string, path_3, value_3))), (objectArg_4 = get$.Optional, objectArg_4.Field("thumbnailPath", string)), (objectArg_5 = get$.Optional, objectArg_5.Field("imagePrompt", string)), (objectArg_6 = get$.Optional, objectArg_6.Field("voiceoverScript", string)), (objectArg_7 = get$.Optional, objectArg_7.Field("directorNotes", string)), defaultArg((objectArg_8 = get$.Optional, objectArg_8.Field("moodTags", (path_9, value_9) => list_2(string, path_9, value_9))), empty()), (objectArg_9 = get$.Optional, objectArg_9.Field("mockupDurationSec", float)), (objectArg_10 = get$.Optional, objectArg_10.Field("bakeDurationSec", float)), undefined, undefined, (objectArg_11 = get$.Optional, objectArg_11.Field("generation", (path_15, v) => object((g) => {
@@ -45,9 +61,9 @@ const blockDecoder = (path_16) => ((v_1) => object((get$) => {
 }, path_16, v_1));
 
 export const projectDecoder = (path_6) => ((v) => object((get$) => {
-    let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6;
+    let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8;
     const preset = defaultArg(SequencePresetModule_fromSchemaValue((objectArg = get$.Required, objectArg.Field("sequencePreset", string))), new SequencePreset(0, []));
-    return new Project((objectArg_1 = get$.Required, objectArg_1.Field("schemaVersion", uncurry2(int))), (objectArg_2 = get$.Required, objectArg_2.Field("id", guid)), (objectArg_3 = get$.Required, objectArg_3.Field("name", string)), undefined, undefined, (objectArg_4 = get$.Optional, objectArg_4.Field("brief", string)), preset, defaultArg((objectArg_5 = get$.Optional, objectArg_5.Field("defaultMockupDurationSec", float)), ProjectModule_defaultMockupDurationSec), new RenderDefaults(RenderProfileModule_defaultMockup, RenderProfileModule_defaultBake), undefined, defaultArg((objectArg_6 = get$.Optional, objectArg_6.Field("blocks", (path_5, value_6) => list_2(uncurry2(blockDecoder), path_5, value_6))), empty()), TransitionSpecModule_defaultMockup);
+    return new Project((objectArg_1 = get$.Required, objectArg_1.Field("schemaVersion", uncurry2(int))), (objectArg_2 = get$.Required, objectArg_2.Field("id", guid)), (objectArg_3 = get$.Required, objectArg_3.Field("name", string)), (objectArg_4 = get$.Optional, objectArg_4.Field("createdAt", uncurry2(dateTimeOffsetDecoder))), (objectArg_5 = get$.Optional, objectArg_5.Field("updatedAt", uncurry2(dateTimeOffsetDecoder))), (objectArg_6 = get$.Optional, objectArg_6.Field("brief", string)), preset, defaultArg((objectArg_7 = get$.Optional, objectArg_7.Field("defaultMockupDurationSec", float)), ProjectModule_defaultMockupDurationSec), new RenderDefaults(RenderProfileModule_defaultMockup, RenderProfileModule_defaultBake), undefined, defaultArg((objectArg_8 = get$.Optional, objectArg_8.Field("blocks", (path_5, value_6) => list_2(uncurry2(blockDecoder), path_5, value_6))), empty()), TransitionSpecModule_defaultMockup);
 }, path_6, v));
 
 export function blockEncoder(block) {

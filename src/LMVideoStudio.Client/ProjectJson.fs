@@ -21,6 +21,13 @@ module Json =
         | "generated" -> BlockSource.Generated
         | other -> failwith $"Unknown source: {other}"
 
+    let private dateTimeOffsetDecoder =
+        Decode.string
+        |> Decode.andThen (fun s ->
+            match System.DateTimeOffset.TryParse s with
+            | true, d -> Decode.succeed d
+            | _ -> Decode.fail $"Invalid date: {s}")
+
     let private blockDecoder =
         Decode.object (fun get ->
             { Id = get.Required.Field "id" Decode.guid
@@ -55,8 +62,8 @@ module Json =
             { SchemaVersion = get.Required.Field "schemaVersion" Decode.int
               Id = get.Required.Field "id" Decode.guid
               Name = get.Required.Field "name" Decode.string
-              CreatedAt = None
-              UpdatedAt = None
+              CreatedAt = get.Optional.Field "createdAt" dateTimeOffsetDecoder
+              UpdatedAt = get.Optional.Field "updatedAt" dateTimeOffsetDecoder
               Brief = get.Optional.Field "brief" Decode.string
               SequencePreset = preset
               DefaultMockupDurationSec =

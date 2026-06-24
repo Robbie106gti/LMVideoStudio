@@ -1,11 +1,12 @@
 import { Record, Union } from "../fable_modules/fable-library-js.4.27.0/Types.js";
 import { record_type, option_type, union_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
-import { view, activeGpuHint, ActivityPanelState_$reflection } from "../ActivityPanel.js";
+import { view, activeJobHint, ActivityPanelState_$reflection } from "../ActivityPanel.js";
 import { JobEventDto_$reflection, SystemStatusDto_$reflection } from "../Api.js";
-import { replace } from "../fable_modules/fable-library-js.4.27.0/String.js";
+import { footerPhaseTitle } from "../JobUiLabels.js";
 import { bind, defaultArg, map } from "../fable_modules/fable-library-js.4.27.0/Option.js";
 import { createElement } from "react";
 import { equals, createObj } from "../fable_modules/fable-library-js.4.27.0/Util.js";
+import { formatGpuStatusGb } from "../FormatHelpers.js";
 import { defaultOf } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { Interop_reactApi } from "../fable_modules/Feliz.2.6.0/Interop.fs.js";
 import { ofArray } from "../fable_modules/fable-library-js.4.27.0/List.js";
@@ -57,26 +58,11 @@ export function Shell_init(activity) {
     return new ShellModel(new ShellTab(0, []), activity, undefined);
 }
 
-function Shell_formatPhase(phase) {
-    switch (phase) {
-        case "mockup_preview":
-            return "Preview";
-        case "image_generate":
-            return "Generate";
-        case "bootstrap":
-            return "Bootstrap";
-        case "bake":
-            return "Bake";
-        case "audio_generate":
-            return "Voiceover";
-        default:
-            return replace(phase, "_", " ");
-    }
-}
+const Shell_formatPhase = footerPhaseTitle;
 
 export function Shell_statusBar(status, activity) {
     let value_1, elems;
-    const gpuJob = map((e) => {
+    const jobHint = map((e) => {
         const cold = defaultArg(map((b) => {
             if (b) {
                 return " (cold — first GPU compile may take several minutes)";
@@ -86,7 +72,7 @@ export function Shell_statusBar(status, activity) {
             }
         }, e.IsColdRun), "");
         return `${Shell_formatPhase(e.Phase)}: ${e.Message}${cold}`;
-    }, activeGpuHint(activity.Events));
+    }, activeJobHint(activity.Events));
     return createElement("footer", createObj(ofArray([(value_1 = "h-8 border-t border-surface-border bg-surface-raised px-4 flex items-center gap-4 text-xs text-slate-500 min-w-0", ["className", value_1]), (elems = [createElement("span", {
         className: "shrink-0",
         children: "LMVideoStudio",
@@ -96,7 +82,7 @@ export function Shell_statusBar(status, activity) {
         const warmup = s.WarmupComplete ? "warm" : "cold";
         const gpuHint = bind((d) => {
             if (equals(d.Rocm, true)) {
-                return map((gb) => (`GPU %P(F0)GB · ${gb}`), d.VramGb);
+                return map((gb) => (`${formatGpuStatusGb(gb)} · ${warmup}`), d.VramGb);
             }
             else {
                 return undefined;
@@ -113,7 +99,7 @@ export function Shell_statusBar(status, activity) {
         className: "truncate text-amber-400/90",
         title: text,
         children: text,
-    }), gpuJob), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems))])])));
+    }), jobHint), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems))])])));
 }
 
 export function Shell_navButton(label, tab, current, dispatch) {

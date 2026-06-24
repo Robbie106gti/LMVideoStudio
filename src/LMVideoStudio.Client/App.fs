@@ -14,6 +14,8 @@ open LMVideoStudio.Client.Views.Settings
 open LMVideoStudio.Client.Views.SetupWizard
 open LMVideoStudio.Client.Views.Shell
 open LMVideoStudio.Client.ErrorReporting
+open LMVideoStudio.Client.AppNavigation
+open LMVideoStudio.Client.PromptQuickButtons
 
 type AppPage =
     | HubPage of ProjectHubModel
@@ -64,6 +66,7 @@ type AppMsg =
     | OAuthStartReady of Result<OAuthStartDto, string>
     | OAuthActionDone of string
     | VariantSelected of Result<LMVideoStudio.Domain.Project, string>
+    | ReferenceImageChanged of Result<LMVideoStudio.Domain.Project, string>
     | ProjectDeleted of Result<System.Guid, string>
     | SetupWizardMsg of SetupWizardMsg
     | InitSubscriptions
@@ -72,6 +75,18 @@ type AppMsg =
     | ErrorCaptured of CaptureRequest
     | ErrorReportSubmitted of Result<string, string>
     | PendingErrorStored of string
+    | NavigationChanged of AppRoute
+    | ProjectLoadedForRoute of Result<LMVideoStudio.Domain.Project * System.Guid option, string>
+
+let private routeFromModel model =
+    match model.Page with
+    | HubPage _ -> AppNavigation.RouteHub
+    | SettingsPage _ -> AppNavigation.RouteSettings
+    | TimelinePage t -> AppNavigation.RouteProject(t.Project.Id, t.SelectedBlockId)
+
+let private navCmd model = AppNavigation.syncRoute (routeFromModel model)
+
+let private withNav model = model, navCmd model
 
 let init () =
     let activity = ActivityPanel.init ()
@@ -168,10 +183,15 @@ let update msg model =
         model', Cmd.none
 
     | HostReady(Ok _) ->
+        AppNavigation.ensureInitialHash ()
+
+        let initialRoute = AppNavigation.parseCurrent () |> Option.defaultValue AppNavigation.RouteHub
+
         { model with HostStartup = Ready },
         Cmd.batch [
             Cmd.OfAsync.perform getProjects () ProjectsLoaded
             Cmd.OfAsync.perform getSystemStatus () SettingsStatus
+            Cmd.ofMsg (NavigationChanged initialRoute)
         ]
 
     | HostReady(Error err) ->
@@ -251,25 +271,117 @@ let update msg model =
         { model with Shell = { model.Shell with SystemStatus = Some s } }, Cmd.none
 
     | ShellMsg (ShellMsg.SelectTab Hub) ->
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Hub }
+                    Page = HubPage(ProjectHub.init ())
+                    OpenProjectId = None }
+
+        model', Cmd.batch [ nav; Cmd.OfAsync.perform getProjects () ProjectsLoaded ]
+
+    | NavigationChanged route ->
+        if routeFromModel model = route then
+            model, Cmd.none
+        else
+            match route with
+            | AppNavigation.RouteHub ->
+                let model', nav =
+                    withNav
+                        { model with
+                            Shell = { model.Shell with Tab = Hub }
+                            Page = HubPage(ProjectHub.init ())
+                            OpenProjectId = None }
+
+                model',
+                Cmd.batch [ nav; Cmd.OfAsync.perform getProjects () ProjectsLoaded ]
+            | AppNavigation.RouteSettings ->
+                let model', nav =
+                    withNav
+                        { model with
+                            Shell = { model.Shell with Tab = Settings }
+                            Page = SettingsPage(Settings.init ()) }
+
+                model',
+                Cmd.batch [
+                    nav
+                    Cmd.OfAsync.perform getSystemStatus () SettingsStatus
+                    Cmd.OfAsync.perform getModelStatus () ModelStatusLoaded
+                    Cmd.OfAsync.perform getConnectedAccounts () ConnectedAccountsLoaded
+                ]
+            | AppNavigation.RouteProject(projectId, blockId) ->
+                match model.Page with
+                | TimelinePage t when t.Project.Id = projectId ->
+                    { model with
+                        Shell = { model.Shell with Tab = Timeline }
+                        Page = TimelinePage(StoryboardTimeline.selectBlock t blockId) },
+                    Cmd.none
+                | _ ->
+                    { model with
+                        Shell = { model.Shell with Tab = Timeline }
+                        Page = HubPage { ProjectHub.init () with Loading = true } },
+                    Cmd.OfAsync.perform
+                        (fun () -> getProject projectId)
+                        ()
+                        (fun r -> ProjectLoadedForRoute(r |> Result.map (fun p -> p, blockId)))
+
+    | ProjectLoadedForRoute(Ok(project, blockId)) ->
+        let timeline = StoryboardTimeline.selectBlock (StoryboardTimeline.init project) blockId
+
         { model with
-            Shell = { model.Shell with Tab = Hub }
-            Page = HubPage(ProjectHub.init ())
-            OpenProjectId = None },
-        Cmd.OfAsync.perform getProjects () ProjectsLoaded
+            Shell = { model.Shell with Tab = Timeline }
+            Page = TimelinePage timeline
+            OpenProjectId = Some project.Id },
+        Cmd.OfAsync.perform
+            (fun () ->
+                async {
+                    let bust = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    let! status = getMockupPreviewStatus project.Id
+
+                    return
+                        match status with
+                        | Ok(Some dto) -> Some(previewMediaUrl project.Id dto.PreviewPath bust)
+                        | Ok None | Error _ -> None
+                })
+            ()
+            (function
+                | Some url -> PreviewReady url
+                | None -> ExistingPreviewMissing)
+
+    | ProjectLoadedForRoute(Error err) ->
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Hub }
+                    Page = HubPage { ProjectHub.init () with Loading = false; Error = Some err }
+                    OpenProjectId = None }
+
+        model', Cmd.batch [ nav; Cmd.OfAsync.perform getProjects () ProjectsLoaded ]
 
     | ShellMsg (ShellMsg.SelectTab Timeline) ->
         match model.Page with
-        | TimelinePage _ ->
-            { model with Shell = { model.Shell with Tab = Timeline } }, Cmd.none
+        | TimelinePage t ->
+            let model', nav =
+                withNav
+                    { model with
+                        Shell = { model.Shell with Tab = Timeline }
+                        Page = TimelinePage { t with ImagePromptQuickButtons = loadAll () } }
+
+            model', nav
         | _ ->
-            { model with Shell = { model.Shell with Tab = Timeline } },
-            Cmd.ofMsg (HubMsg ProjectHubMsg.Refresh)
+            let model', nav = withNav { model with Shell = { model.Shell with Tab = Timeline } }
+            model', Cmd.batch [ nav; Cmd.ofMsg (HubMsg ProjectHubMsg.Refresh) ]
 
     | ShellMsg (ShellMsg.SelectTab Settings) ->
-        { model with
-            Shell = { model.Shell with Tab = Settings }
-            Page = SettingsPage(Settings.init ()) },
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Settings }
+                    Page = SettingsPage(Settings.init ()) }
+
+        model',
         Cmd.batch [
+            nav
             Cmd.OfAsync.perform getSystemStatus () SettingsStatus
             Cmd.OfAsync.perform getModelStatus () ModelStatusLoaded
             Cmd.OfAsync.perform getConnectedAccounts () ConnectedAccountsLoaded
@@ -316,11 +428,14 @@ let update msg model =
         | _ -> model, Cmd.none
 
     | ProjectCreated(Ok project) ->
-        { model with
-            Shell = { model.Shell with Tab = Timeline }
-            Page = TimelinePage(StoryboardTimeline.init project)
-            OpenProjectId = Some project.Id },
-        Cmd.none
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Timeline }
+                    Page = TimelinePage(StoryboardTimeline.init project)
+                    OpenProjectId = Some project.Id }
+
+        model', nav
 
     | ProjectCreated(Error err) ->
         match model.Page with
@@ -377,11 +492,14 @@ let update msg model =
         | _ -> model, Cmd.none
 
     | OutlineApplied(Ok project) ->
-        { model with
-            Shell = { model.Shell with Tab = Timeline }
-            Page = TimelinePage(StoryboardTimeline.init project)
-            OpenProjectId = Some project.Id },
-        Cmd.none
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Timeline }
+                    Page = TimelinePage(StoryboardTimeline.init project)
+                    OpenProjectId = Some project.Id }
+
+        model', nav
 
     | OutlineApplied(Error err) ->
         match model.Page with
@@ -410,25 +528,32 @@ let update msg model =
         | _ -> model, Cmd.none
 
     | ProjectOpened(Ok project) ->
-        { model with
-            Shell = { model.Shell with Tab = Timeline }
-            Page = TimelinePage(StoryboardTimeline.init project)
-            OpenProjectId = Some project.Id },
-        Cmd.OfAsync.perform
-            (fun () ->
-                async {
-                    let bust = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                    let! status = getMockupPreviewStatus project.Id
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Timeline }
+                    Page = TimelinePage(StoryboardTimeline.init project)
+                    OpenProjectId = Some project.Id }
 
-                    return
-                        match status with
-                        | Ok(Some dto) -> Some(previewMediaUrl project.Id dto.PreviewPath bust)
-                        | Ok None | Error _ -> None
-                })
-            ()
-            (function
-                | Some url -> PreviewReady url
-                | None -> ExistingPreviewMissing)
+        model',
+        Cmd.batch [
+            nav
+            Cmd.OfAsync.perform
+                (fun () ->
+                    async {
+                        let bust = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                        let! status = getMockupPreviewStatus project.Id
+
+                        return
+                            match status with
+                            | Ok(Some dto) -> Some(previewMediaUrl project.Id dto.PreviewPath bust)
+                            | Ok None | Error _ -> None
+                    })
+                ()
+                (function
+                    | Some url -> PreviewReady url
+                    | None -> ExistingPreviewMissing)
+        ]
 
     | ProjectOpened(Error err) ->
         match model.Page with
@@ -455,11 +580,14 @@ let update msg model =
                | _ -> false
 
         if wasOpen then
-            { model with
-                Shell = { model.Shell with Tab = Hub }
-                Page = HubPage(ProjectHub.init ())
-                OpenProjectId = None },
-            Cmd.OfAsync.perform getProjects () ProjectsLoaded
+            let model', nav =
+                withNav
+                    { model with
+                        Shell = { model.Shell with Tab = Hub }
+                        Page = HubPage(ProjectHub.init ())
+                        OpenProjectId = None }
+
+            model', Cmd.batch [ nav; Cmd.OfAsync.perform getProjects () ProjectsLoaded ]
         else
             match model.Page with
             | HubPage hub ->
@@ -486,11 +614,14 @@ let update msg model =
         | _ -> model, Cmd.none
 
     | TimelineMsg TimelineMsg.BackToHub ->
-        { model with
-            Shell = { model.Shell with Tab = Hub }
-            Page = HubPage(ProjectHub.init ())
-            OpenProjectId = None },
-        Cmd.OfAsync.perform getProjects () ProjectsLoaded
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Hub }
+                    Page = HubPage(ProjectHub.init ())
+                    OpenProjectId = None }
+
+        model', Cmd.batch [ nav; Cmd.OfAsync.perform getProjects () ProjectsLoaded ]
 
     | TimelineMsg (TimelineMsg.MoveBlockUp id) ->
         match model.Page with
@@ -803,13 +934,32 @@ let update msg model =
     | ImportDone(Ok project) ->
         match model.Page with
         | TimelinePage _ ->
-            { model with
-                Page =
-                    TimelinePage
-                        { StoryboardTimeline.init project with
-                            Saving = false
-                            Error = None } },
-            Cmd.none
+            let lastBlock =
+                project.Blocks
+                |> List.sortBy (fun b -> b.Order)
+                |> List.tryLast
+
+            let timeline =
+                match lastBlock with
+                | Some block ->
+                    StoryboardTimeline.init project
+                    |> fun t -> StoryboardTimeline.selectBlock t (Some block.Id)
+                    |> fun t -> { t with ImagePromptDraft = "" }
+                | None ->
+                    StoryboardTimeline.init project
+
+            let model' =
+                { model with
+                    Page = TimelinePage { timeline with Saving = false; Error = None } }
+
+            match lastBlock with
+            | Some block ->
+                model',
+                Cmd.OfAsync.perform
+                    (fun () -> useBlockThumbnailAsReference project.Id block.Id)
+                    ()
+                    ReferenceImageChanged
+            | None -> model', Cmd.none
         | _ -> model, Cmd.none
 
     | ImportDone(Error err) ->
@@ -822,7 +972,48 @@ let update msg model =
     | TimelineMsg (TimelineMsg.SelectBlock id) ->
         match model.Page with
         | TimelinePage t ->
-            { model with Page = TimelinePage(StoryboardTimeline.selectBlock t id) },
+            withNav { model with Page = TimelinePage(StoryboardTimeline.selectBlock t id) }
+        | _ -> model, Cmd.none
+
+    | TimelineMsg TimelineMsg.OpenVariantModal ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with VariantModal = Some VariantModalMode.Compare } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg TimelineMsg.CloseVariantModal ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with VariantModal = None } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.EnlargeVariant path) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with VariantModal = Some(VariantModalMode.Enlarge path) } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg TimelineMsg.BackToVariantCompare ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with VariantModal = Some VariantModalMode.Compare } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.ApplyPromptQuickButton prompt) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with ImagePromptDraft = prompt } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg TimelineMsg.RefreshPromptQuickButtons ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with ImagePromptQuickButtons = loadAll () } },
             Cmd.none
         | _ -> model, Cmd.none
 
@@ -899,21 +1090,106 @@ let update msg model =
             match t.SelectedBlockId with
             | None -> model, Cmd.none
             | Some blockId ->
+                let block = t.Project.Blocks |> List.tryFind (fun b -> b.Id = blockId)
+
+                let hasReference =
+                    block
+                    |> Option.bind (fun b -> b.Generation)
+                    |> Option.bind (fun g -> g.ReferenceAssetPath)
+                    |> Option.isSome
+
+                let useThumbnail =
+                    not hasReference
+                    && block |> Option.bind (fun b -> b.ThumbnailPath) |> Option.isSome
+
                 let prompt =
-                    if System.String.IsNullOrWhiteSpace t.ImagePromptDraft then None
-                    else Some t.ImagePromptDraft
+                    if StoryboardTimeline.isUnusablePromptDraft t.ImagePromptDraft then
+                        None
+                    elif System.String.IsNullOrWhiteSpace t.ImagePromptDraft then
+                        None
+                    else
+                        Some t.ImagePromptDraft
 
                 { model with Page = TimelinePage { t with Generating = true; Error = None } },
                 Cmd.OfAsync.perform
-                    (fun () -> generateBlockThumbnail t.Project.Id blockId prompt 3)
+                    (fun () ->
+                        generateBlockThumbnail t.Project.Id blockId prompt 3 t.ReferenceStrengthDraft useThumbnail)
                     ()
                     GenerateDone
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.ImportReferenceImage file) ->
+        match model.Page with
+        | TimelinePage t ->
+            match t.SelectedBlockId with
+            | None -> model, Cmd.none
+            | Some blockId ->
+                { model with Page = TimelinePage { t with Saving = true } },
+                Cmd.OfAsync.perform
+                    (fun () -> importBlockReferenceImage t.Project.Id blockId file)
+                    ()
+                    ReferenceImageChanged
+        | _ -> model, Cmd.none
+
+    | TimelineMsg TimelineMsg.ClearReferenceImage ->
+        match model.Page with
+        | TimelinePage t ->
+            match t.SelectedBlockId with
+            | None -> model, Cmd.none
+            | Some blockId ->
+                { model with Page = TimelinePage { t with Saving = true } },
+                Cmd.OfAsync.perform
+                    (fun () -> clearBlockReferenceImage t.Project.Id blockId)
+                    ()
+                    ReferenceImageChanged
+        | _ -> model, Cmd.none
+
+    | TimelineMsg TimelineMsg.UseThumbnailAsReference ->
+        match model.Page with
+        | TimelinePage t ->
+            match t.SelectedBlockId with
+            | None -> model, Cmd.none
+            | Some blockId ->
+                { model with Page = TimelinePage { t with Saving = true } },
+                Cmd.OfAsync.perform
+                    (fun () -> useBlockThumbnailAsReference t.Project.Id blockId)
+                    ()
+                    ReferenceImageChanged
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SetReferenceStrength strength) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with ReferenceStrengthDraft = max 0.15 (min 0.65 strength) } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | ReferenceImageChanged(Ok project) ->
+        match model.Page with
+        | TimelinePage t ->
+            let t' = StoryboardTimeline.withProject project t
+
+            let draft =
+                if StoryboardTimeline.isUnusablePromptDraft t'.ImagePromptDraft then
+                    ""
+                else
+                    t'.ImagePromptDraft
+
+            { model with Page = TimelinePage { t' with ImagePromptDraft = draft } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | ReferenceImageChanged(Error err) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with Saving = false; Error = Some err } },
+            Cmd.none
         | _ -> model, Cmd.none
 
     | GenerateDone(Ok project) ->
         match model.Page with
         | TimelinePage t ->
-            { model with Page = TimelinePage(StoryboardTimeline.withProject project t) },
+            { model with Page = TimelinePage(StoryboardTimeline.withProjectAfterGenerate project t) },
             Cmd.none
         | _ -> model, Cmd.none
 
@@ -1004,11 +1280,53 @@ let update msg model =
     | SettingsStatus(Error _) -> model, Cmd.none
 
     | SettingsMsg SettingsMsg.CloseProject ->
-        { model with
-            Shell = { model.Shell with Tab = Hub }
-            Page = HubPage(ProjectHub.init ())
-            OpenProjectId = None },
-        Cmd.OfAsync.perform getProjects () ProjectsLoaded
+        let model', nav =
+            withNav
+                { model with
+                    Shell = { model.Shell with Tab = Hub }
+                    Page = HubPage(ProjectHub.init ())
+                    OpenProjectId = None }
+
+        model', Cmd.batch [ nav; Cmd.OfAsync.perform getProjects () ProjectsLoaded ]
+
+    | SettingsMsg (SettingsMsg.SetQuickButtonLabel label) ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with QuickButtonLabelDraft = label } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | SettingsMsg (SettingsMsg.SetQuickButtonPrompt prompt) ->
+        match model.Page with
+        | SettingsPage st ->
+            { model with Page = SettingsPage { st with QuickButtonPromptDraft = prompt } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | SettingsMsg SettingsMsg.AddQuickButton ->
+        match model.Page with
+        | SettingsPage st ->
+            let updated =
+                addCustom st.QuickButtonLabelDraft st.QuickButtonPromptDraft
+
+            { model with
+                Page =
+                    SettingsPage
+                        { st with
+                            QuickButtonsCustom = updated
+                            QuickButtonLabelDraft = ""
+                            QuickButtonPromptDraft = "" } },
+            Cmd.ofMsg (TimelineMsg TimelineMsg.RefreshPromptQuickButtons)
+        | _ -> model, Cmd.none
+
+    | SettingsMsg (SettingsMsg.RemoveQuickButton label) ->
+        match model.Page with
+        | SettingsPage st ->
+            let updated = removeCustom label
+
+            { model with Page = SettingsPage { st with QuickButtonsCustom = updated } },
+            Cmd.ofMsg (TimelineMsg TimelineMsg.RefreshPromptQuickButtons)
+        | _ -> model, Cmd.none
 
     | SettingsMsg SettingsMsg.CheckUpdates ->
         match model.Page with
@@ -1345,5 +1663,8 @@ module App =
                 [ "error-hooks" ], fun dispatch ->
                     ErrorReporting.installHooks (fun req -> dispatch (ErrorCaptured req))
                     { new System.IDisposable with member _.Dispose() = () }
+
+                [ "navigation" ], fun dispatch ->
+                    AppNavigation.subscribe (NavigationChanged >> dispatch)
             ])
         |> Elmish.Program.run

@@ -20,12 +20,15 @@ module PythonWorkerProvider =
           Width: int
           Height: int
           Steps: int
-          Seed: int }
+          Seed: int
+          ImageBase64: string option
+          Strength: float }
 
     type GenerateImageResult =
         { ImageBase64: string
           Width: int
-          Height: int }
+          Height: int
+          Mode: string option }
 
     type GenerateVoiceoverResult =
         { AudioBase64: string
@@ -44,7 +47,9 @@ module PythonWorkerProvider =
                        width = req.Width
                        height = req.Height
                        steps = req.Steps
-                       seed = req.Seed |}
+                       seed = req.Seed
+                       image_base64 = req.ImageBase64
+                       strength = req.Strength |}
                 )
 
             use content = new StringContent(payload, Encoding.UTF8, "application/json")
@@ -58,13 +63,21 @@ module PythonWorkerProvider =
 
                 try
                     let doc = JsonDocument.Parse body
-                    let b64 = doc.RootElement.GetProperty("image_base64").GetString()
+                    let root = doc.RootElement
+                    let b64 = root.GetProperty("image_base64").GetString()
+
+                    let mode =
+                        if root.TryGetProperty("mode") |> fst then
+                            Some(root.GetProperty("mode").GetString())
+                        else
+                            None
 
                     return
                         (Ok
                             { ImageBase64 = b64
                               Width = req.Width
-                              Height = req.Height }
+                              Height = req.Height
+                              Mode = mode }
                          : Result<GenerateImageResult, string>)
                 with ex ->
                     return Error ex.Message
@@ -195,16 +208,25 @@ module PythonWorkerProvider =
         member _.GenerateImage(req: GenerateImageRequest) : Task<Result<GenerateImageResult, string>> =
             requestGenerateImage http baseUrl req
 
-        member this.GenerateForProfile(profile: RenderProfile, prompt: string, ?seed: int) =
+        member this.GenerateForProfile(profile: RenderProfile, prompt: string, ?seed: int, ?imageBase64: string, ?strength: float) =
             let seed = defaultArg seed 42
-            let steps = if profile.Tier = RenderTier.Mockup then 15 else 25
+            let strength = defaultArg strength 0.35
+
+            let steps =
+                match profile.Tier, imageBase64 with
+                | RenderTier.Mockup, Some _ -> 28
+                | RenderTier.Mockup, None -> 15
+                | RenderTier.Bake, Some _ -> 28
+                | RenderTier.Bake, None -> 25
 
             this.GenerateImage
                 { Prompt = prompt
                   Width = profile.Width
                   Height = profile.Height
                   Steps = steps
-                  Seed = seed }
+                  Seed = seed
+                  ImageBase64 = imageBase64
+                  Strength = strength }
 
         member _.GenerateVoiceover(script: string) : Task<Result<GenerateVoiceoverResult, string>> =
             requestGenerateVoiceover http baseUrl script
