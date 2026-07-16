@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Types.fs" />
     <Compile Include="HardwareProfile.fs" />
+    <Compile Include="ClipGenerationGuidance.fs" />
     <Compile Include="Validation.fs" />
     <Compile Include="HostHealthPoll.fs" />
     <Compile Include="ErrorReport.fs" />

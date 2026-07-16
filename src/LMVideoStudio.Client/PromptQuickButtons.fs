@@ -13,7 +13,11 @@ let builtIn =
     [ { Label = "Establishing"; Prompt = "Wide establishing shot, cinematic lighting, shallow depth of field" }
       { Label = "Close-up"; Prompt = "Tight close-up on subject, soft bokeh background, detailed texture" }
       { Label = "Product hero"; Prompt = "Product hero shot on clean surface, studio lighting, brand colors" }
-      { Label = "CTA end card"; Prompt = "Bold end-card frame with space for logo and call-to-action text" } ]
+      { Label = "CTA end card"; Prompt = "Bold end-card frame with space for logo and call-to-action text" }
+      { Label = "Walk / motion"; Prompt = "Subject walks at a believable pace, steady camera, natural motion" }
+      { Label = "Continue shot"; Prompt = "Continue the same movement and framing, subtle camera drift" }
+      { Label = "Enter space"; Prompt = "Enter the room, notice a key detail, approach slowly" }
+      { Label = "Reaction beat"; Prompt = "Subject reacts with a slight turn and pause, emotional beat" } ]
 
 let private decodeButton =
     Decode.object (fun get ->

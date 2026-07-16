@@ -1045,6 +1045,44 @@ let update msg model =
             Cmd.none
         | _ -> model, Cmd.none
 
+    | TimelineMsg (TimelineMsg.SetDirectorNotes text) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with DirectorNotesDraft = text } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SetShotKind kind) ->
+        match model.Page with
+        | TimelinePage t ->
+            let bakeDraft =
+                match kind with
+                | Some k -> StoryboardTimeline.recommendedBakeDurationText k
+                | None -> t.BakeDurationDraft
+
+            { model with
+                Page =
+                    TimelinePage
+                        { t with
+                            ShotKindDraft = kind
+                            BakeDurationDraft = bakeDraft } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg (TimelineMsg.SetBakeDuration text) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with BakeDurationDraft = text } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | TimelineMsg TimelineMsg.ApplyRecommendedBakeDuration ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage(StoryboardTimeline.applyRecommendedBakeDuration t) },
+            Cmd.none
+        | _ -> model, Cmd.none
+
     | TimelineMsg TimelineMsg.SaveBlockFields ->
         match model.Page with
         | TimelinePage t ->
@@ -1062,12 +1100,43 @@ let update msg model =
                     |> Array.toList
                     |> fun tags -> if List.isEmpty tags then None else Some tags
 
-                { model with Page = TimelinePage { t with Saving = true } },
-                Cmd.OfAsync.perform
-                    (fun () ->
-                        updateBlock t.Project.Id blockId t.VoiceoverDraft prompt (Some t.CrossfadeDurationDraft) moodTags)
-                    ()
-                    BlockFieldsSaved
+                let directorNotes =
+                    if System.String.IsNullOrWhiteSpace t.DirectorNotesDraft then None
+                    else Some t.DirectorNotesDraft
+
+                let bakeSave =
+                    if System.String.IsNullOrWhiteSpace t.BakeDurationDraft then
+                        Ok(true, None)
+                    else
+                        match System.Double.TryParse t.BakeDurationDraft with
+                        | true, sec when sec >= Project.bakeDurationMinSec && sec <= Project.bakeDurationMaxSec ->
+                            Ok(false, Some sec)
+                        | true, _ ->
+                            Error
+                                $"Bake length must be between {Project.bakeDurationMinSec} and {Project.bakeDurationMaxSec} seconds."
+                        | _ -> Error "Bake clip length must be a number."
+
+                match bakeSave with
+                | Error err ->
+                    { model with Page = TimelinePage { t with Error = Some err } },
+                    Cmd.none
+                | Ok(clearBake, bakeDuration) ->
+                    { model with Page = TimelinePage { t with Saving = true; Error = None } },
+                    Cmd.OfAsync.perform
+                        (fun () ->
+                            updateBlock
+                                t.Project.Id
+                                blockId
+                                t.VoiceoverDraft
+                                prompt
+                                (Some t.CrossfadeDurationDraft)
+                                moodTags
+                                directorNotes
+                                t.ShotKindDraft
+                                bakeDuration
+                                clearBake)
+                        ()
+                        BlockFieldsSaved
         | _ -> model, Cmd.none
 
     | BlockFieldsSaved(Ok project) ->

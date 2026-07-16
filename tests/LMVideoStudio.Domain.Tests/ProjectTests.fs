@@ -16,6 +16,7 @@ module ProjectTests =
           VoiceoverScript = None
           DirectorNotes = None
           MoodTags = []
+          ShotKind = None
           MockupDurationSec = None
           BakeDurationSec = None
           Transitions = None
@@ -63,6 +64,27 @@ module ProjectTests =
         let project = Project.create "Dur"
         let block = blockWithThumbnail None
         Project.effectiveMockupDuration project block |> should equal project.DefaultMockupDurationSec
+
+    [<Fact>]
+    let ``effectiveBakeDuration prefers bake over mockup`` () =
+        let project = Project.create "Bake dur"
+        let block =
+            { blockWithThumbnail None with
+                MockupDurationSec = Some 3.5
+                BakeDurationSec = Some 12.0 }
+
+        Project.effectiveBakeDuration project block |> should equal 12.0
+
+    [<Fact>]
+    let ``effectiveBakeDuration falls back to mockup`` () =
+        let project = Project.create "Bake fallback"
+        let block = { blockWithThumbnail None with MockupDurationSec = Some 3.8 }
+
+        Project.effectiveBakeDuration project block |> should equal 3.8
+
+    [<Fact>]
+    let ``suggestedBakeDurationForShot face close is 8 seconds`` () =
+        ClipGenerationGuidance.suggestedBakeDurationForShot FaceCloseUp |> should equal 8.0
 
     [<Fact>]
     let ``reorderBlocks updates order indices`` () =

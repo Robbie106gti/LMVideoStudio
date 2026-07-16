@@ -39,6 +39,9 @@ module Json =
               VoiceoverScript = get.Optional.Field "voiceoverScript" Decode.string
               DirectorNotes = get.Optional.Field "directorNotes" Decode.string
               MoodTags = get.Optional.Field "moodTags" (Decode.list Decode.string) |> Option.defaultValue []
+              ShotKind =
+                  get.Optional.Field "shotKind" (Decode.string |> Decode.map BlockShotKind.fromSchemaValue)
+                  |> Option.bind id
               MockupDurationSec = get.Optional.Field "mockupDurationSec" Decode.float
               BakeDurationSec = get.Optional.Field "bakeDurationSec" Decode.float
               Transitions = None

@@ -16,6 +16,7 @@ module TransitionValidationTests =
           VoiceoverScript = None
           DirectorNotes = None
           MoodTags = []
+          ShotKind = None
           MockupDurationSec = None
           BakeDurationSec = None
           Transitions = transitions

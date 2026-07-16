@@ -67,6 +67,12 @@ module Json =
         | BlockSource.Imported -> "imported"
         | BlockSource.Generated -> "generated"
 
+    let private shotKindCodec s =
+        BlockShotKind.fromSchemaValue s
+        |> Option.defaultWith (fun () -> failwith $"Unknown shot kind: {s}")
+
+    let private shotKindToString = BlockShotKind.toSchemaValue
+
     let private audioSourceCodec =
         function
         | "imported" -> AudioSource.Imported
@@ -156,6 +162,7 @@ module Json =
               VoiceoverScript = get.Optional.Field "voiceoverScript" Decode.string
               DirectorNotes = get.Optional.Field "directorNotes" Decode.string
               MoodTags = get.Optional.Field "moodTags" (Decode.list Decode.string) |> Option.defaultValue []
+              ShotKind = get.Optional.Field "shotKind" (Decode.string |> Decode.map shotKindCodec)
               MockupDurationSec = get.Optional.Field "mockupDurationSec" Decode.float
               BakeDurationSec = get.Optional.Field "bakeDurationSec" Decode.float
               Transitions = get.Optional.Field "transitions" transitionSpecDecoder
@@ -196,6 +203,7 @@ module Json =
                 @ optional "voiceoverScript" (block.VoiceoverScript |> Option.map Encode.string)
                 @ optional "directorNotes" (block.DirectorNotes |> Option.map Encode.string)
                 @ (if block.MoodTags.IsEmpty then [] else [ "moodTags", encodeStringList block.MoodTags ])
+                @ optional "shotKind" (block.ShotKind |> Option.map (fun k -> shotKindToString k |> Encode.string))
                 @ optional "mockupDurationSec" (block.MockupDurationSec |> Option.map Encode.float)
                 @ optional "bakeDurationSec" (block.BakeDurationSec |> Option.map Encode.float)
                 @ optional "transitions" (block.Transitions |> Option.map transitionSpecEncoder)

@@ -38,6 +38,7 @@ module SerializationTests =
                         VoiceoverScript = Some "Welcome"
                         DirectorNotes = None
                         MoodTags = [ "calm" ]
+                        ShotKind = Some BlockShotKind.BackWide
                         MockupDurationSec = Some 3.5
                         BakeDurationSec = None
                         Transitions = project.TransitionsDefault
@@ -49,6 +50,7 @@ module SerializationTests =
         decoded.Blocks.Length |> should equal 1
         decoded.Blocks.Head.Id |> should equal blockId
         decoded.Blocks.Head.ImagePrompt |> should equal (Some "sunset over mountains")
+        decoded.Blocks.Head.ShotKind |> should equal (Some BlockShotKind.BackWide)
 
     [<Fact>]
     let ``Encoded JSON includes schema fields`` () =

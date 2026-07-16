@@ -67,6 +67,14 @@ module Validation =
                                d >= Project.mockupDurationMinSec && d <= Project.mockupDurationMaxSec)
                            |> Option.defaultValue true)
                           $"mockupDurationSec must be between {Project.mockupDurationMinSec} and {Project.mockupDurationMaxSec} when set"
+                  yield!
+                      require
+                          $"blocks[{b.Id}].bakeDurationSec"
+                          (b.BakeDurationSec
+                           |> Option.map (fun d ->
+                               d >= Project.bakeDurationMinSec && d <= Project.bakeDurationMaxSec)
+                           |> Option.defaultValue true)
+                          $"bakeDurationSec must be between {Project.bakeDurationMinSec} and {Project.bakeDurationMaxSec} when set"
                   yield! validateTransitionSpec b.Id b.Transitions ])
 
         match issues @ blockIssues with

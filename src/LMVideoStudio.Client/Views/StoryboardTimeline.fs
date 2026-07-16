@@ -24,6 +24,10 @@ type TimelineMsg =
     | SetImagePrompt of string
     | SetMoodTags of string
     | SetCrossfadeDuration of int
+    | SetDirectorNotes of string
+    | SetShotKind of BlockShotKind option
+    | SetBakeDuration of string
+    | ApplyRecommendedBakeDuration
     | SaveBlockFields
     | GenerateThumbnail
     | SelectThumbnailVariant of string
@@ -64,6 +68,9 @@ type TimelineModel =
       ImagePromptDraft: string
       MoodTagsDraft: string
       CrossfadeDurationDraft: int
+      DirectorNotesDraft: string
+      ShotKindDraft: BlockShotKind option
+      BakeDurationDraft: string
       ImagePromptQuickButtons: QuickButton list
       ReferenceStrengthDraft: float
       MediaRevision: int64
@@ -88,6 +95,9 @@ module StoryboardTimeline =
           ImagePromptDraft = ""
           MoodTagsDraft = ""
           CrossfadeDurationDraft = 300
+          DirectorNotesDraft = ""
+          ShotKindDraft = None
+          BakeDurationDraft = ""
           ImagePromptQuickButtons = loadAll ()
           ReferenceStrengthDraft = 0.32
           MediaRevision = 0L
@@ -215,6 +225,17 @@ module StoryboardTimeline =
         |> Option.map (fun e -> e.DurationMs)
         |> Option.defaultValue 300
 
+    let private clipGuidanceProfile = Minimal
+
+    let private formatDuration (sec: float) =
+        if abs (sec - round sec) < 0.01 then
+            string (int (round sec))
+        else
+            formatFloat 1 sec
+
+    let private bakeDurationDraftFromBlock (block: StoryboardBlock) =
+        block.BakeDurationSec |> Option.map formatDuration |> Option.defaultValue ""
+
     let selectBlock model blockId =
         match blockId with
         | Some id ->
@@ -226,10 +247,35 @@ module StoryboardTimeline =
                     ImagePromptDraft = block.ImagePrompt |> Option.defaultValue ""
                     MoodTagsDraft = String.concat ", " block.MoodTags
                     CrossfadeDurationDraft = blockCrossfadeMs block model.Project
+                    DirectorNotesDraft = block.DirectorNotes |> Option.defaultValue ""
+                    ShotKindDraft = block.ShotKind
+                    BakeDurationDraft = bakeDurationDraftFromBlock block
                     VariantModal = None }
             | None -> { model with SelectedBlockId = None; VariantModal = None }
         | None ->
             { model with SelectedBlockId = None; VariantModal = None }
+
+    let private imagePromptPlaceholder (block: StoryboardBlock) =
+        if ClipGenerationGuidance.hasGuideFrame block then
+            "Action, camera, pacing — guide frame already sets the look…"
+        else
+            "Geography and look — subject, setting, lighting…"
+
+    let private shotKindOptions : (string * BlockShotKind option) list =
+        [ "Auto", None
+          BlockShotKind.label FaceCloseUp, Some FaceCloseUp
+          BlockShotKind.label MediumClose, Some MediumClose
+          BlockShotKind.label BackWide, Some BackWide
+          BlockShotKind.label EnvironmentWide, Some EnvironmentWide ]
+
+    let recommendedBakeDurationText (kind: BlockShotKind) =
+        ClipGenerationGuidance.suggestedBakeDurationForShot kind |> formatDuration
+
+    let applyRecommendedBakeDuration model =
+        match model.ShotKindDraft with
+        | Some kind ->
+            { model with BakeDurationDraft = recommendedBakeDurationText kind }
+        | None -> model
 
     let private variantModalView (model: TimelineModel) (block: StoryboardBlock) (variants: string list) dispatch =
         let variantCard vi path selected enlargeMsg =
@@ -382,7 +428,7 @@ module StoryboardTimeline =
                             ]
                             Html.p [
                                 prop.className "text-sm text-slate-500"
-                                prop.text $"{blocks.Length} blocks · default {model.Project.DefaultMockupDurationSec}s mockup (3–4s)"
+                                prop.text $"{blocks.Length} blocks · {model.Project.DefaultMockupDurationSec}s mockup · plan as separate clips to stitch"
                             ]
                             model.Project.StylePack
                             |> Option.bind (fun sp ->
@@ -617,12 +663,27 @@ module StoryboardTimeline =
                                                                 Html.div [
                                                                     prop.className "text-slate-400"
                                                                     prop.text (
-                                                                        let dur = Project.effectiveMockupDuration model.Project block
+                                                                        let mockupDur = Project.effectiveMockupDuration model.Project block
+                                                                        let bakeDur = Project.effectiveBakeDuration model.Project block
 
-                                                                        match block.MockupDurationSec with
-                                                                        | Some d when abs (d - dur) > 0.01 ->
-                                                                            $"#{i + 1} · {dur}s (from audio)"
-                                                                        | _ -> $"#{i + 1} · {dur}s"
+                                                                        let durText =
+                                                                            match block.MockupDurationSec with
+                                                                            | Some d when abs (d - mockupDur) > 0.01 ->
+                                                                                $"#{i + 1} · {mockupDur}s preview"
+                                                                            | _ -> $"#{i + 1} · {mockupDur}s"
+
+                                                                        let bakeText =
+                                                                            if block.BakeDurationSec.IsSome && abs (bakeDur - mockupDur) > 0.01 then
+                                                                                $" · {bakeDur}s bake"
+                                                                            else
+                                                                                ""
+
+                                                                        let shotText =
+                                                                            match block.ShotKind with
+                                                                            | Some kind -> $" · {BlockShotKind.label kind}"
+                                                                            | None -> ""
+
+                                                                        durText + bakeText + shotText
                                                                     )
                                                                 ]
                                                                 Html.div [
@@ -668,6 +729,122 @@ module StoryboardTimeline =
                                         prop.className "p-4 space-y-4 text-sm overflow-y-auto flex-1"
                                         prop.children [
                                             Html.div [
+                                                prop.className "rounded-md border border-surface-border bg-surface p-3 space-y-1"
+                                                prop.children [
+                                                    Html.p [
+                                                        prop.className "text-xs font-medium text-slate-400"
+                                                        prop.text "Clip planning (local AI / LTX-style)"
+                                                    ]
+                                                    Html.p [
+                                                        prop.className "text-xs text-slate-500"
+                                                        prop.text (ClipGenerationGuidance.promptHint block)
+                                                    ]
+                                                    match model.ShotKindDraft with
+                                                    | Some kind ->
+                                                        Html.p [
+                                                            prop.className "text-xs text-accent/90"
+                                                            prop.text (
+                                                                ClipGenerationGuidance.guidanceSummary clipGuidanceProfile kind
+                                                            )
+                                                        ]
+                                                    | None ->
+                                                        Html.p [
+                                                            prop.className "text-xs text-slate-600"
+                                                            prop.text "Pick a shot type below for resolution and max-duration hints."
+                                                        ]
+                                                    match ClipGenerationGuidance.continuationHint (List.findIndex (fun b -> b.Id = block.Id) blocks) (blocks |> List.tryFind (fun b -> b.Order = block.Order - 1)) with
+                                                    | Some tip ->
+                                                        Html.p [
+                                                            prop.className "text-xs text-amber-400/80"
+                                                            prop.text tip
+                                                        ]
+                                                    | None -> Html.none
+                                                ]
+                                            ]
+                                            Html.div [
+                                                prop.children [
+                                                    Html.label [
+                                                        prop.className "block text-xs text-slate-500 mb-1"
+                                                        prop.text "Shot type (AI clip guidance)"
+                                                    ]
+                                                    Html.select [
+                                                        prop.className "w-full rounded-md bg-surface border border-surface-border px-2 py-1.5 text-sm"
+                                                        prop.value (
+                                                            model.ShotKindDraft
+                                                            |> Option.map BlockShotKind.toSchemaValue
+                                                            |> Option.defaultValue ""
+                                                        )
+                                                        prop.onChange (fun (v: string) ->
+                                                            let kind =
+                                                                if System.String.IsNullOrWhiteSpace v then None
+                                                                else BlockShotKind.fromSchemaValue v
+
+                                                            dispatch (SetShotKind kind))
+                                                        prop.children (
+                                                            shotKindOptions
+                                                            |> List.map (fun (label, kind) ->
+                                                                Html.option [
+                                                                    prop.value (
+                                                                        kind
+                                                                        |> Option.map BlockShotKind.toSchemaValue
+                                                                        |> Option.defaultValue ""
+                                                                    )
+                                                                    prop.text label
+                                                                ])
+                                                        )
+                                                    ]
+                                                    match model.ShotKindDraft with
+                                                    | Some kind ->
+                                                        Html.button [
+                                                            prop.type' "button"
+                                                            prop.className "mt-2 w-full px-2 py-1.5 rounded-md border border-accent/40 text-xs text-accent hover:bg-accent/10"
+                                                            prop.text (
+                                                                $"Apply recommended bake length ({recommendedBakeDurationText kind}s)"
+                                                            )
+                                                            prop.onClick (fun _ -> dispatch ApplyRecommendedBakeDuration)
+                                                        ]
+                                                    | None -> Html.none
+                                                ]
+                                            ]
+                                            Html.div [
+                                                prop.children [
+                                                    Html.label [
+                                                        prop.className "block text-xs text-slate-500 mb-1"
+                                                        prop.text "Bake clip length (seconds)"
+                                                    ]
+                                                    Html.input [
+                                                        prop.type' "number"
+                                                        prop.min 0.5
+                                                        prop.max 120
+                                                        prop.step 0.5
+                                                        prop.className "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm"
+                                                        prop.placeholder (
+                                                            let mockup = Project.effectiveMockupDuration model.Project block
+
+                                                            $"Empty = mockup timing ({formatDuration mockup}s)"
+                                                        )
+                                                        prop.value model.BakeDurationDraft
+                                                        prop.onChange (fun (v: string) -> dispatch (SetBakeDuration v))
+                                                    ]
+                                                    Html.p [
+                                                        prop.className "mt-1 text-xs text-slate-500"
+                                                        prop.text "Ken Burns preview uses mockup timing (3–4s). Bake final MP4 uses this length per block."
+                                                    ]
+                                                    match model.ShotKindDraft, model.BakeDurationDraft with
+                                                    | Some kind, draft when not (System.String.IsNullOrWhiteSpace draft) ->
+                                                        match System.Double.TryParse draft with
+                                                        | true, sec when ClipGenerationGuidance.durationExceedsGuidance clipGuidanceProfile kind sec ->
+                                                            Html.p [
+                                                                prop.className "mt-1 text-xs text-amber-400/90"
+                                                                prop.text (
+                                                                    $"Above ~{int (ClipGenerationGuidance.recommendedMaxSeconds clipGuidanceProfile kind)}s recommended for {BlockShotKind.label kind} on 8 GB VRAM — may OOM in future AI clip export."
+                                                                )
+                                                            ]
+                                                        | _ -> Html.none
+                                                    | _ -> Html.none
+                                                ]
+                                            ]
+                                            Html.div [
                                                 prop.children [
                                                     Html.label [
                                                         prop.className "block text-xs text-slate-500 mb-1"
@@ -675,9 +852,13 @@ module StoryboardTimeline =
                                                     ]
                                                     Html.textarea [
                                                         prop.className "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm min-h-[60px]"
-                                                        prop.placeholder "Describe the scene to generate…"
+                                                        prop.placeholder (imagePromptPlaceholder block)
                                                         prop.value model.ImagePromptDraft
                                                         prop.onChange (fun v -> dispatch (SetImagePrompt v))
+                                                    ]
+                                                    Html.p [
+                                                        prop.className "mt-1 text-xs text-slate-500"
+                                                        prop.text "Prompts = behavior. Guide frames / thumbnails = geography. Use a cut for location changes."
                                                     ]
                                                     if looksLikeFilename model.ImagePromptDraft then
                                                         Html.p [
@@ -897,7 +1078,21 @@ module StoryboardTimeline =
                                                     ]
                                                     Html.p [
                                                         prop.className "mt-1 text-xs text-slate-500"
-                                                        prop.text "Crossfade between blocks in Ken Burns preview and bake export."
+                                                        prop.text "Crossfade between blocks in Ken Burns preview and bake. Use a hard cut (0 ms) when changing location — V2V continuation works best for motion, not geography."
+                                                    ]
+                                                ]
+                                            ]
+                                            Html.div [
+                                                prop.children [
+                                                    Html.label [
+                                                        prop.className "block text-xs text-slate-500 mb-1"
+                                                        prop.text "Director notes"
+                                                    ]
+                                                    Html.textarea [
+                                                        prop.className "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm min-h-[56px]"
+                                                        prop.placeholder "Editing intent: extend prior clip, new guide frame, cut on cottage reveal…"
+                                                        prop.value model.DirectorNotesDraft
+                                                        prop.onChange (fun v -> dispatch (SetDirectorNotes v))
                                                     ]
                                                 ]
                                             ]

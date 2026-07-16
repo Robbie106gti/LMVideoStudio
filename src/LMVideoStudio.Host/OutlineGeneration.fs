@@ -15,7 +15,13 @@ module OutlineGeneration =
             sprintf
                 """You are a storyboard assistant. Read the brief and respond with ONLY a JSON array (no markdown).
 Each item must have keys: title, voiceoverScript, imagePrompt.
-Create 3 to 8 blocks suitable for a short marketing video.
+Create 3 to 8 blocks as separate clips to stitch later (not one long generation).
+
+Prompt rules (local AI video / LTX-style workflows):
+- imagePrompt: geography and look for guide frames — subject, setting, lighting, mood.
+- When a block continues motion from the prior clip, keep imagePrompt focused on action, camera, and pacing (not re-describing the whole scene).
+- voiceoverScript: narration for this block only.
+- Prefer simple camera moves; use a new block (cut) for location or angle changes instead of one complex transition.
 
 Brief:
 %s"""
@@ -81,6 +87,7 @@ Brief:
                       VoiceoverScript = Some dto.VoiceoverScript
                       DirectorNotes = None
                       MoodTags = []
+                      ShotKind = None
                       MockupDurationSec = None
                       BakeDurationSec = None
                       Transitions = project.TransitionsDefault

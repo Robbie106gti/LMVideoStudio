@@ -58,6 +58,7 @@ module ValidationTests =
                             VoiceoverScript = None
                             DirectorNotes = None
                             MoodTags = []
+                            ShotKind = None
                             MockupDurationSec = Some 2.5
                             BakeDurationSec = None
                             Transitions = None

@@ -107,6 +107,36 @@ type MockupAudioQuality =
     | Rough
     | FullQuality
 
+/// Shot profile for AI clip generation (LTX Director / ComfyUI-style workflows).
+type BlockShotKind =
+    | FaceCloseUp
+    | MediumClose
+    | BackWide
+    | EnvironmentWide
+
+module BlockShotKind =
+    let toSchemaValue =
+        function
+        | FaceCloseUp -> "face_close"
+        | MediumClose -> "medium_close"
+        | BackWide -> "back_wide"
+        | EnvironmentWide -> "environment_wide"
+
+    let fromSchemaValue =
+        function
+        | "face_close" -> Some FaceCloseUp
+        | "medium_close" -> Some MediumClose
+        | "back_wide" -> Some BackWide
+        | "environment_wide" -> Some EnvironmentWide
+        | _ -> None
+
+    let label =
+        function
+        | FaceCloseUp -> "Face close-up"
+        | MediumClose -> "Medium close (face visible)"
+        | BackWide -> "Back / wide (no face)"
+        | EnvironmentWide -> "Environment / establishing"
+
 type BlockAudio =
     { Path: string option
       Source: AudioSource
@@ -132,6 +162,7 @@ type StoryboardBlock =
       VoiceoverScript: string option
       DirectorNotes: string option
       MoodTags: string list
+      ShotKind: BlockShotKind option
       MockupDurationSec: float option
       BakeDurationSec: float option
       Transitions: TransitionSpec option
@@ -167,6 +198,8 @@ module Project =
     let mockupDurationMinSec = 3.0
     let mockupDurationMaxSec = 4.0
     let defaultMockupDurationSec = 3.5
+    let bakeDurationMinSec = 0.5
+    let bakeDurationMaxSec = 600.0
 
     let create name =
         let now = DateTimeOffset.UtcNow
@@ -202,6 +235,12 @@ module Project =
 
     let effectiveMockupDuration (project: Project) (block: StoryboardBlock) =
         block.MockupDurationSec
+        |> Option.defaultValue project.DefaultMockupDurationSec
+
+    /// Final export clip length: explicit bake duration, else mockup timing.
+    let effectiveBakeDuration (project: Project) (block: StoryboardBlock) =
+        block.BakeDurationSec
+        |> Option.orElse block.MockupDurationSec
         |> Option.defaultValue project.DefaultMockupDurationSec
 
     /// Prefer upscaled asset for bake Ken Burns when the Host has produced one.

@@ -159,6 +159,7 @@ module ProjectStore =
                       VoiceoverScript = None
                       DirectorNotes = None
                       MoodTags = []
+                      ShotKind = None
                       MockupDurationSec = None
                       BakeDurationSec = None
                       Transitions = project.TransitionsDefault

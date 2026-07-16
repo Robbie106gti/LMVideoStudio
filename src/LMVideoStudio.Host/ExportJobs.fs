@@ -417,10 +417,12 @@ module ExportJobs =
                                     if not (File.Exists input) then
                                         Error $"Thumbnail missing: {rel}"
                                     else
-                                        let duration =
-                                            block.BakeDurationSec
-                                            |> Option.orElse block.MockupDurationSec
-                                            |> Option.defaultValue (Project.effectiveMockupDuration project block)
+                                        let duration = Project.effectiveBakeDuration project block
+
+                                        let shotLabel =
+                                            block.ShotKind
+                                            |> Option.map BlockShotKind.label
+                                            |> Option.defaultValue "unset"
 
                                         let clipPath = Path.Combine(tmpDir, $"block_{i:D3}.mp4")
 
@@ -437,7 +439,7 @@ module ExportJobs =
                                         publishProgress
                                             jobId
                                             $"block_{i + 1}"
-                                            $"Bake clip {i + 1}/{total} (CPU FFmpeg)…"
+                                            $"Bake clip {i + 1}/{total} · {duration}s · {shotLabel} (CPU FFmpeg)…"
                                             JobStatus.Running
                                             (Some(float (i + 1) / float total))
                                             (Some i)

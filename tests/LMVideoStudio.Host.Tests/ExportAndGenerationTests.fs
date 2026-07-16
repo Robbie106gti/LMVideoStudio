@@ -251,6 +251,7 @@ module PremiereExportUnitTests =
                         VoiceoverScript = None
                         DirectorNotes = None
                         MoodTags = []
+                        ShotKind = None
                         MockupDurationSec = Some 3.5
                         BakeDurationSec = None
                         Transitions = None

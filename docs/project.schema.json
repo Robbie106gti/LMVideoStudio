@@ -104,6 +104,11 @@
         "voiceoverScript": { "type": "string" },
         "directorNotes": { "type": "string" },
         "moodTags": { "type": "array", "items": { "type": "string" } },
+        "shotKind": {
+          "type": "string",
+          "enum": ["face_close", "medium_close", "back_wide", "environment_wide"],
+          "description": "Shot profile for AI clip generation: drives resolution and max-duration guidance (LTX/Comfy workflows)"
+        },
         "mockupDurationSec": {
           "type": "number",
           "minimum": 0.5,

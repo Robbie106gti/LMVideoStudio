@@ -349,7 +349,18 @@ let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string opt
             return Error text
     }
 
-let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (imagePrompt: string option) (crossfadeDurationMs: int option) (moodTags: string list option) =
+let updateBlock
+    (projectId: Guid)
+    (blockId: Guid)
+    (voiceoverScript: string)
+    (imagePrompt: string option)
+    (crossfadeDurationMs: int option)
+    (moodTags: string list option)
+    (directorNotes: string option)
+    (shotKind: BlockShotKind option)
+    (bakeDurationSec: float option)
+    (clearBakeDuration: bool)
+    =
     async {
         let transitionFields =
             crossfadeDurationMs
@@ -370,6 +381,24 @@ let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (ima
                 [ "moodTags", tags |> List.map Encode.string |> List.toArray |> Encode.array ])
             |> Option.defaultValue []
 
+        let directorFields =
+            directorNotes
+            |> Option.map (fun n -> [ "directorNotes", Encode.string n ])
+            |> Option.defaultValue []
+
+        let shotKindFields =
+            shotKind
+            |> Option.map (fun k -> [ "shotKind", Encode.string (BlockShotKind.toSchemaValue k) ])
+            |> Option.defaultValue []
+
+        let bakeDurationFields =
+            match bakeDurationSec with
+            | Some d -> [ "bakeDurationSec", Encode.float d ]
+            | None -> []
+
+        let clearBakeFields =
+            if clearBakeDuration then [ "clearBakeDurationSec", Encode.bool true ] else []
+
         let fields =
             [ "voiceoverScript", Encode.string voiceoverScript ]
             @ (imagePrompt
@@ -377,6 +406,10 @@ let updateBlock (projectId: Guid) (blockId: Guid) (voiceoverScript: string) (ima
                |> Option.defaultValue [])
             @ transitionFields
             @ moodFields
+            @ directorFields
+            @ shotKindFields
+            @ bakeDurationFields
+            @ clearBakeFields
 
         let body = Encode.object fields |> Encode.toString 0
         let! status, text = fetchAsync $"{hostBase()}/projects/{projectId}/blocks/{blockId}" "PATCH" (Some body)

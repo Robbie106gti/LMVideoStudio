@@ -19,10 +19,7 @@ module PremiereExport =
         | SequencePreset.Preset1080Square -> 24
 
     let private blockDurationFrames (project: Project) (block: StoryboardBlock) timebase =
-        let seconds =
-            block.MockupDurationSec
-            |> Option.orElse block.BakeDurationSec
-            |> Option.defaultValue project.DefaultMockupDurationSec
+        let seconds = Project.effectiveBakeDuration project block
 
         max 1 (int (Math.Round(seconds * float timebase)))
 

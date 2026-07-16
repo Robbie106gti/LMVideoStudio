@@ -605,14 +605,47 @@ module Program =
                                     else
                                         block.MoodTags
 
+                                let directorNotes =
+                                    if root.TryGetProperty("directorNotes") |> fst then
+                                        let s = root.GetProperty("directorNotes").GetString()
+
+                                        if String.IsNullOrWhiteSpace s then None else Some s
+                                    else
+                                        block.DirectorNotes
+
+                                let shotKind =
+                                    if root.TryGetProperty("shotKind") |> fst then
+                                        BlockShotKind.fromSchemaValue (root.GetProperty("shotKind").GetString())
+                                    else
+                                        block.ShotKind
+
+                                let bakeDuration =
+                                    if
+                                        root.TryGetProperty("clearBakeDurationSec") |> fst
+                                        && root.GetProperty("clearBakeDurationSec").GetBoolean()
+                                    then
+                                        None
+                                    elif root.TryGetProperty("bakeDurationSec") |> fst then
+                                        let el = root.GetProperty("bakeDurationSec")
+
+                                        if el.ValueKind = System.Text.Json.JsonValueKind.Null then
+                                            None
+                                        else
+                                            Some(el.GetDouble())
+                                    else
+                                        block.BakeDurationSec
+
                                 { block with
                                     VoiceoverScript = voiceover
                                     ImagePrompt = imagePrompt
                                     MockupDurationSec = mockupDuration
+                                    BakeDurationSec = bakeDuration
                                     ThumbnailPath = thumbnailPath
                                     Transitions = transitions
                                     Artifacts = artifacts
-                                    MoodTags = moodTags }) with
+                                    MoodTags = moodTags
+                                    DirectorNotes = directorNotes
+                                    ShotKind = shotKind }) with
                             | Error err -> do! writeJson ctx 400 (jsonObj {| error = err |})
                             | Ok project -> do! writeJson ctx 200 (Json.encodeProject project)
                         with ex ->
