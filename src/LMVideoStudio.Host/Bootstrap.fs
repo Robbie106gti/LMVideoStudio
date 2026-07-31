@@ -7,7 +7,7 @@ open System.Net.Http
 open System.Threading.Tasks
 
 module ModelSync =
-    type ModelSyncService(repoRoot: string, events: JobEventHub) =
+    type ModelSyncService(repoRoot: string, events: JobEventHub, localAi: LocalAiProvider.LocalAiProvider) =
         let http = new HttpClient()
 
         let tryReach (url: string) =
@@ -78,14 +78,19 @@ module ModelSync =
 
         member _.GetStatus() =
             task {
-                let! ollamaOk = tryReach "http://localhost:11434/api/tags"
+                let! localAiHealth = localAi.HealthCheck()
                 let! workerOk = tryReach "http://127.0.0.1:8765/health"
 
                 let manifestPath = Path.Combine(repoRoot, "config", "models.manifest.json")
                 let manifestExists = File.Exists manifestPath
 
                 return
-                    {| ollamaReachable = ollamaOk
+                    {| localAiReachable = localAiHealth.Reachable
+                       localAiProvider = localAi.ProviderName
+                       configuredModel = localAi.DefaultModel
+                       configuredModelAvailable = localAiHealth.ConfiguredModelAvailable
+                       modelCount = localAiHealth.ModelCount
+                       ollamaReachable = localAiHealth.Reachable // Deprecated compatibility alias.
                        workerReachable = workerOk
                        manifestPath = manifestPath
                        manifestExists = manifestExists |}
@@ -100,7 +105,7 @@ module Bootstrap =
             repoRoot: string,
             events: JobEventHub,
             modelSync: ModelSync.ModelSyncService,
-            ollama: OllamaProvider.OllamaProvider,
+            localAi: LocalAiProvider.LocalAiProvider,
             worker: PythonWorkerProvider.PythonWorkerProvider,
             gpu: GpuQueueService
         ) =
@@ -144,7 +149,7 @@ module Bootstrap =
                 let steps =
                     [ "preflight", "Checking system requirements…"
                       "conflicts", "Scanning for GPU conflicts…"
-                      "ollama", "Verifying Ollama…"
+                      "local_ai", $"Verifying {localAi.ProviderName}…"
                       "python", "Verifying Python worker…"
                       "models", "Syncing model catalog…"
                       "sidecars", "Checking sidecar health…"
@@ -189,27 +194,27 @@ module Bootstrap =
                             events.Publish(
                                 JobEvent.create jobId Bootstrap "conflicts" $"Scan skipped: {err}" Running
                             )
-                    | "ollama" ->
-                        let! health = ollama.HealthCheck()
+                    | "local_ai" ->
+                        let! health = localAi.HealthCheck()
 
                         if not health.Reachable then
                             events.Publish(
-                                JobEvent.create jobId Bootstrap "ollama_setup" "Running setup-ollama.ps1…" Running
+                                JobEvent.create jobId Bootstrap "local_ai_setup" "Running setup-local-ai.ps1…" Running
                             )
 
-                            let! setup = runSetupScript ("setup-ollama.ps1", "")
+                            let! setup = runSetupScript ("setup-local-ai.ps1", "")
 
                             match setup with
                             | Error err ->
                                 events.Publish(
-                                    JobEvent.create jobId Bootstrap "ollama_missing" $"Ollama setup: {err}" Running
+                                    JobEvent.create jobId Bootstrap "local_ai_missing" $"Local AI setup: {err}" Running
                                 )
                             | Ok _ ->
-                                let! recheck = ollama.HealthCheck()
+                                let! recheck = localAi.HealthCheck()
 
                                 if not recheck.Reachable then
                                     events.Publish(
-                                        JobEvent.create jobId Bootstrap "ollama_missing" "Ollama not running (install on first run)" Running
+                                        JobEvent.create jobId Bootstrap "local_ai_missing" $"{localAi.ProviderName} is not running" Running
                                     )
                     | "python" ->
                         let! health = worker.HealthCheck()
@@ -297,7 +302,7 @@ module Bootstrap =
         member _.GetSystemStatus() =
             task {
                 let! modelStatus = modelSync.GetStatus()
-                let! ollamaHealth = ollama.HealthCheck()
+                let! localAiHealth = localAi.HealthCheck()
                 let! workerHealth = worker.HealthCheck()
                 let conflictsScript = Path.Combine(repoRoot, "scripts", "detect_gpu_conflicts.ps1")
 
@@ -312,7 +317,10 @@ module Bootstrap =
 
                 return
                     {| host = "ok"
-                       ollama = ollamaHealth.Reachable
+                       localAi = localAiHealth.Reachable
+                       localAiProvider = localAi.ProviderName
+                       localAiModel = localAi.DefaultModel
+                       ollama = localAiHealth.Reachable // Deprecated compatibility alias.
                        worker = workerHealth.Reachable
                        workerDevice = workerDevice
                        ffmpeg = ffmpegAvailable ()
@@ -328,7 +336,7 @@ module Bootstrap =
                     JobEvent.create jobId Repair "start" "Repair setup started…" Running
                 )
 
-                let! _ = runSetupScript ("setup-ollama.ps1", "-PullOnly")
+                let! _ = runSetupScript ("setup-local-ai.ps1", "")
                 let! _ = runSetupScript ("setup-python.ps1", "")
                 let! sync = modelSync.RunPull()
 

@@ -1,6 +1,6 @@
 # macOS port (Apple Silicon / arm64)
 
-Target: M-series Mac mini / MacBook with **MPS** Python worker sidecar, Ollama bootstrap, and **`.dmg`** via Tauri on GitHub Releases.
+Target: M-series Mac mini / MacBook with **MPS** Python worker sidecar, Lemonade local AI, and **`.dmg`** via Tauri on GitHub Releases.
 
 Windows builds use ROCm; macOS builds use Metal Performance Shaders (MPS) through PyTorch. Shared Python source lives under `python/`; platform selection is in `python/lib/gpu_utils.py`.
 
@@ -11,7 +11,7 @@ Windows builds use ROCm; macOS builds use Metal Performance Shaders (MPS) throug
 3. **Toolchain**
    ```bash
    brew install dotnet@8 node python@3.12 ffmpeg
-   brew install --cask ollama   # or download from https://ollama.com/download/mac
+   # Install Lemonade's Apple Silicon .pkg from https://lemonade-server.ai/docs/guide/install/
    ```
 4. **Rust** — https://rustup.rs (`rustup target add aarch64-apple-darwin`)
 5. **PowerShell** (model sync scripts) — `brew install powershell/tap/powershell`
@@ -59,16 +59,16 @@ CI runs on `macos-latest` via `.github/workflows/macos-build.yml` (dotnet tests 
 
 Tauri resolves bundled sidecars in `src-tauri/src/sidecar.rs` using platform-specific names (no `.exe` on Darwin).
 
-## Ollama bootstrap
+## Local AI bootstrap
 
-1. Install and launch Ollama (menu bar icon running).
-2. Pull manifest models:
+1. Install and launch Lemonade Server. LMVideoStudio does not install provider software.
+2. Verify Lemonade and the manifest model:
    ```bash
-   ./scripts/setup-ollama-macos.sh
+   ./scripts/setup-local-ai-macos.sh
    ```
-   This wraps `scripts/sync_models.ps1 -Pull` via `pwsh`.
+   This checks the same Lemonade HTTP contract as Windows and wraps `scripts/sync_models.ps1 -Check` via `pwsh`.
 
-No AMD Adrenalin driver check on macOS — bootstrap focuses on Ollama + worker health.
+No AMD Adrenalin driver check on macOS — bootstrap focuses on Lemonade + worker health.
 
 ## Python worker (MPS)
 
@@ -145,7 +145,7 @@ Updater `latest.json` should include a `darwin-aarch64` platform entry once mini
 |-------|-----|
 | `MPS backend: cpu` | Reinstall torch in sidecar venv; ensure macOS 13+ and Apple Silicon |
 | Worker venv missing | `./scripts/build-sidecars-macos.sh` (copies ~2GB deps first time) |
-| Ollama unreachable | Launch Ollama.app; `ollama serve` if using CLI-only install |
+| Lemonade unreachable | Launch Lemonade Server and verify `http://127.0.0.1:13305/api/v1/health` |
 | Gatekeeper blocks app | Right-click → Open, or sign/notarize for production |
 | FFmpeg export fails | `brew install ffmpeg`, re-run `build-sidecars-macos.sh` |
 
@@ -153,7 +153,8 @@ Updater `latest.json` should include a `darwin-aarch64` platform entry once mini
 
 - `scripts/build-macos.sh` — full `.dmg` pipeline
 - `scripts/build-sidecars-macos.sh` — sidecar staging for `osx-arm64`
-- `scripts/setup-ollama-macos.sh` — Ollama + model sync
+- `scripts/setup-local-ai-macos.sh` — Lemonade + model verification
+- `scripts/setup-ollama-macos.sh` — explicit Ollama compatibility path
 - `scripts/setup-python-macos.sh` — MPS venv
 - `scripts/verify-sidecar-staging-macos.sh` — pre-Tauri checks
 - `.github/workflows/macos-build.yml` — CI on `macos-latest`

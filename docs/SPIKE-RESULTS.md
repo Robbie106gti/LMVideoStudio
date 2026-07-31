@@ -1,5 +1,7 @@
 # LMVideoStudio — Spike Validation Results
 
+> Historical note: these gates qualified Ollama during the original spike. The application default is now Lemonade; Ollama remains an explicit compatibility provider.
+
 **Date:** 2026-06-12  
 **Machine:** AMD Radeon RX 9070 XT (17.1 GB reported) · Ryzen 5700X3D · Windows 11 Pro · Driver 32.0.31019.2002
 

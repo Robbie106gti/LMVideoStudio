@@ -25,6 +25,31 @@ One command from repo root starts Host, Worker, Fable (if needed), and Vite in *
 .\scripts\dev.ps1
 ```
 
+### Local AI provider
+
+LMVideoStudio uses **Lemonade Server** by default. The host verifies Lemonade through `GET /api/v1/health`, discovers downloaded models through `GET /api/v1/models`, and generates outlines through `POST /api/v1/chat/completions`. Lemonade loads the configured model on first inference and owns its LRU lifecycle; its explicit `/api/v1/load` and `/api/v1/unload` operations are supported by the host provider contract.
+
+Default configuration:
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `LMVS_LOCAL_AI_PROVIDER` | `lemonade` | `lemonade` or explicit compatibility fallback `ollama` |
+| `LMVS_LOCAL_AI_BASE_URL` | `http://127.0.0.1:13305` | Provider HTTP service |
+| `LMVS_LOCAL_AI_MODEL` | `Bonsai-8B-gguf` | Downloaded model ID used for outlines |
+
+LMVideoStudio does not install provider software. Install and launch Lemonade separately, then run:
+
+```powershell
+.\scripts\setup-local-ai.ps1
+```
+
+Temporary Ollama compatibility is explicit:
+
+```powershell
+$env:LMVS_LOCAL_AI_PROVIDER = "ollama"
+.\scripts\setup-local-ai.ps1
+```
+
 Alternatives (same script):
 
 ```powershell
@@ -117,7 +142,7 @@ Worker GPU info: `GET http://127.0.0.1:8765/health` (`rocm`, `vram_gb`, `device_
 
 ## Testing
 
-Fast local feedback loop (Domain + Host integration tests; no GPU, Ollama, or worker required):
+Fast local feedback loop (Domain + Host integration tests; no GPU, local AI service, or worker required):
 
 ```powershell
 .\scripts\test.ps1
@@ -207,7 +232,7 @@ make verify-sidecars
 1. Run `*-setup.exe` or `.msi` from `src\LMVideoStudio.Tauri\src-tauri\target\release\bundle\`
 2. Launch LMVideoStudio — Tauri starts Host (:17170) and worker (:8765) sidecars
 3. Optional smoke: `.\scripts\e2e_smoke.ps1 -StartHost` on the dev machine before building
-4. First-run: Ollama + model weights still download separately (`sync_models.ps1 -Pull` on dev; app bootstrap on install)
+4. First-run: launch Lemonade and sync model weights separately (`setup-local-ai.ps1`; provider installation is never automatic)
 
 Artifacts: `src\LMVideoStudio.Tauri\src-tauri\target\release\bundle\`
 

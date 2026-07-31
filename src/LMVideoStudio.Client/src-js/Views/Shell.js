@@ -77,7 +77,7 @@ export function Shell_statusBar(status, activity) {
         className: "shrink-0",
         children: "LMVideoStudio",
     }), defaultArg(map((s) => {
-        const ollama = s.Ollama ? "✓" : "—";
+        const localAi = s.LocalAi ? "✓" : "—";
         const worker = s.Worker ? "✓" : "—";
         const warmup = s.WarmupComplete ? "warm" : "cold";
         const gpuHint = bind((d) => {
@@ -90,7 +90,7 @@ export function Shell_statusBar(status, activity) {
         }, s.WorkerDevice);
         return createElement("span", {
             className: "shrink-0",
-            children: (gpuHint == null) ? (`Host OK · Ollama ${ollama} · Worker ${worker}`) : (`Host OK · Ollama ${ollama} · Worker ${worker} · ${gpuHint}`),
+            children: (gpuHint == null) ? (`Host OK · ${s.LocalAiProvider} ${localAi} · Worker ${worker}`) : (`Host OK · ${s.LocalAiProvider} ${localAi} · Worker ${worker} · ${gpuHint}`),
         });
     }, status), createElement("span", {
         className: "shrink-0",

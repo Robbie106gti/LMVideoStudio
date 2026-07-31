@@ -16,6 +16,7 @@ open LMVideoStudio.Client.Views.Shell
 open LMVideoStudio.Client.ErrorReporting
 open LMVideoStudio.Client.AppNavigation
 open LMVideoStudio.Client.PromptQuickButtons
+open LMVideoStudio.Domain
 
 type AppPage =
     | HubPage of ProjectHubModel
@@ -114,11 +115,12 @@ let update msg model =
             | Failed _ -> Some false
             | Starting -> None
 
-        let ollama = model.Shell.SystemStatus |> Option.map (fun s -> s.Ollama)
+        let localAi = model.Shell.SystemStatus |> Option.map (fun s -> s.LocalAi)
         let worker = model.Shell.SystemStatus |> Option.map (fun s -> s.Worker)
         let consent = readConsent ()
 
-        match buildReport req hostHealthy ollama worker consent with
+        // Error report wire format retains the legacy ollamaReachable field for compatibility.
+        match buildReport req hostHealthy localAi worker consent with
         | Error _ -> model, Cmd.none
         | Ok report ->
             let summary =

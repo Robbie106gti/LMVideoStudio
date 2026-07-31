@@ -170,7 +170,7 @@ module ProjectHub =
 
                             prop.className "text-sm font-semibold"
 
-                            prop.text "Brief → outline (Ollama)"
+                            prop.text "Brief → outline (local AI)"
 
                         ]
 

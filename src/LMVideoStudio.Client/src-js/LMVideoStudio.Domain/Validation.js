@@ -3,7 +3,7 @@ import { union_type, list_type, record_type, string_type } from "../fable_module
 import { isEmpty, collect, append as append_1, singleton, empty } from "../fable_modules/fable-library-js.4.27.0/List.js";
 import { append, delay, toList } from "../fable_modules/fable-library-js.4.27.0/Seq.js";
 import { isNullOrWhiteSpace } from "../fable_modules/fable-library-js.4.27.0/String.js";
-import { RenderTier, ProjectModule_mockupDurationMaxSec, ProjectModule_mockupDurationMinSec } from "./Types.js";
+import { ProjectModule_bakeDurationMaxSec, ProjectModule_bakeDurationMinSec, RenderTier, ProjectModule_mockupDurationMaxSec, ProjectModule_mockupDurationMinSec } from "./Types.js";
 import { equals } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { map, defaultArg } from "../fable_modules/fable-library-js.4.27.0/Option.js";
 
@@ -75,7 +75,14 @@ export function Validation_validateProject(project) {
         else {
             return false;
         }
-    }, b.MockupDurationSec), true), `mockupDurationSec must be between ${ProjectModule_mockupDurationMinSec} and ${ProjectModule_mockupDurationMaxSec} when set`), delay(() => Validation_validateTransitionSpec(b.Id, b.Transitions))))))), project.Blocks));
+    }, b.MockupDurationSec), true), `mockupDurationSec must be between ${ProjectModule_mockupDurationMinSec} and ${ProjectModule_mockupDurationMaxSec} when set`), delay(() => append(Validation_require(`blocks[${b.Id}].bakeDurationSec`, defaultArg(map((d_1) => {
+        if (d_1 >= ProjectModule_bakeDurationMinSec) {
+            return d_1 <= ProjectModule_bakeDurationMaxSec;
+        }
+        else {
+            return false;
+        }
+    }, b.BakeDurationSec), true), `bakeDurationSec must be between ${ProjectModule_bakeDurationMinSec} and ${ProjectModule_bakeDurationMaxSec} when set`), delay(() => Validation_validateTransitionSpec(b.Id, b.Transitions))))))))), project.Blocks));
     if (isEmpty(matchValue)) {
         return new ValidationResult(0, []);
     }

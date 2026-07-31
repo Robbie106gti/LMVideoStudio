@@ -171,7 +171,7 @@ module FeatureTddTests =
 
         let overrides =
             { Worker = Some worker
-              Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+              LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 
@@ -222,7 +222,7 @@ module FeatureTddTests =
 
         let overrides =
             { Worker = Some worker
-              Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+              LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 
@@ -295,7 +295,7 @@ module FeatureTddTests =
     type TransitionExportTests() =
         let overrides =
             { Worker = Some(TestMocks.createWorkerProvider())
-              Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+              LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 
@@ -371,7 +371,7 @@ module FeatureTddTests =
     type GenerationSeedTests() =
         let overrides =
             { Worker = Some(TestMocks.createWorkerProvider())
-              Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+              LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 
@@ -419,7 +419,7 @@ module FeatureTddTests =
     type FfmpegSingleFlightTests() =
         let overrides =
             { Worker = Some(TestMocks.createWorkerProvider())
-              Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+              LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 

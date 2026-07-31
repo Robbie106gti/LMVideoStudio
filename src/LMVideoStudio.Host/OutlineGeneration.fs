@@ -10,7 +10,7 @@ module OutlineGeneration =
           VoiceoverScript: string
           ImagePrompt: string }
 
-    type OutlineGenerationService(ollama: OllamaProvider.OllamaProvider) =
+    type OutlineGenerationService(localAi: LocalAiProvider.LocalAiProvider) =
         let outlinePrompt (brief: string) =
             sprintf
                 """You are a storyboard assistant. Read the brief and respond with ONLY a JSON array (no markdown).
@@ -66,7 +66,7 @@ Brief:
                 if String.IsNullOrWhiteSpace brief then
                     return Error "Brief is required"
                 else
-                    let! result = ollama.GenerateStub(outlinePrompt brief)
+                    let! result = localAi.Generate(outlinePrompt brief)
 
                     return
                         match result with

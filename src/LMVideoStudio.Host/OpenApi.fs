@@ -15,7 +15,7 @@ module OpenApi =
       "get": { "summary": "Host liveness", "responses": { "200": { "description": "OK" } } }
     },
     "/system/status": {
-      "get": { "summary": "Bootstrap status (Ollama, worker, FFmpeg)", "responses": { "200": { "description": "System status" } } }
+      "get": { "summary": "Bootstrap status (local AI, worker, FFmpeg)", "responses": { "200": { "description": "System status" } } }
     },
     "/api/v1/status": {
       "get": { "summary": "Combined status (CLI status command)", "responses": { "200": { "description": "health + system" } } }

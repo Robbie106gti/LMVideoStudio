@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Bootstrap Ollama for LMVideoStudio on macOS — verify API, pull manifest models.
+# Compatibility-only Ollama bootstrap for LMVideoStudio on macOS.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 echo "=== setup-ollama-macos ==="
+echo "Ollama is an explicit compatibility provider. Lemonade is the LMVideoStudio default."
 
 REACHABLE=0
 if curl -sf --max-time 5 "http://localhost:11434/api/tags" >/dev/null 2>&1; then
@@ -32,10 +33,10 @@ fi
 
 if [[ "$REACHABLE" -eq 1 ]]; then
   echo "Syncing Ollama models from manifest..."
-  pwsh -NoProfile -ExecutionPolicy Bypass -File "$SYNC_SCRIPT" -Pull || \
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$SYNC_SCRIPT" -Pull -ModelProvider ollama || \
     echo "Model sync reported issues (non-zero exit)"
 else
-  pwsh -NoProfile -ExecutionPolicy Bypass -File "$SYNC_SCRIPT" -Check || true
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$SYNC_SCRIPT" -Check -ModelProvider ollama || true
 fi
 
 echo "setup-ollama-macos complete"

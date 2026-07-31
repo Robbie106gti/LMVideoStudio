@@ -54,7 +54,7 @@ export function SettingsModel_$reflection() {
 const Settings_bootstrapDoneKey = "lmvs_bootstrap_done";
 
 function Settings_allSystemsOk(s) {
-    if ((s.Host === "ok") && s.Ollama) {
+    if ((s.Host === "ok") && s.LocalAi) {
         return s.Worker;
     }
     else {
@@ -112,7 +112,7 @@ export function Settings_view(model, dispatch) {
             let elems_1, elems;
             return append(model.ShowFirstRunBanner ? singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-accent/40 bg-accent/10 p-4 space-y-3"], (elems_1 = [createElement("p", {
                 className: "text-sm",
-                children: "First run — bootstrap checks Ollama, Python worker, model catalog, FFmpeg, and sidecar health.",
+                children: "First run — bootstrap checks local AI, Python worker, model catalog, FFmpeg, and sidecar health.",
             }), createElement("div", createObj(ofArray([["className", "flex gap-2"], (elems = [createElement("button", {
                 className: "px-4 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium",
                 children: "Run first-run bootstrap",
@@ -129,13 +129,13 @@ export function Settings_view(model, dispatch) {
                 let elems_3;
                 return createElement("div", createObj(ofArray([["className", "space-y-3"], (elems_3 = toList(delay(() => append(Settings_allSystemsOk(s) ? singleton(createElement("div", {
                     className: "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300",
-                    children: "All systems OK — Host, Ollama, and Worker are reachable.",
+                    children: "All systems OK — Host, local AI, and Worker are reachable.",
                 })) : empty(), delay(() => {
                     let elems_2;
                     return singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-2 text-sm"], (elems_2 = [createElement("div", {
                         children: `Host: ${s.Host}`,
                     }), createElement("div", {
-                        children: s.Ollama ? "Ollama: reachable" : "Ollama: offline",
+                        children: s.LocalAi ? (`Local AI (${s.LocalAiProvider}): reachable`) : (`Local AI (${s.LocalAiProvider}): offline`),
                     }), createElement("div", {
                         children: s.Worker ? "Worker: reachable" : "Worker: offline",
                     }), defaultArg(map((d) => {
@@ -162,7 +162,7 @@ export function Settings_view(model, dispatch) {
                     return createElement("div", createObj(ofArray([["className", "text-sm space-y-1 text-slate-400"], (elems_4 = [createElement("div", {
                         children: m.ManifestExists ? "Manifest: present" : "Manifest: missing",
                     }), createElement("div", {
-                        children: m.OllamaReachable ? "Ollama registry: reachable" : "Ollama registry: offline",
+                        children: m.LocalAiReachable ? (`Local AI registry (${m.LocalAiProvider}): reachable`) : (`Local AI registry (${m.LocalAiProvider}): offline`),
                     }), createElement("div", {
                         className: "truncate",
                         title: m.ManifestPath,

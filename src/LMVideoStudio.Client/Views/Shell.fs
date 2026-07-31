@@ -47,7 +47,7 @@ module Shell =
                 Html.span [ prop.className "shrink-0"; prop.text "LMVideoStudio" ]
                 status
                 |> Option.map (fun s ->
-                    let ollama = if s.Ollama then "✓" else "—"
+                    let localAi = if s.LocalAi then "✓" else "—"
                     let worker = if s.Worker then "✓" else "—"
 
                     let warmup =
@@ -66,8 +66,8 @@ module Shell =
                         prop.className "shrink-0"
                         prop.text (
                             match gpuHint with
-                            | Some g -> $"Host OK · Ollama {ollama} · Worker {worker} · {g}"
-                            | None -> $"Host OK · Ollama {ollama} · Worker {worker}"
+                            | Some g -> $"Host OK · {s.LocalAiProvider} {localAi} · Worker {worker} · {g}"
+                            | None -> $"Host OK · {s.LocalAiProvider} {localAi} · Worker {worker}"
                         )
                     ])
                 |> Option.defaultValue (Html.span [ prop.className "shrink-0"; prop.text "Host —" ])

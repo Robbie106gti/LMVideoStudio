@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Bootstrap Ollama for LMVideoStudio — verify API, pull manifest models.
+  Compatibility-only Ollama bootstrap — verify API, pull legacy manifest models.
 
 .EXAMPLE
   .\scripts\setup-ollama.ps1
@@ -14,6 +14,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
 Write-Host "=== setup-ollama ===" -ForegroundColor Cyan
+Write-Host "Ollama is an explicit compatibility provider. Lemonade is the LMVideoStudio default." -ForegroundColor Yellow
 
 $reachable = $false
 try {
@@ -38,12 +39,12 @@ if (-not (Test-Path $syncScript)) {
 
 if ($reachable -or $PullOnly) {
     Write-Host "Syncing Ollama models from manifest..." -ForegroundColor Cyan
-    & $syncScript -Pull
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Model sync reported issues (exit $LASTEXITCODE)" -ForegroundColor Yellow
+    & $syncScript -Pull -ModelProvider ollama
+    if (-not $?) {
+        Write-Host "Model sync reported issues" -ForegroundColor Yellow
     }
 } else {
-    & $syncScript -Check
+    & $syncScript -Check -ModelProvider ollama
 }
 
 Write-Host "setup-ollama complete" -ForegroundColor Green

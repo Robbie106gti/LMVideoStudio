@@ -30,7 +30,7 @@ module Program =
           Bootstrap: Bootstrap.BootstrapService
           Conflicts: ConflictScan.ConflictScanService
           Models: ModelSync.ModelSyncService
-          Ollama: OllamaProvider.OllamaProvider
+          LocalAi: LocalAiProvider.LocalAiProvider
           Worker: PythonWorkerProvider.PythonWorkerProvider
           Generation: BlockGeneration.BlockGenerationService
           Preview: ExportJobs.MockupPreviewService
@@ -43,7 +43,7 @@ module Program =
 
     type HostServiceOverrides =
         { Worker: PythonWorkerProvider.PythonWorkerProvider option
-          Ollama: OllamaProvider.OllamaProvider option }
+          LocalAi: LocalAiProvider.LocalAiProvider option }
 
     let private jsonOptions =
         let o = System.Text.Json.JsonSerializerOptions()
@@ -1144,16 +1144,16 @@ module Program =
         let ovr =
             defaultArg overrides
                 { Worker = None
-                  Ollama = None }
+                  LocalAi = None }
 
         let schemaPath = Path.Combine(repoRoot, "docs", "project.schema.json")
         let events = JobEventHub()
         let store = ProjectStore.ProjectStore(repoRoot, schemaPath)
-        let models = ModelSync.ModelSyncService(repoRoot, events)
+        let localAi =
+            ovr.LocalAi
+            |> Option.defaultWith (fun () -> LocalAiProvider.LocalAiProvider(LocalAiProvider.configFromEnvironment ()))
 
-        let ollama =
-            ovr.Ollama
-            |> Option.defaultWith (fun () -> OllamaProvider.OllamaProvider("http://localhost:11434"))
+        let models = ModelSync.ModelSyncService(repoRoot, events, localAi)
 
         let worker =
             ovr.Worker
@@ -1161,12 +1161,12 @@ module Program =
 
         let gpuQueue = GpuQueueService(SingleFlightGpuQueue(), worker, repoRoot)
 
-        let bootstrap = Bootstrap.BootstrapService(repoRoot, events, models, ollama, worker, gpuQueue)
+        let bootstrap = Bootstrap.BootstrapService(repoRoot, events, models, localAi, worker, gpuQueue)
         let conflicts = ConflictScan.ConflictScanService repoRoot
         let generation = BlockGeneration.BlockGenerationService(store, worker, gpuQueue, events, conflicts)
         let preview = ExportJobs.MockupPreviewService(store, events, repoRoot)
         let bake = ExportJobs.BakeJobService(store, events, repoRoot, worker, gpuQueue)
-        let outline = OutlineGeneration.OutlineGenerationService ollama
+        let outline = OutlineGeneration.OutlineGenerationService localAi
         let voiceover = VoiceoverGeneration.VoiceoverService(store, events, worker, gpuQueue, repoRoot)
         let errorReporting = ErrorReporting.ErrorReportingService repoRoot
         let httpClient = new HttpClient()
@@ -1182,7 +1182,7 @@ module Program =
           Bootstrap = bootstrap
           Conflicts = conflicts
           Models = models
-          Ollama = ollama
+          LocalAi = localAi
           Worker = worker
           Generation = generation
           Preview = preview

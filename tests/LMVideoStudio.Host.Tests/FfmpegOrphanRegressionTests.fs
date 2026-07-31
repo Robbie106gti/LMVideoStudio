@@ -244,7 +244,7 @@ module FfmpegOrphanRegressionTests =
     type ExportJobsCancelTests() =
         let overrides =
             { Worker = Some(TestMocks.createWorkerProvider())
-              Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+              LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 
@@ -364,7 +364,7 @@ module FfmpegOrphanRegressionTests =
 
             let overrides =
                 { Worker = Some(TestMocks.createWorkerProvider())
-                  Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+                  LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
             let fixture = TestHostFactory.TestHostFixture(Some overrides)
             let proc = startSlowTrackedProcess ()

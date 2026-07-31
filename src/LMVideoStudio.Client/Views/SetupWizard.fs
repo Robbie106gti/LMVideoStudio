@@ -63,7 +63,7 @@ module SetupWizard =
                                 match model.Step with
                                 | Welcome ->
                                     Html.p [
-                                        prop.text "This wizard runs bootstrap checks for Host, Ollama, Python worker, FFmpeg, and the model catalog. You can re-run bootstrap anytime from Settings."
+                                        prop.text "This wizard runs bootstrap checks for Host, local AI, Python worker, FFmpeg, and the model catalog. You can re-run bootstrap anytime from Settings."
                                     ]
                                 | Bootstrap ->
                                     Html.p [

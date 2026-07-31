@@ -79,7 +79,7 @@ $result = @{
     gate   = 10
     pass   = $passed
     steps  = $steps
-    note   = "Manual UAC for Ollama install not simulated; run once on fresh profile and document"
+    note   = "Provider installation is not simulated; verify Lemonade separately on a fresh profile"
 }
 
 $result | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $outDir "gate10.json")

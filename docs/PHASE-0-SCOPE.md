@@ -10,7 +10,7 @@ North Star v1 is the personal ship target **after** Phases 0–2. Phase 0 only g
 |------|-------------|
 | **Shell** | Tauri + Fable app window, navigation shell, empty project hub |
 | **Sidecars** | Spawn/monitor F# Host + embedded Python venv worker (spike pattern) |
-| **Bootstrap** | First-run + Repair: driver preflight, Ollama, `sync_models.ps1 -Pull`, sidecar health |
+| **Bootstrap** | First-run + Repair: driver preflight, Lemonade local AI, `sync_models.ps1 -Pull`, sidecar health |
 | **Activity UX** | Bootstrap step list, status bar (sidecars/GPU), ActivityPanel skeleton |
 | **Conflicts** | `detect_gpu_conflicts.ps1` → Host `/system/conflicts/scan` (advisory) |
 | **Job events** | SSE skeleton + [`job-events.schema.json`](job-events.schema.json) |

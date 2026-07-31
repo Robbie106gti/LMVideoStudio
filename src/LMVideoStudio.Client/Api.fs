@@ -34,14 +34,19 @@ type WorkerDeviceDto =
 
 type SystemStatusDto =
     { Host: string
-      Ollama: bool
+      LocalAi: bool
+      LocalAiProvider: string
       Worker: bool
       WarmupComplete: bool
       Ffmpeg: bool option
       WorkerDevice: WorkerDeviceDto option }
 
 type ModelStatusDto =
-    { OllamaReachable: bool
+    { LocalAiReachable: bool
+      LocalAiProvider: string
+      ConfiguredModel: string option
+      ConfiguredModelAvailable: bool option
+      ModelCount: int option
       WorkerReachable: bool
       ManifestPath: string
       ManifestExists: bool }
@@ -293,8 +298,11 @@ let getSystemStatus () =
 
             let decoder =
                 Decode.object (fun get ->
+                    let legacyReachable = get.Optional.Field "ollama" Decode.bool |> Option.defaultValue false
+
                     { Host = get.Required.Field "host" Decode.string
-                      Ollama = get.Required.Field "ollama" Decode.bool
+                      LocalAi = get.Optional.Field "localAi" Decode.bool |> Option.defaultValue legacyReachable
+                      LocalAiProvider = get.Optional.Field "localAiProvider" Decode.string |> Option.defaultValue "ollama"
                       Worker = get.Required.Field "worker" Decode.bool
                       WarmupComplete = get.Optional.Field "warmupComplete" Decode.bool |> Option.defaultValue false
                       Ffmpeg = get.Optional.Field "ffmpeg" Decode.bool
@@ -656,7 +664,13 @@ let getModelStatus () =
         if status >= 200 && status < 300 then
             let decoder =
                 Decode.object (fun get ->
-                    { OllamaReachable = get.Required.Field "ollamaReachable" Decode.bool
+                    let legacyReachable = get.Optional.Field "ollamaReachable" Decode.bool |> Option.defaultValue false
+
+                    { LocalAiReachable = get.Optional.Field "localAiReachable" Decode.bool |> Option.defaultValue legacyReachable
+                      LocalAiProvider = get.Optional.Field "localAiProvider" Decode.string |> Option.defaultValue "ollama"
+                      ConfiguredModel = get.Optional.Field "configuredModel" Decode.string
+                      ConfiguredModelAvailable = get.Optional.Field "configuredModelAvailable" Decode.bool
+                      ModelCount = get.Optional.Field "modelCount" Decode.int
                       WorkerReachable = get.Required.Field "workerReachable" Decode.bool
                       ManifestPath = get.Required.Field "manifestPath" Decode.string
                       ManifestExists = get.Required.Field "manifestExists" Decode.bool })

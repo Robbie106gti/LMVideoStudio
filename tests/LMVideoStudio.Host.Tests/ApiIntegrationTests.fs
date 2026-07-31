@@ -199,6 +199,8 @@ module ApiIntegrationTests =
                 body.Contains("apiVersion") |> should equal true
                 body.Contains("health") |> should equal true
                 body.Contains("system") |> should equal true
+                body.Contains("localAiProvider") |> should equal true
+                body.Contains("localAi") |> should equal true
             }
 
         [<Fact>]

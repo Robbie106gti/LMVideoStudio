@@ -14,6 +14,7 @@ import { FSharpResult$2 } from "./fable_modules/fable-library-js.4.27.0/Result.j
 import { guid as guid_1, object as object_1, toString } from "./fable_modules/Thoth.Json.10.4.1/Encode.fs.js";
 import { decodeProject } from "./ProjectJson.js";
 import { filter, map as map_1, defaultArg } from "./fable_modules/fable-library-js.4.27.0/Option.js";
+import { BlockShotKindModule_toSchemaValue } from "./LMVideoStudio.Domain/Types.js";
 import { writeErrorReportTauri, checkForUpdatesFallback, checkForUpdatesTauri } from "../tauriInterop.js";
 
 export const defaultHostBase = "http://127.0.0.1:17170";
@@ -74,10 +75,11 @@ export function WorkerDeviceDto_$reflection() {
 }
 
 export class SystemStatusDto extends Record {
-    constructor(Host, Ollama, Worker$, WarmupComplete, Ffmpeg, WorkerDevice) {
+    constructor(Host, LocalAi, LocalAiProvider, Worker$, WarmupComplete, Ffmpeg, WorkerDevice) {
         super();
         this.Host = Host;
-        this.Ollama = Ollama;
+        this.LocalAi = LocalAi;
+        this.LocalAiProvider = LocalAiProvider;
         this.Worker = Worker$;
         this.WarmupComplete = WarmupComplete;
         this.Ffmpeg = Ffmpeg;
@@ -86,13 +88,17 @@ export class SystemStatusDto extends Record {
 }
 
 export function SystemStatusDto_$reflection() {
-    return record_type("LMVideoStudio.Client.Api.SystemStatusDto", [], SystemStatusDto, () => [["Host", string_type], ["Ollama", bool_type], ["Worker", bool_type], ["WarmupComplete", bool_type], ["Ffmpeg", option_type(bool_type)], ["WorkerDevice", option_type(WorkerDeviceDto_$reflection())]]);
+    return record_type("LMVideoStudio.Client.Api.SystemStatusDto", [], SystemStatusDto, () => [["Host", string_type], ["LocalAi", bool_type], ["LocalAiProvider", string_type], ["Worker", bool_type], ["WarmupComplete", bool_type], ["Ffmpeg", option_type(bool_type)], ["WorkerDevice", option_type(WorkerDeviceDto_$reflection())]]);
 }
 
 export class ModelStatusDto extends Record {
-    constructor(OllamaReachable, WorkerReachable, ManifestPath, ManifestExists) {
+    constructor(LocalAiReachable, LocalAiProvider, ConfiguredModel, ConfiguredModelAvailable, ModelCount, WorkerReachable, ManifestPath, ManifestExists) {
         super();
-        this.OllamaReachable = OllamaReachable;
+        this.LocalAiReachable = LocalAiReachable;
+        this.LocalAiProvider = LocalAiProvider;
+        this.ConfiguredModel = ConfiguredModel;
+        this.ConfiguredModelAvailable = ConfiguredModelAvailable;
+        this.ModelCount = ModelCount;
         this.WorkerReachable = WorkerReachable;
         this.ManifestPath = ManifestPath;
         this.ManifestExists = ManifestExists;
@@ -100,7 +106,7 @@ export class ModelStatusDto extends Record {
 }
 
 export function ModelStatusDto_$reflection() {
-    return record_type("LMVideoStudio.Client.Api.ModelStatusDto", [], ModelStatusDto, () => [["OllamaReachable", bool_type], ["WorkerReachable", bool_type], ["ManifestPath", string_type], ["ManifestExists", bool_type]]);
+    return record_type("LMVideoStudio.Client.Api.ModelStatusDto", [], ModelStatusDto, () => [["LocalAiReachable", bool_type], ["LocalAiProvider", string_type], ["ConfiguredModel", option_type(string_type)], ["ConfiguredModelAvailable", option_type(bool_type)], ["ModelCount", option_type(int32_type)], ["WorkerReachable", bool_type], ["ManifestPath", string_type], ["ManifestExists", bool_type]]);
 }
 
 export class JobEventDto extends Record {
@@ -341,13 +347,14 @@ export function getSystemStatus() {
         const text = _arg[1];
         const status = _arg[0] | 0;
         if ((status >= 200) && (status < 300)) {
-            const matchValue = fromString((path_9, v_1) => object((get$_1) => {
-                let objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8;
-                return new SystemStatusDto((objectArg_3 = get$_1.Required, objectArg_3.Field("host", string)), (objectArg_4 = get$_1.Required, objectArg_4.Field("ollama", bool)), (objectArg_5 = get$_1.Required, objectArg_5.Field("worker", bool)), defaultArg((objectArg_6 = get$_1.Optional, objectArg_6.Field("warmupComplete", bool)), false), (objectArg_7 = get$_1.Optional, objectArg_7.Field("ffmpeg", bool)), (objectArg_8 = get$_1.Optional, objectArg_8.Field("workerDevice", (path_3, v) => object((get$) => {
+            const matchValue = fromString((path_11, v_1) => object((get$_1) => {
+                let objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8, objectArg_9, objectArg_10;
+                const legacyReachable = defaultArg((objectArg_3 = get$_1.Optional, objectArg_3.Field("ollama", bool)), false);
+                return new SystemStatusDto((objectArg_4 = get$_1.Required, objectArg_4.Field("host", string)), defaultArg((objectArg_5 = get$_1.Optional, objectArg_5.Field("localAi", bool)), legacyReachable), defaultArg((objectArg_6 = get$_1.Optional, objectArg_6.Field("localAiProvider", string)), "ollama"), (objectArg_7 = get$_1.Required, objectArg_7.Field("worker", bool)), defaultArg((objectArg_8 = get$_1.Optional, objectArg_8.Field("warmupComplete", bool)), false), (objectArg_9 = get$_1.Optional, objectArg_9.Field("ffmpeg", bool)), (objectArg_10 = get$_1.Optional, objectArg_10.Field("workerDevice", (path_3, v) => object((get$) => {
                     let objectArg, objectArg_1, objectArg_2;
                     return new WorkerDeviceDto((objectArg = get$.Optional, objectArg.Field("rocm", bool)), (objectArg_1 = get$.Optional, objectArg_1.Field("vramGb", float)), (objectArg_2 = get$.Optional, objectArg_2.Field("deviceName", string)));
                 }, path_3, v))));
-            }, path_9, v_1), text);
+            }, path_11, v_1), text);
             return (matchValue.tag === 1) ? singleton.Return(new FSharpResult$2(1, [matchValue.fields[0]])) : singleton.Return(new FSharpResult$2(0, [matchValue.fields[0]]));
         }
         else {
@@ -379,11 +386,15 @@ export function generateBlockThumbnail(projectId, blockId, prompt, variantCount,
     });
 }
 
-export function updateBlock(projectId, blockId, voiceoverScript, imagePrompt, crossfadeDurationMs, moodTags) {
+export function updateBlock(projectId, blockId, voiceoverScript, imagePrompt, crossfadeDurationMs, moodTags, directorNotes, shotKind, bakeDurationSec, clearBakeDuration) {
     return singleton.Delay(() => {
         const transitionFields = defaultArg(map_1((ms) => singleton_1(["transitions", object_1([["toNext", object_1([["type", "crossfade"], ["durationMs", ms]])]])]), crossfadeDurationMs), empty());
         const moodFields = defaultArg(map_1((tags) => singleton_1(["moodTags", toArray(map((value_3) => value_3, tags))]), moodTags), empty());
-        const body = toString(0, object_1(append(singleton_1(["voiceoverScript", voiceoverScript]), append(defaultArg(map_1((p) => singleton_1(["imagePrompt", p]), imagePrompt), empty()), append(transitionFields, moodFields)))));
+        const directorFields = defaultArg(map_1((n) => singleton_1(["directorNotes", n]), directorNotes), empty());
+        const shotKindFields = defaultArg(map_1((k) => singleton_1(["shotKind", BlockShotKindModule_toSchemaValue(k)]), shotKind), empty());
+        const bakeDurationFields = (bakeDurationSec == null) ? empty() : singleton_1(["bakeDurationSec", bakeDurationSec]);
+        const clearBakeFields = clearBakeDuration ? singleton_1(["clearBakeDurationSec", true]) : empty();
+        const body = toString(0, object_1(append(singleton_1(["voiceoverScript", voiceoverScript]), append(defaultArg(map_1((p) => singleton_1(["imagePrompt", p]), imagePrompt), empty()), append(transitionFields, append(moodFields, append(directorFields, append(shotKindFields, append(bakeDurationFields, clearBakeFields)))))))));
         return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}`, "PATCH", body), (_arg) => {
             const text = _arg[1];
             const status = _arg[0] | 0;
@@ -641,10 +652,11 @@ export function getModelStatus() {
         const text = _arg[1];
         const status = _arg[0] | 0;
         if ((status >= 200) && (status < 300)) {
-            const matchValue = fromString((path_4, v) => object((get$) => {
-                let objectArg, objectArg_1, objectArg_2, objectArg_3;
-                return new ModelStatusDto((objectArg = get$.Required, objectArg.Field("ollamaReachable", bool)), (objectArg_1 = get$.Required, objectArg_1.Field("workerReachable", bool)), (objectArg_2 = get$.Required, objectArg_2.Field("manifestPath", string)), (objectArg_3 = get$.Required, objectArg_3.Field("manifestExists", bool)));
-            }, path_4, v), text);
+            const matchValue = fromString((path_8, v) => object((get$) => {
+                let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8;
+                const legacyReachable = defaultArg((objectArg = get$.Optional, objectArg.Field("ollamaReachable", bool)), false);
+                return new ModelStatusDto(defaultArg((objectArg_1 = get$.Optional, objectArg_1.Field("localAiReachable", bool)), legacyReachable), defaultArg((objectArg_2 = get$.Optional, objectArg_2.Field("localAiProvider", string)), "ollama"), (objectArg_3 = get$.Optional, objectArg_3.Field("configuredModel", string)), (objectArg_4 = get$.Optional, objectArg_4.Field("configuredModelAvailable", bool)), (objectArg_5 = get$.Optional, objectArg_5.Field("modelCount", uncurry2(int))), (objectArg_6 = get$.Required, objectArg_6.Field("workerReachable", bool)), (objectArg_7 = get$.Required, objectArg_7.Field("manifestPath", string)), (objectArg_8 = get$.Required, objectArg_8.Field("manifestExists", bool)));
+            }, path_8, v), text);
             return (matchValue.tag === 1) ? singleton.Return(new FSharpResult$2(1, [matchValue.fields[0]])) : singleton.Return(new FSharpResult$2(0, [matchValue.fields[0]]));
         }
         else {

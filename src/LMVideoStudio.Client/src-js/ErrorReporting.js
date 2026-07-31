@@ -51,16 +51,16 @@ export function logActivity(line) {
     appendActivityLine(line);
 }
 
-function systemSnapshot(hostHealthy, ollamaReachable, workerReachable) {
-    return new SystemSnapshot(detectOs(), appVersion, hostHealthy, ollamaReachable, workerReachable);
+function systemSnapshot(hostHealthy, localAiReachable, workerReachable) {
+    return new SystemSnapshot(detectOs(), appVersion, hostHealthy, localAiReachable, workerReachable);
 }
 
 function toSummary(report) {
     return new LastErrorSummary(report.Message, report.Source, report.Severity, report.Timestamp);
 }
 
-export function buildReport(req, hostHealthy, ollamaReachable, workerReachable, userConsented) {
-    return create(req.Source, req.Severity, req.Message, req.Stack, req.Context, systemSnapshot(hostHealthy, ollamaReachable, workerReachable), ofArray(getActivityTail()), userConsented);
+export function buildReport(req, hostHealthy, localAiReachable, workerReachable, userConsented) {
+    return create(req.Source, req.Severity, req.Message, req.Stack, req.Context, systemSnapshot(hostHealthy, localAiReachable, workerReachable), ofArray(getActivityTail()), userConsented);
 }
 
 export function installHooks(onCaptured) {

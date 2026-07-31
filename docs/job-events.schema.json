@@ -24,7 +24,7 @@
     },
     "step": {
       "type": "string",
-      "description": "Machine-readable step id, e.g. sd_inference, ollama_pull, sidecar_health"
+      "description": "Machine-readable step id, e.g. sd_inference, local_ai_pull, sidecar_health"
     },
     "stepIndex": { "type": "integer", "minimum": 0 },
     "stepTotal": { "type": "integer", "minimum": 1 },

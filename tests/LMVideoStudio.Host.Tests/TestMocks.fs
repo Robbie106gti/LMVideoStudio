@@ -42,20 +42,28 @@ module TestMocks =
         client.BaseAddress <- Uri("http://worker.test/")
         PythonWorkerProvider.PythonWorkerProvider("http://worker.test/", client)
 
-    let createOllamaProvider (outlineJson: string) =
+    let createLocalAiProvider (outlineJson: string) =
         let handler =
             StubHttpHandler(fun req ->
-                if req.Method = HttpMethod.Get && req.RequestUri.AbsolutePath.EndsWith("/api/tags") then
-                    jsonResponse HttpStatusCode.OK """{"models":[]}"""
-                elif req.Method = HttpMethod.Post && req.RequestUri.AbsolutePath.EndsWith("/api/generate") then
+                if req.Method = HttpMethod.Get && req.RequestUri.AbsolutePath.EndsWith("/api/v1/health") then
+                    jsonResponse HttpStatusCode.OK """{"status":"ok","version":"11.5.1","all_models_loaded":[]}"""
+                elif req.Method = HttpMethod.Get && req.RequestUri.AbsolutePath.EndsWith("/api/v1/models") then
+                    jsonResponse HttpStatusCode.OK """{"object":"list","data":[{"id":"Bonsai-8B-gguf"}]}"""
+                elif req.Method = HttpMethod.Post && req.RequestUri.AbsolutePath.EndsWith("/api/v1/chat/completions") then
                     let escaped = outlineJson.Replace("\\", "\\\\").Replace("\"", "\\\"")
-                    jsonResponse HttpStatusCode.OK $"""{{"response":"{escaped}"}}"""
+                    jsonResponse HttpStatusCode.OK $"""{{"choices":[{{"message":{{"content":"{escaped}"}}}}]}}"""
                 else
                     jsonResponse HttpStatusCode.NotFound "{}")
 
         let client = new HttpClient(handler, disposeHandler = true)
-        client.BaseAddress <- Uri("http://ollama.test/")
-        OllamaProvider.OllamaProvider("http://ollama.test/", client)
+        client.BaseAddress <- Uri("http://lemonade.test/")
+
+        LocalAiProvider.LocalAiProvider(
+            { Provider = LocalAiProvider.ProviderKind.Lemonade
+              BaseUrl = "http://lemonade.test/"
+              Model = "Bonsai-8B-gguf" },
+            client
+        )
 
     let sampleOutlineJson =
         """[{"title":"Hook","voiceoverScript":"Hello world","imagePrompt":"sunset cityscape"}]"""

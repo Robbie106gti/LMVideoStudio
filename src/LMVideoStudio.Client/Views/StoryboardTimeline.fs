@@ -752,7 +752,7 @@ module StoryboardTimeline =
                                                             prop.className "text-xs text-slate-600"
                                                             prop.text "Pick a shot type below for resolution and max-duration hints."
                                                         ]
-                                                    match ClipGenerationGuidance.continuationHint (List.findIndex (fun b -> b.Id = block.Id) blocks) (blocks |> List.tryFind (fun b -> b.Order = block.Order - 1)) with
+                                                    match ClipGenerationGuidance.continuationHint (List.findIndex (fun (b: StoryboardBlock) -> b.Id = block.Id) blocks) (blocks |> List.tryFind (fun (b: StoryboardBlock) -> b.Order = block.Order - 1)) with
                                                     | Some tip ->
                                                         Html.p [
                                                             prop.className "text-xs text-amber-400/80"

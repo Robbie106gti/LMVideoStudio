@@ -84,7 +84,7 @@ export function ProjectHub_view(model, dispatch) {
             let elems_5;
             return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-3"], (elems_5 = [createElement("h2", {
                 className: "text-sm font-semibold",
-                children: "Brief → outline (Ollama)",
+                children: "Brief → outline (local AI)",
             }), createElement("p", {
                 className: "text-xs text-slate-500",
                 children: "Select a project below, paste a brief, generate an outline, then approve to create blocks.",

@@ -80,7 +80,7 @@ Steps:
   3. Stage Tauri externalBin sidecars ($TARGET)
   4. npm run tauri build -- --target $TARGET --config src-tauri/tauri.macos.conf.json
 
-See docs/MACOS-PORT.md for Ollama bootstrap and Gate validation.
+See docs/MACOS-PORT.md for Lemonade bootstrap and Gate validation.
 EOF
   exit 0
 fi

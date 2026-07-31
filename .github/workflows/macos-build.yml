@@ -94,6 +94,7 @@ jobs:
           bash -n scripts/build-macos.sh
           bash -n scripts/build-sidecars-macos.sh
           bash -n scripts/verify-sidecar-staging-macos.sh
+          bash -n scripts/setup-local-ai-macos.sh
           bash -n scripts/setup-ollama-macos.sh
           bash -n scripts/setup-python-macos.sh
 

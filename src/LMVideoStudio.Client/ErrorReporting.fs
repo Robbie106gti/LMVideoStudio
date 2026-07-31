@@ -45,11 +45,11 @@ let setConsent enabled = writeErrorReportingConsent enabled
 
 let logActivity line = appendActivityLine line
 
-let private systemSnapshot hostHealthy ollamaReachable workerReachable =
+let private systemSnapshot hostHealthy localAiReachable workerReachable =
     { Os = detectOs ()
       AppVersion = appVersion
       HostHealthy = hostHealthy
-      OllamaReachable = ollamaReachable
+      OllamaReachable = localAiReachable
       WorkerReachable = workerReachable }
 
 let private toSummary (report: ErrorReport) =
@@ -61,7 +61,7 @@ let private toSummary (report: ErrorReport) =
 let buildReport
     (req: CaptureRequest)
     hostHealthy
-    ollamaReachable
+    localAiReachable
     workerReachable
     userConsented
     =
@@ -71,7 +71,7 @@ let buildReport
         req.Message
         req.Stack
         (Some req.Context)
-        (Some(systemSnapshot hostHealthy ollamaReachable workerReachable))
+        (Some(systemSnapshot hostHealthy localAiReachable workerReachable))
         (Some(getActivityTail () |> Array.toList))
         userConsented
 

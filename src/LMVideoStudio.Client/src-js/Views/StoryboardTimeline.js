@@ -1,10 +1,10 @@
 import { FSharpRef, Record, Union } from "../fable_modules/fable-library-js.4.27.0/Types.js";
 import { record_type, int64_type, list_type, bool_type, float64_type, option_type, int32_type, class_type, union_type, string_type } from "../fable_modules/fable-library-js.4.27.0/Reflection.js";
+import { BlockShotKindModule_fromSchemaValue, BlockShotKindModule_toSchemaValue, ProjectModule_effectiveBakeDuration, ProjectModule_effectiveMockupDuration, BlockShotKind, BlockShotKindModule_label, Project as Project_1, StoryboardBlock, Project_$reflection, BlockShotKind_$reflection } from "../LMVideoStudio.Domain/Types.js";
 import { SharePackPanel_view, SharePackModel_$reflection, SharePackMsg_$reflection } from "./SharePackPanel.js";
-import { ProjectModule_effectiveMockupDuration, Project as Project_1, StoryboardBlock, Project_$reflection } from "../LMVideoStudio.Domain/Types.js";
 import { loadAll, QuickButton_$reflection } from "../PromptQuickButtons.js";
 import { isEmpty, map as map_1, ofArray, tryFind, findIndex, skip, singleton, take, append, mapIndexed, indexed, choose, item as item_1, length as length_1, sortBy } from "../fable_modules/fable-library-js.4.27.0/List.js";
-import { int32ToString, equals as equals_1, createObj, comparePrimitives } from "../fable_modules/fable-library-js.4.27.0/Util.js";
+import { equals as equals_1, createObj, int32ToString, round, comparePrimitives } from "../fable_modules/fable-library-js.4.27.0/Util.js";
 import { equals, max } from "../fable_modules/fable-library-js.4.27.0/BigInt.js";
 import { filter as filter_1, defaultArgWith, orElse, bind, map, defaultArg } from "../fable_modules/fable-library-js.4.27.0/Option.js";
 import { utcNow, toUnixTimeMilliseconds } from "../fable_modules/fable-library-js.4.27.0/DateOffset.js";
@@ -12,10 +12,12 @@ import { exportPremiereXmlUrl, previewMediaUrl } from "../Api.js";
 import { join, isNullOrWhiteSpace } from "../fable_modules/fable-library-js.4.27.0/String.js";
 import { empty, singleton as singleton_1, append as append_1, delay, toList, filter, length } from "../fable_modules/fable-library-js.4.27.0/Seq.js";
 import { isDigit } from "../fable_modules/fable-library-js.4.27.0/Char.js";
+import { HardwareProfile } from "../LMVideoStudio.Domain/HardwareProfile.js";
+import { formatFloat } from "../FormatHelpers.js";
+import { ClipGenerationGuidance_durationExceedsGuidance, ClipGenerationGuidance_recommendedMaxSeconds, ClipGenerationGuidance_continuationHint, ClipGenerationGuidance_guidanceSummary, ClipGenerationGuidance_promptHint, ClipGenerationGuidance_suggestedBakeDurationForShot, ClipGenerationGuidance_hasGuideFrame } from "../LMVideoStudio.Domain/ClipGenerationGuidance.js";
 import { createElement } from "react";
 import { Interop_reactApi } from "../fable_modules/Feliz.2.6.0/Interop.fs.js";
 import { defaultOf } from "../fable_modules/fable-library-js.4.27.0/Util.js";
-import { formatFloat } from "../FormatHelpers.js";
 import { tryParse } from "../fable_modules/fable-library-js.4.27.0/Double.js";
 import { tryParse as tryParse_1 } from "../fable_modules/fable-library-js.4.27.0/Int32.js";
 
@@ -41,16 +43,16 @@ export class TimelineMsg extends Union {
         this.fields = fields;
     }
     cases() {
-        return ["ImportImage", "ImportStylePack", "MoveBlockUp", "MoveBlockDown", "DragStart", "DropOnIndex", "SelectBlock", "SetVoiceoverScript", "SetImagePrompt", "SetMoodTags", "SetCrossfadeDuration", "SaveBlockFields", "GenerateThumbnail", "SelectThumbnailVariant", "OpenVariantModal", "CloseVariantModal", "EnlargeVariant", "BackToVariantCompare", "ApplyPromptQuickButton", "RefreshPromptQuickButtons", "ImportReferenceImage", "ClearReferenceImage", "UseThumbnailAsReference", "SetReferenceStrength", "ImportAudio", "RefreshMockupPreview", "StartBake", "ExportSharePack", "SharePackMsg", "PreviewFailed", "BakeFailed", "Save", "BackToHub"];
+        return ["ImportImage", "ImportStylePack", "MoveBlockUp", "MoveBlockDown", "DragStart", "DropOnIndex", "SelectBlock", "SetVoiceoverScript", "SetImagePrompt", "SetMoodTags", "SetCrossfadeDuration", "SetDirectorNotes", "SetShotKind", "SetBakeDuration", "ApplyRecommendedBakeDuration", "SaveBlockFields", "GenerateThumbnail", "SelectThumbnailVariant", "OpenVariantModal", "CloseVariantModal", "EnlargeVariant", "BackToVariantCompare", "ApplyPromptQuickButton", "RefreshPromptQuickButtons", "ImportReferenceImage", "ClearReferenceImage", "UseThumbnailAsReference", "SetReferenceStrength", "ImportAudio", "RefreshMockupPreview", "StartBake", "ExportSharePack", "SharePackMsg", "PreviewFailed", "BakeFailed", "Save", "BackToHub"];
     }
 }
 
 export function TimelineMsg_$reflection() {
-    return union_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineMsg", [], TimelineMsg, () => [[["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("System.Guid")]], [["Item", class_type("System.Guid")]], [["Item", int32_type]], [["Item", int32_type]], [["Item", option_type(class_type("System.Guid"))]], [["Item", string_type]], [["Item", string_type]], [["Item", string_type]], [["Item", int32_type]], [], [], [["Item", string_type]], [], [], [["Item", string_type]], [], [["Item", string_type]], [], [["Item", class_type("Browser.Types.File", undefined)]], [], [], [["Item", float64_type]], [["Item", class_type("Browser.Types.File", undefined)]], [], [], [], [["Item", SharePackMsg_$reflection()]], [["Item", string_type]], [["Item", string_type]], [], []]);
+    return union_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineMsg", [], TimelineMsg, () => [[["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("Browser.Types.File", undefined)]], [["Item", class_type("System.Guid")]], [["Item", class_type("System.Guid")]], [["Item", int32_type]], [["Item", int32_type]], [["Item", option_type(class_type("System.Guid"))]], [["Item", string_type]], [["Item", string_type]], [["Item", string_type]], [["Item", int32_type]], [["Item", string_type]], [["Item", option_type(BlockShotKind_$reflection())]], [["Item", string_type]], [], [], [], [["Item", string_type]], [], [], [["Item", string_type]], [], [["Item", string_type]], [], [["Item", class_type("Browser.Types.File", undefined)]], [], [], [["Item", float64_type]], [["Item", class_type("Browser.Types.File", undefined)]], [], [], [], [["Item", SharePackMsg_$reflection()]], [["Item", string_type]], [["Item", string_type]], [], []]);
 }
 
 export class TimelineModel extends Record {
-    constructor(Project, Saving, Generating, Previewing, Baking, PreviewUrl, BakeUrl, PreviewJobId, BakeJobId, Error$, DragIndex, SelectedBlockId, VoiceoverDraft, ImagePromptDraft, MoodTagsDraft, CrossfadeDurationDraft, ImagePromptQuickButtons, ReferenceStrengthDraft, MediaRevision, VariantModal, SharePack) {
+    constructor(Project, Saving, Generating, Previewing, Baking, PreviewUrl, BakeUrl, PreviewJobId, BakeJobId, Error$, DragIndex, SelectedBlockId, VoiceoverDraft, ImagePromptDraft, MoodTagsDraft, CrossfadeDurationDraft, DirectorNotesDraft, ShotKindDraft, BakeDurationDraft, ImagePromptQuickButtons, ReferenceStrengthDraft, MediaRevision, VariantModal, SharePack) {
         super();
         this.Project = Project;
         this.Saving = Saving;
@@ -68,6 +70,9 @@ export class TimelineModel extends Record {
         this.ImagePromptDraft = ImagePromptDraft;
         this.MoodTagsDraft = MoodTagsDraft;
         this.CrossfadeDurationDraft = (CrossfadeDurationDraft | 0);
+        this.DirectorNotesDraft = DirectorNotesDraft;
+        this.ShotKindDraft = ShotKindDraft;
+        this.BakeDurationDraft = BakeDurationDraft;
         this.ImagePromptQuickButtons = ImagePromptQuickButtons;
         this.ReferenceStrengthDraft = ReferenceStrengthDraft;
         this.MediaRevision = MediaRevision;
@@ -77,11 +82,11 @@ export class TimelineModel extends Record {
 }
 
 export function TimelineModel_$reflection() {
-    return record_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineModel", [], TimelineModel, () => [["Project", Project_$reflection()], ["Saving", bool_type], ["Generating", bool_type], ["Previewing", bool_type], ["Baking", bool_type], ["PreviewUrl", option_type(string_type)], ["BakeUrl", option_type(string_type)], ["PreviewJobId", option_type(class_type("System.Guid"))], ["BakeJobId", option_type(class_type("System.Guid"))], ["Error", option_type(string_type)], ["DragIndex", option_type(int32_type)], ["SelectedBlockId", option_type(class_type("System.Guid"))], ["VoiceoverDraft", string_type], ["ImagePromptDraft", string_type], ["MoodTagsDraft", string_type], ["CrossfadeDurationDraft", int32_type], ["ImagePromptQuickButtons", list_type(QuickButton_$reflection())], ["ReferenceStrengthDraft", float64_type], ["MediaRevision", int64_type], ["VariantModal", option_type(VariantModalMode_$reflection())], ["SharePack", option_type(SharePackModel_$reflection())]]);
+    return record_type("LMVideoStudio.Client.Views.StoryboardTimeline.TimelineModel", [], TimelineModel, () => [["Project", Project_$reflection()], ["Saving", bool_type], ["Generating", bool_type], ["Previewing", bool_type], ["Baking", bool_type], ["PreviewUrl", option_type(string_type)], ["BakeUrl", option_type(string_type)], ["PreviewJobId", option_type(class_type("System.Guid"))], ["BakeJobId", option_type(class_type("System.Guid"))], ["Error", option_type(string_type)], ["DragIndex", option_type(int32_type)], ["SelectedBlockId", option_type(class_type("System.Guid"))], ["VoiceoverDraft", string_type], ["ImagePromptDraft", string_type], ["MoodTagsDraft", string_type], ["CrossfadeDurationDraft", int32_type], ["DirectorNotesDraft", string_type], ["ShotKindDraft", option_type(BlockShotKind_$reflection())], ["BakeDurationDraft", string_type], ["ImagePromptQuickButtons", list_type(QuickButton_$reflection())], ["ReferenceStrengthDraft", float64_type], ["MediaRevision", int64_type], ["VariantModal", option_type(VariantModalMode_$reflection())], ["SharePack", option_type(SharePackModel_$reflection())]]);
 }
 
 export function StoryboardTimeline_init(project) {
-    return new TimelineModel(project, false, false, false, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, "", "", "", 300, loadAll(), 0.45, 0n, undefined, undefined);
+    return new TimelineModel(project, false, false, false, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, "", "", "", 300, "", undefined, "", loadAll(), 0.32, 0n, undefined, undefined);
 }
 
 function StoryboardTimeline_sortedBlocks(project) {
@@ -185,12 +190,12 @@ function StoryboardTimeline_reorderByIndex(project, fromIdx, toIdx) {
             }
         }, indexed(blocks));
         const toIdx$0027 = ((toIdx > fromIdx) ? (toIdx - 1) : toIdx) | 0;
-        return new Project_1(project.SchemaVersion, project.Id, project.Name, project.CreatedAt, project.UpdatedAt, project.Brief, project.SequencePreset, project.DefaultMockupDurationSec, project.RenderDefaults, project.StylePack, mapIndexed((i_1, b_1) => (new StoryboardBlock(b_1.Id, i_1, b_1.Title, b_1.Source, b_1.ThumbnailPath, b_1.ImagePrompt, b_1.VoiceoverScript, b_1.DirectorNotes, b_1.MoodTags, b_1.MockupDurationSec, b_1.BakeDurationSec, b_1.Transitions, b_1.Audio, b_1.Generation, b_1.Artifacts)), append(take(toIdx$0027, without), append(singleton(item), skip(toIdx$0027, without)))), project.TransitionsDefault);
+        return new Project_1(project.SchemaVersion, project.Id, project.Name, project.CreatedAt, project.UpdatedAt, project.Brief, project.SequencePreset, project.DefaultMockupDurationSec, project.RenderDefaults, project.StylePack, mapIndexed((i_1, b_1) => (new StoryboardBlock(b_1.Id, i_1, b_1.Title, b_1.Source, b_1.ThumbnailPath, b_1.ImagePrompt, b_1.VoiceoverScript, b_1.DirectorNotes, b_1.MoodTags, b_1.ShotKind, b_1.MockupDurationSec, b_1.BakeDurationSec, b_1.Transitions, b_1.Audio, b_1.Generation, b_1.Artifacts)), append(take(toIdx$0027, without), append(singleton(item), skip(toIdx$0027, without)))), project.TransitionsDefault);
     }
 }
 
 export function StoryboardTimeline_reorderByDrag(model, fromIdx, toIdx) {
-    return new TimelineModel(StoryboardTimeline_reorderByIndex(model.Project, fromIdx, toIdx), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, undefined, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(StoryboardTimeline_reorderByIndex(model.Project, fromIdx, toIdx), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, undefined, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 function StoryboardTimeline_reorder(project, blockId, direction) {
@@ -202,7 +207,7 @@ function StoryboardTimeline_reorder(project, blockId, direction) {
     else {
         const a = item_1(idx, blocks);
         const b_1 = item_1(idx + direction, blocks);
-        return new Project_1(project.SchemaVersion, project.Id, project.Name, project.CreatedAt, project.UpdatedAt, project.Brief, project.SequencePreset, project.DefaultMockupDurationSec, project.RenderDefaults, project.StylePack, mapIndexed((i_1, b_2) => (new StoryboardBlock(b_2.Id, i_1, b_2.Title, b_2.Source, b_2.ThumbnailPath, b_2.ImagePrompt, b_2.VoiceoverScript, b_2.DirectorNotes, b_2.MoodTags, b_2.MockupDurationSec, b_2.BakeDurationSec, b_2.Transitions, b_2.Audio, b_2.Generation, b_2.Artifacts)), mapIndexed((i, block) => {
+        return new Project_1(project.SchemaVersion, project.Id, project.Name, project.CreatedAt, project.UpdatedAt, project.Brief, project.SequencePreset, project.DefaultMockupDurationSec, project.RenderDefaults, project.StylePack, mapIndexed((i_1, b_2) => (new StoryboardBlock(b_2.Id, i_1, b_2.Title, b_2.Source, b_2.ThumbnailPath, b_2.ImagePrompt, b_2.VoiceoverScript, b_2.DirectorNotes, b_2.MoodTags, b_2.ShotKind, b_2.MockupDurationSec, b_2.BakeDurationSec, b_2.Transitions, b_2.Audio, b_2.Generation, b_2.Artifacts)), mapIndexed((i, block) => {
             if (i === idx) {
                 return b_1;
             }
@@ -224,20 +229,60 @@ function StoryboardTimeline_blockCrossfadeMs(block, project) {
     return defaultArg(map((e) => e.DurationMs, orElse(bind((t) => t.ToNext, block.Transitions), bind((t_1) => t_1.ToNext, project.TransitionsDefault))), 300);
 }
 
+const StoryboardTimeline_clipGuidanceProfile = new HardwareProfile(0, []);
+
+function StoryboardTimeline_formatDuration(sec) {
+    if (Math.abs(sec - round(sec)) < 0.01) {
+        return int32ToString(~~round(sec));
+    }
+    else {
+        return formatFloat(1, sec);
+    }
+}
+
+function StoryboardTimeline_bakeDurationDraftFromBlock(block) {
+    return defaultArg(map(StoryboardTimeline_formatDuration, block.BakeDurationSec), "");
+}
+
 export function StoryboardTimeline_selectBlock(model, blockId) {
     if (blockId == null) {
-        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, undefined, model.SharePack);
+        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, undefined, model.SharePack);
     }
     else {
         const id = blockId;
         const matchValue = tryFind((b) => (b.Id === id), model.Project.Blocks);
         if (matchValue == null) {
-            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, undefined, model.SharePack);
+            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, undefined, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, undefined, model.SharePack);
         }
         else {
             const block = matchValue;
-            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, id, defaultArg(block.VoiceoverScript, ""), defaultArg(block.ImagePrompt, ""), join(", ", block.MoodTags), StoryboardTimeline_blockCrossfadeMs(block, model.Project), model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, undefined, model.SharePack);
+            return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, id, defaultArg(block.VoiceoverScript, ""), defaultArg(block.ImagePrompt, ""), join(", ", block.MoodTags), StoryboardTimeline_blockCrossfadeMs(block, model.Project), defaultArg(block.DirectorNotes, ""), block.ShotKind, StoryboardTimeline_bakeDurationDraftFromBlock(block), model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, undefined, model.SharePack);
         }
+    }
+}
+
+function StoryboardTimeline_imagePromptPlaceholder(block) {
+    if (ClipGenerationGuidance_hasGuideFrame(block)) {
+        return "Action, camera, pacing — guide frame already sets the look…";
+    }
+    else {
+        return "Geography and look — subject, setting, lighting…";
+    }
+}
+
+const StoryboardTimeline_shotKindOptions = ofArray([["Auto", undefined], [BlockShotKindModule_label(new BlockShotKind(0, [])), new BlockShotKind(0, [])], [BlockShotKindModule_label(new BlockShotKind(1, [])), new BlockShotKind(1, [])], [BlockShotKindModule_label(new BlockShotKind(2, [])), new BlockShotKind(2, [])], [BlockShotKindModule_label(new BlockShotKind(3, [])), new BlockShotKind(3, [])]]);
+
+export function StoryboardTimeline_recommendedBakeDurationText(kind) {
+    return StoryboardTimeline_formatDuration(ClipGenerationGuidance_suggestedBakeDurationForShot(kind));
+}
+
+export function StoryboardTimeline_applyRecommendedBakeDuration(model) {
+    const matchValue = model.ShotKindDraft;
+    if (matchValue == null) {
+        return model;
+    }
+    else {
+        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, StoryboardTimeline_recommendedBakeDurationText(matchValue), model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
     }
 }
 
@@ -245,7 +290,7 @@ function StoryboardTimeline_variantModalView(model, block, variants, dispatch) {
     let elems_9, value_37, elems_8;
     return createElement("div", createObj(ofArray([["className", "fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"], ["onClick", (ev) => {
         if (equals_1(ev.target, ev.currentTarget)) {
-            dispatch(new TimelineMsg(15, []));
+            dispatch(new TimelineMsg(19, []));
         }
     }], (elems_9 = [createElement("div", createObj(ofArray([(value_37 = "w-full max-w-5xl max-h-[90vh] rounded-xl border border-surface-border bg-surface-raised shadow-xl flex flex-col", ["className", value_37]), ["onClick", (ev_1) => {
         ev_1.stopPropagation();
@@ -262,7 +307,7 @@ function StoryboardTimeline_variantModalView(model, block, variants, dispatch) {
             className: "px-3 py-1.5 rounded-md border border-surface-border text-sm hover:border-accent",
             children: "Close",
             onClick: (_arg_3) => {
-                dispatch(new TimelineMsg(15, []));
+                dispatch(new TimelineMsg(19, []));
             },
         })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_4))])])))), delay(() => {
             let elems_5, patternInput_1, elems_7, elems_6;
@@ -287,7 +332,7 @@ function StoryboardTimeline_variantModalView(model, block, variants, dispatch) {
                         className: "self-start px-3 py-1.5 rounded-md border border-surface-border text-sm hover:border-accent",
                         children: "← Back to comparison",
                         onClick: (_arg_4) => {
-                            dispatch(new TimelineMsg(17, []));
+                            dispatch(new TimelineMsg(21, []));
                         },
                     }), (patternInput_1 = StoryboardTimeline_mediaPreviewSrc(model, path_1), createElement("img", {
                         key: patternInput_1[1],
@@ -299,7 +344,7 @@ function StoryboardTimeline_variantModalView(model, block, variants, dispatch) {
                         className: "px-4 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium",
                         children: "Use this variant",
                         onClick: (_arg_5) => {
-                            dispatch(new TimelineMsg(13, [path_1]));
+                            dispatch(new TimelineMsg(17, [path_1]));
                         },
                     })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_5))])]))));
                 default:
@@ -311,7 +356,7 @@ function StoryboardTimeline_variantModalView(model, block, variants, dispatch) {
                         selected = defaultArg(map((y) => (path_2 === y), block.ThumbnailPath), value_88);
                         const patternInput = StoryboardTimeline_mediaPreviewSrc(model, path);
                         return createElement("div", createObj(ofArray([["className", "flex flex-col gap-2"], (elems_2 = [createElement("button", createObj(ofArray([["type", "button"], ["className", "rounded-lg border overflow-hidden bg-surface " + (selected ? "border-accent ring-2 ring-accent" : "border-surface-border hover:border-accent/60")], ["onClick", (_arg) => {
-                            dispatch(new TimelineMsg(16, [path_2]));
+                            dispatch(new TimelineMsg(20, [path_2]));
                         }], (elems = [createElement("img", {
                             key: patternInput[1],
                             className: "w-full aspect-video object-cover",
@@ -322,14 +367,14 @@ function StoryboardTimeline_variantModalView(model, block, variants, dispatch) {
                             className: "flex-1 px-2 py-1.5 rounded-md text-xs font-medium " + (selected ? "bg-accent text-white" : "border border-surface-border hover:border-accent"),
                             children: selected ? "Selected" : "Use this",
                             onClick: (_arg_1) => {
-                                dispatch(new TimelineMsg(13, [path]));
+                                dispatch(new TimelineMsg(17, [path]));
                             },
                         }), createElement("button", {
                             type: "button",
                             className: "px-2 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent",
                             children: "Large",
                             onClick: (_arg_2) => {
-                                dispatch(new TimelineMsg(16, [path]));
+                                dispatch(new TimelineMsg(20, [path]));
                             },
                         })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_1))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_2))])])));
                     }, variants), ["children", Interop_reactApi.Children.toArray(Array.from(elems_6))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_7))])]))));
@@ -339,17 +384,17 @@ function StoryboardTimeline_variantModalView(model, block, variants, dispatch) {
 }
 
 export function StoryboardTimeline_view(model, dispatch) {
-    let elems_31;
+    let elems_36;
     const blocks = StoryboardTimeline_sortedBlocks(model.Project);
     const selected = StoryboardTimeline_selectedBlock(model);
-    return createElement("div", createObj(ofArray([["className", "flex flex-col h-full"], (elems_31 = toList(delay(() => {
+    return createElement("div", createObj(ofArray([["className", "flex flex-col h-full"], (elems_36 = toList(delay(() => {
         let elems_4, children, elems_3, elems_1, elems_2, value_61;
         return append_1(singleton_1(createElement("div", createObj(ofArray([["className", "flex items-center justify-between px-6 py-4 border-b border-surface-border"], (elems_4 = [(children = ofArray([createElement("h1", {
             className: "text-xl font-bold",
             children: model.Project.Name,
         }), createElement("p", {
             className: "text-sm text-slate-500",
-            children: `${length_1(blocks)} blocks · default ${model.Project.DefaultMockupDurationSec}s mockup (3–4s)`,
+            children: `${length_1(blocks)} blocks · ${model.Project.DefaultMockupDurationSec}s mockup · plan as separate clips to stitch`,
         }), defaultArg(map((sp_1) => {
             let elems;
             return createElement("div", createObj(ofArray([["className", "flex items-center gap-2 mt-1"], (elems = toList(delay(() => append_1(singleton_1(createElement("span", {
@@ -403,10 +448,10 @@ export function StoryboardTimeline_view(model, dispatch) {
             title: "Stitches block thumbnails with CPU FFmpeg Ken Burns zoom. Timing/layout check only — not AI video.",
             children: model.Previewing ? "Stitching preview…" : "Stitch Ken Burns preview",
             onClick: (_arg) => {
-                dispatch(new TimelineMsg(25, []));
+                dispatch(new TimelineMsg(29, []));
             },
         }), createElement("button", createObj(ofArray([(value_61 = "px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm font-medium disabled:opacity-50", ["className", value_61]), ["disabled", model.Baking ? true : model.Saving], ["title", "1080p Ken Burns stitch; optional GPU upscale per block when enabled."], ["children", model.Baking ? "Baking…" : "Bake final MP4"], ["onClick", (_arg_1) => {
-            dispatch(new TimelineMsg(26, []));
+            dispatch(new TimelineMsg(30, []));
         }]]))), createElement("a", {
             className: "px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent inline-block",
             href: exportPremiereXmlUrl(model.Project.Id),
@@ -417,20 +462,20 @@ export function StoryboardTimeline_view(model, dispatch) {
             disabled: model.Saving,
             children: "Export share pack",
             onClick: (_arg_2) => {
-                dispatch(new TimelineMsg(27, []));
+                dispatch(new TimelineMsg(31, []));
             },
         }), createElement("button", {
             className: "px-4 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium disabled:opacity-50",
             disabled: model.Saving,
             children: model.Saving ? "Saving…" : "Save",
             onClick: (_arg_3) => {
-                dispatch(new TimelineMsg(31, []));
+                dispatch(new TimelineMsg(35, []));
             },
         }), createElement("button", {
             className: "px-3 py-2 rounded-md border border-surface-border text-sm",
             children: "Close project",
             onClick: (_arg_4) => {
-                dispatch(new TimelineMsg(32, []));
+                dispatch(new TimelineMsg(36, []));
             },
         })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_3))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_4))])])))), delay(() => append_1(singleton_1(defaultArg(map((url) => {
             let elems_5;
@@ -462,10 +507,10 @@ export function StoryboardTimeline_view(model, dispatch) {
             className: "px-6 py-2 text-red-400 text-sm",
             children: e,
         }), model.Error), defaultOf())), delay(() => append_1(singleton_1(defaultArg(map((sp_2) => SharePackPanel_view(sp_2, (arg) => {
-            dispatch(new TimelineMsg(28, [arg]));
+            dispatch(new TimelineMsg(32, [arg]));
         }), model.SharePack), defaultOf())), delay(() => {
-            let elems_30, elems_12;
-            return append_1(singleton_1(createElement("div", createObj(ofArray([["className", "flex flex-1 min-h-0"], (elems_30 = [createElement("div", createObj(ofArray([["className", "flex-1 overflow-x-auto px-6 py-6"], (elems_12 = toList(delay(() => {
+            let elems_35, elems_12;
+            return append_1(singleton_1(createElement("div", createObj(ofArray([["className", "flex flex-1 min-h-0"], (elems_35 = [createElement("div", createObj(ofArray([["className", "flex-1 overflow-x-auto px-6 py-6"], (elems_12 = toList(delay(() => {
                 let elems_11;
                 return isEmpty(blocks) ? singleton_1(createElement("div", {
                     className: "text-slate-500 text-center py-16 border border-dashed border-surface-border rounded-lg",
@@ -495,10 +540,10 @@ export function StoryboardTimeline_view(model, dispatch) {
                             src: url_2,
                             alt: defaultArg(block.Title, "Block thumbnail"),
                         })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_7))])]))))))), delay(() => {
-                            let elems_9, dur, matchValue_1, d, d_1, elems_8;
+                            let elems_9, mockupDur, bakeDur, matchValue_1, d, d_1, matchValue_2, elems_8;
                             return singleton_1(createElement("div", createObj(ofArray([["className", "p-2 text-xs space-y-2"], (elems_9 = [createElement("div", {
                                 className: "text-slate-400",
-                                children: (dur = ProjectModule_effectiveMockupDuration(model.Project, block), (matchValue_1 = block.MockupDurationSec, (matchValue_1 != null) ? (((d = matchValue_1, Math.abs(d - dur) > 0.01)) ? ((d_1 = matchValue_1, `#${i + 1} · ${dur}s (from audio)`)) : (`#${i + 1} · ${dur}s`)) : (`#${i + 1} · ${dur}s`))),
+                                children: (mockupDur = ProjectModule_effectiveMockupDuration(model.Project, block), (bakeDur = ProjectModule_effectiveBakeDuration(model.Project, block), (((matchValue_1 = block.MockupDurationSec, (matchValue_1 != null) ? (((d = matchValue_1, Math.abs(d - mockupDur) > 0.01)) ? ((d_1 = matchValue_1, `#${i + 1} · ${mockupDur}s preview`)) : (`#${i + 1} · ${mockupDur}s`)) : (`#${i + 1} · ${mockupDur}s`))) + (((block.BakeDurationSec != null) && (Math.abs(bakeDur - mockupDur) > 0.01)) ? (` · ${bakeDur}s bake`) : "")) + ((matchValue_2 = block.ShotKind, (matchValue_2 == null) ? "" : (` · ${BlockShotKindModule_label(matchValue_2)}`))))),
                             }), createElement("div", createObj(ofArray([["className", "flex gap-1"], (elems_8 = [createElement("button", {
                                 className: "flex-1 py-1 rounded border border-surface-border hover:border-accent",
                                 children: "↑",
@@ -518,43 +563,156 @@ export function StoryboardTimeline_view(model, dispatch) {
                     })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_10))])])));
                 }, blocks), ["children", Interop_reactApi.Children.toArray(Array.from(elems_11))])]))));
             })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_12))])]))), defaultArg(map((block_1) => {
-                let elems_29, elems_28, elems_15, elems_19, value_279, elems_17, elems_18, matchValue_3, elems_24, elems_25, elems_26, value_413, elems_27, matchValue_5, a_1, value_430;
-                return createElement("aside", createObj(ofArray([["className", "w-80 border-l border-surface-border bg-surface-raised flex flex-col shrink-0"], (elems_29 = [createElement("div", {
+                let elems_34, elems_33, elems_13, elems_15, elems_16, elems_19, elems_23, value_358, elems_21, elems_22, matchValue_11, elems_28, value_463, elems_29, elems_30, elems_31, value_504, elems_32, matchValue_13, a_1, value_521;
+                return createElement("aside", createObj(ofArray([["className", "w-80 border-l border-surface-border bg-surface-raised flex flex-col shrink-0"], (elems_34 = [createElement("div", {
                     className: "px-4 py-3 border-b border-surface-border font-semibold text-sm",
                     children: defaultArg(block_1.Title, "Block inspector"),
-                }), createElement("div", createObj(ofArray([["className", "p-4 space-y-4 text-sm overflow-y-auto flex-1"], (elems_28 = [createElement("div", createObj(singleton((elems_15 = toList(delay(() => append_1(singleton_1(createElement("label", {
+                }), createElement("div", createObj(ofArray([["className", "p-4 space-y-4 text-sm overflow-y-auto flex-1"], (elems_33 = [createElement("div", createObj(ofArray([["className", "rounded-md border border-surface-border bg-surface p-3 space-y-1"], (elems_13 = toList(delay(() => append_1(singleton_1(createElement("p", {
+                    className: "text-xs font-medium text-slate-400",
+                    children: "Clip planning (local AI / LTX-style)",
+                })), delay(() => append_1(singleton_1(createElement("p", {
+                    className: "text-xs text-slate-500",
+                    children: ClipGenerationGuidance_promptHint(block_1),
+                })), delay(() => {
+                    let matchValue_3;
+                    return append_1((matchValue_3 = model.ShotKindDraft, (matchValue_3 == null) ? singleton_1(createElement("p", {
+                        className: "text-xs text-slate-600",
+                        children: "Pick a shot type below for resolution and max-duration hints.",
+                    })) : singleton_1(createElement("p", {
+                        className: "text-xs text-accent/90",
+                        children: ClipGenerationGuidance_guidanceSummary(StoryboardTimeline_clipGuidanceProfile, matchValue_3),
+                    }))), delay(() => {
+                        const matchValue_4 = ClipGenerationGuidance_continuationHint(findIndex((b) => (b.Id === block_1.Id), blocks), tryFind((b_1) => (b_1.Order === (block_1.Order - 1)), blocks));
+                        return (matchValue_4 == null) ? singleton_1(defaultOf()) : singleton_1(createElement("p", {
+                            className: "text-xs text-amber-400/80",
+                            children: matchValue_4,
+                        }));
+                    }));
+                })))))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_13))])]))), createElement("div", createObj(singleton((elems_15 = toList(delay(() => append_1(singleton_1(createElement("label", {
+                    className: "block text-xs text-slate-500 mb-1",
+                    children: "Shot type (AI clip guidance)",
+                })), delay(() => {
+                    let elems_14;
+                    return append_1(singleton_1(createElement("select", createObj(ofArray([["className", "w-full rounded-md bg-surface border border-surface-border px-2 py-1.5 text-sm"], ["value", defaultArg(map(BlockShotKindModule_toSchemaValue, model.ShotKindDraft), "")], ["onChange", (ev_7) => {
+                        const v = ev_7.target.value;
+                        dispatch(new TimelineMsg(12, [isNullOrWhiteSpace(v) ? undefined : BlockShotKindModule_fromSchemaValue(v)]));
+                    }], (elems_14 = map_1((tupledArg) => createElement("option", {
+                        value: defaultArg(map(BlockShotKindModule_toSchemaValue, tupledArg[1]), ""),
+                        children: tupledArg[0],
+                    }), StoryboardTimeline_shotKindOptions), ["children", Interop_reactApi.Children.toArray(Array.from(elems_14))])])))), delay(() => {
+                        const matchValue_5 = model.ShotKindDraft;
+                        return (matchValue_5 == null) ? singleton_1(defaultOf()) : singleton_1(createElement("button", {
+                            type: "button",
+                            className: "mt-2 w-full px-2 py-1.5 rounded-md border border-accent/40 text-xs text-accent hover:bg-accent/10",
+                            children: `Apply recommended bake length (${StoryboardTimeline_recommendedBakeDurationText(matchValue_5)}s)`,
+                            onClick: (_arg_8) => {
+                                dispatch(new TimelineMsg(14, []));
+                            },
+                        }));
+                    }));
+                })))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_15))])))), createElement("div", createObj(singleton((elems_16 = toList(delay(() => append_1(singleton_1(createElement("label", {
+                    className: "block text-xs text-slate-500 mb-1",
+                    children: "Bake clip length (seconds)",
+                })), delay(() => append_1(singleton_1(createElement("input", {
+                    type: "number",
+                    min: 0.5,
+                    max: 120,
+                    step: 0.5,
+                    className: "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm",
+                    placeholder: `Empty = mockup timing (${StoryboardTimeline_formatDuration(ProjectModule_effectiveMockupDuration(model.Project, block_1))}s)`,
+                    value: model.BakeDurationDraft,
+                    onChange: (ev_8) => {
+                        dispatch(new TimelineMsg(13, [ev_8.target.value]));
+                    },
+                })), delay(() => append_1(singleton_1(createElement("p", {
+                    className: "mt-1 text-xs text-slate-500",
+                    children: "Ken Burns preview uses mockup timing (3–4s). Bake final MP4 uses this length per block.",
+                })), delay(() => {
+                    let kind_5;
+                    const matchValue_6 = model.ShotKindDraft;
+                    const matchValue_7 = model.BakeDurationDraft;
+                    let matchResult, draft_1, kind_6;
+                    if (matchValue_6 != null) {
+                        if ((kind_5 = matchValue_6, !isNullOrWhiteSpace(matchValue_7))) {
+                            matchResult = 0;
+                            draft_1 = matchValue_7;
+                            kind_6 = matchValue_6;
+                        }
+                        else {
+                            matchResult = 1;
+                        }
+                    }
+                    else {
+                        matchResult = 1;
+                    }
+                    switch (matchResult) {
+                        case 0: {
+                            let matchValue_9;
+                            let outArg = 0;
+                            matchValue_9 = [tryParse(draft_1, new FSharpRef(() => outArg, (v_2) => {
+                                outArg = v_2;
+                            })), outArg];
+                            let matchResult_1;
+                            if (matchValue_9[0]) {
+                                if (ClipGenerationGuidance_durationExceedsGuidance(StoryboardTimeline_clipGuidanceProfile, kind_6, matchValue_9[1])) {
+                                    matchResult_1 = 0;
+                                }
+                                else {
+                                    matchResult_1 = 1;
+                                }
+                            }
+                            else {
+                                matchResult_1 = 1;
+                            }
+                            switch (matchResult_1) {
+                                case 0:
+                                    return singleton_1(createElement("p", {
+                                        className: "mt-1 text-xs text-amber-400/90",
+                                        children: `Above ~${~~ClipGenerationGuidance_recommendedMaxSeconds(StoryboardTimeline_clipGuidanceProfile, kind_6)}s recommended for ${BlockShotKindModule_label(kind_6)} on 8 GB VRAM — may OOM in future AI clip export.`,
+                                    }));
+                                default:
+                                    return singleton_1(defaultOf());
+                            }
+                        }
+                        default:
+                            return singleton_1(defaultOf());
+                    }
+                })))))))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_16))])))), createElement("div", createObj(singleton((elems_19 = toList(delay(() => append_1(singleton_1(createElement("label", {
                     className: "block text-xs text-slate-500 mb-1",
                     children: "Image prompt",
                 })), delay(() => append_1(singleton_1(createElement("textarea", {
                     className: "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm min-h-[60px]",
-                    placeholder: "Describe the scene to generate…",
+                    placeholder: StoryboardTimeline_imagePromptPlaceholder(block_1),
                     value: model.ImagePromptDraft,
-                    onChange: (ev_7) => {
-                        dispatch(new TimelineMsg(8, [ev_7.target.value]));
+                    onChange: (ev_9) => {
+                        dispatch(new TimelineMsg(8, [ev_9.target.value]));
                     },
+                })), delay(() => append_1(singleton_1(createElement("p", {
+                    className: "mt-1 text-xs text-slate-500",
+                    children: "Prompts = behavior. Guide frames / thumbnails = geography. Use a cut for location changes.",
                 })), delay(() => append_1(StoryboardTimeline_looksLikeFilename(model.ImagePromptDraft) ? singleton_1(createElement("p", {
                     className: "mt-1 text-xs text-amber-400/90",
                     children: "This looks like a filename — use a text description for AI generation, or import the image instead.",
                 })) : empty(), delay(() => {
-                    let elems_14, elems_13;
-                    return !isEmpty(model.ImagePromptQuickButtons) ? singleton_1(createElement("div", createObj(ofArray([["className", "mt-2 space-y-1"], (elems_14 = [createElement("p", {
+                    let elems_18, elems_17;
+                    return !isEmpty(model.ImagePromptQuickButtons) ? singleton_1(createElement("div", createObj(ofArray([["className", "mt-2 space-y-1"], (elems_18 = [createElement("p", {
                         className: "text-xs text-slate-500",
                         children: "Quick prompts",
-                    }), createElement("div", createObj(ofArray([["className", "flex flex-wrap gap-1.5"], (elems_13 = map_1((qb) => createElement("button", {
+                    }), createElement("div", createObj(ofArray([["className", "flex flex-wrap gap-1.5"], (elems_17 = map_1((qb) => createElement("button", {
                         type: "button",
                         className: "px-2 py-1 rounded-md border border-surface-border text-xs hover:border-accent hover:text-accent",
                         title: qb.Prompt,
                         children: qb.Label,
-                        onClick: (_arg_6) => {
-                            dispatch(new TimelineMsg(18, [qb.Prompt]));
+                        onClick: (_arg_9) => {
+                            dispatch(new TimelineMsg(22, [qb.Prompt]));
                         },
-                    }), model.ImagePromptQuickButtons), ["children", Interop_reactApi.Children.toArray(Array.from(elems_13))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_14))])])))) : empty();
-                })))))))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_15))])))), createElement("div", createObj(ofArray([["className", "space-y-2 rounded-md border border-surface-border p-3"], (elems_19 = [createElement("label", {
+                    }), model.ImagePromptQuickButtons), ["children", Interop_reactApi.Children.toArray(Array.from(elems_17))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_18))])])))) : empty();
+                })))))))))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_19))])))), createElement("div", createObj(ofArray([["className", "space-y-2 rounded-md border border-surface-border p-3"], (elems_23 = [createElement("label", {
                     className: "block text-xs text-slate-500 mb-1",
                     children: "Reference image (optional, img2img)",
                 }), defaultArgWith(map((path) => {
-                    let elems_16, patternInput_1, value_269;
-                    return createElement("div", createObj(ofArray([["className", "space-y-2"], (elems_16 = [(patternInput_1 = StoryboardTimeline_mediaPreviewSrc(model, path), createElement("img", {
+                    let elems_20, patternInput_1, value_348;
+                    return createElement("div", createObj(ofArray([["className", "space-y-2"], (elems_20 = [(patternInput_1 = StoryboardTimeline_mediaPreviewSrc(model, path), createElement("img", {
                         key: patternInput_1[1],
                         className: "w-full max-h-32 object-contain rounded border border-surface-border bg-surface",
                         src: patternInput_1[0],
@@ -563,33 +721,33 @@ export function StoryboardTimeline_view(model, dispatch) {
                         className: "text-xs text-slate-500 truncate",
                         title: path,
                         children: path,
-                    }), createElement("button", createObj(ofArray([["type", "button"], (value_269 = "w-full px-2 py-1.5 rounded-md border border-surface-border text-xs hover:border-red-400 hover:text-red-300", ["className", value_269]), ["children", "Remove reference"], ["onClick", (_arg_7) => {
-                        dispatch(new TimelineMsg(21, []));
-                    }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_16))])])));
+                    }), createElement("button", createObj(ofArray([["type", "button"], (value_348 = "w-full px-2 py-1.5 rounded-md border border-surface-border text-xs hover:border-red-400 hover:text-red-300", ["className", value_348]), ["children", "Remove reference"], ["onClick", (_arg_10) => {
+                        dispatch(new TimelineMsg(25, []));
+                    }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_20))])])));
                 }, bind((g) => g.ReferenceAssetPath, block_1.Generation)), () => {
-                    let value_277;
-                    return createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_277 = "Upload a photo or use the block thumbnail to guide GPU generation. Top bar Import image adds a timeline block — use this section to attach a reference for img2img.", ["children", value_277])])));
-                }), createElement("label", createObj(ofArray([(value_279 = "block px-3 py-2 rounded-md border border-surface-border cursor-pointer hover:border-accent text-sm text-center", ["className", value_279]), (elems_17 = [createElement("input", {
+                    let value_356;
+                    return createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_356 = "Upload a photo or use the block thumbnail to guide GPU generation. Top bar Import image adds a timeline block — use this section to attach a reference for img2img.", ["children", value_356])])));
+                }), createElement("label", createObj(ofArray([(value_358 = "block px-3 py-2 rounded-md border border-surface-border cursor-pointer hover:border-accent text-sm text-center", ["className", value_358]), (elems_21 = [createElement("input", {
                     type: "file",
                     accept: "image/*",
                     className: "hidden",
-                    onChange: (ev_8) => {
-                        const input_2 = ev_8.target;
+                    onChange: (ev_10) => {
+                        const input_2 = ev_10.target;
                         const files_2 = input_2.files;
                         if (!(files_2 == null) && (files_2.length > 0)) {
-                            dispatch(new TimelineMsg(20, [files_2[0]]));
+                            dispatch(new TimelineMsg(24, [files_2[0]]));
                         }
                     },
                 }), createElement("span", {
                     children: "Upload reference image",
-                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_17))])]))), defaultArg(map((_arg_8) => createElement("button", {
+                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_21))])]))), defaultArg(map((_arg_11) => createElement("button", {
                     type: "button",
                     className: "w-full px-2 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent",
                     children: "Use block thumbnail as reference",
-                    onClick: (_arg_9) => {
-                        dispatch(new TimelineMsg(22, []));
+                    onClick: (_arg_12) => {
+                        dispatch(new TimelineMsg(26, []));
                     },
-                }), filter_1((thumb) => defaultArg(map((y_1) => (thumb !== y_1), bind((g_1) => g_1.ReferenceAssetPath, block_1.Generation)), true), block_1.ThumbnailPath)), defaultOf()), createElement("div", createObj(singleton((elems_18 = [createElement("label", {
+                }), filter_1((thumb) => defaultArg(map((y_1) => (thumb !== y_1), bind((g_1) => g_1.ReferenceAssetPath, block_1.Generation)), true), block_1.ThumbnailPath)), defaultOf()), createElement("div", createObj(singleton((elems_22 = [createElement("label", {
                     className: "block text-xs text-slate-500 mb-1",
                     children: `Reference strength: ${formatFloat(2, model.ReferenceStrengthDraft)} (lower = closer to photo; 0.5–0.6 to add props/outfits)`,
                 }), createElement("input", {
@@ -599,54 +757,54 @@ export function StoryboardTimeline_view(model, dispatch) {
                     step: 0.05,
                     className: "w-full",
                     value: model.ReferenceStrengthDraft.toString(),
-                    onChange: (ev_9) => {
-                        let matchValue_2;
-                        let outArg = 0;
-                        matchValue_2 = [tryParse(ev_9.target.value, new FSharpRef(() => outArg, (v_2) => {
-                            outArg = v_2;
-                        })), outArg];
-                        if (matchValue_2[0]) {
-                            dispatch(new TimelineMsg(23, [matchValue_2[1]]));
+                    onChange: (ev_11) => {
+                        let matchValue_10;
+                        let outArg_1 = 0;
+                        matchValue_10 = [tryParse(ev_11.target.value, new FSharpRef(() => outArg_1, (v_5) => {
+                            outArg_1 = v_5;
+                        })), outArg_1];
+                        if (matchValue_10[0]) {
+                            dispatch(new TimelineMsg(27, [matchValue_10[1]]));
                         }
                     },
-                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_18))]))))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_19))])]))), createElement("button", {
+                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_22))]))))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_23))])]))), createElement("button", {
                     className: "w-full px-3 py-2 rounded-md bg-accent hover:bg-accent-muted text-sm font-medium disabled:opacity-50",
                     disabled: model.Generating,
-                    children: model.Generating ? "Generating 3 variants…" : ((matchValue_3 = bind((g_2) => g_2.ReferenceAssetPath, block_1.Generation), (matchValue_3 == null) ? "Generate 3 thumbnails (GPU)" : "Generate 3 thumbnails from reference (GPU)")),
-                    onClick: (_arg_10) => {
-                        dispatch(new TimelineMsg(12, []));
+                    children: model.Generating ? "Generating 3 variants…" : ((matchValue_11 = bind((g_2) => g_2.ReferenceAssetPath, block_1.Generation), (matchValue_11 == null) ? "Generate 3 thumbnails (GPU)" : "Generate 3 thumbnails from reference (GPU)")),
+                    onClick: (_arg_13) => {
+                        dispatch(new TimelineMsg(16, []));
                     },
                 }), defaultArg(map((variants) => {
-                    let elems_23, elems_20, elems_22;
-                    return createElement("div", createObj(ofArray([["className", "space-y-2"], (elems_23 = [createElement("div", createObj(ofArray([["className", "flex items-center justify-between gap-2"], (elems_20 = [createElement("p", {
+                    let elems_27, elems_24, elems_26;
+                    return createElement("div", createObj(ofArray([["className", "space-y-2"], (elems_27 = [createElement("div", createObj(ofArray([["className", "flex items-center justify-between gap-2"], (elems_24 = [createElement("p", {
                         className: "text-xs text-slate-500",
                         children: "Pick a variant",
                     }), createElement("button", {
                         type: "button",
                         className: "text-xs text-accent hover:underline",
                         children: "Compare large…",
-                        onClick: (_arg_11) => {
-                            dispatch(new TimelineMsg(14, []));
+                        onClick: (_arg_14) => {
+                            dispatch(new TimelineMsg(18, []));
                         },
-                    })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_20))])]))), createElement("div", createObj(ofArray([["className", "grid grid-cols-3 gap-2"], (elems_22 = mapIndexed((vi, path_1) => {
-                        let elems_21;
+                    })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_24))])]))), createElement("div", createObj(ofArray([["className", "grid grid-cols-3 gap-2"], (elems_26 = mapIndexed((vi, path_1) => {
+                        let elems_25;
                         let selected_1;
-                        const value_344 = vi === 0;
-                        selected_1 = defaultArg(map((y_2) => (path_1 === y_2), block_1.ThumbnailPath), value_344);
+                        const value_423 = vi === 0;
+                        selected_1 = defaultArg(map((y_2) => (path_1 === y_2), block_1.ThumbnailPath), value_423);
                         const patternInput_2 = StoryboardTimeline_mediaPreviewSrc(model, path_1);
                         const imgKey_2 = patternInput_2[1];
-                        return createElement("button", createObj(ofArray([["key", imgKey_2], ["type", "button"], ["className", "aspect-video rounded border overflow-hidden " + (selected_1 ? "border-accent ring-1 ring-accent" : "border-surface-border hover:border-accent/60")], ["onClick", (_arg_12) => {
-                            dispatch(new TimelineMsg(13, [path_1]));
-                        }], ["onDoubleClick", (_arg_13) => {
-                            dispatch(new TimelineMsg(14, []));
-                        }], (elems_21 = [createElement("img", {
+                        return createElement("button", createObj(ofArray([["key", imgKey_2], ["type", "button"], ["className", "aspect-video rounded border overflow-hidden " + (selected_1 ? "border-accent ring-1 ring-accent" : "border-surface-border hover:border-accent/60")], ["onClick", (_arg_15) => {
+                            dispatch(new TimelineMsg(17, [path_1]));
+                        }], ["onDoubleClick", (_arg_16) => {
+                            dispatch(new TimelineMsg(18, []));
+                        }], (elems_25 = [createElement("img", {
                             key: imgKey_2,
                             className: "w-full h-full object-cover",
                             src: patternInput_2[0],
                             alt: `Variant ${vi + 1}`,
-                        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_21))])])));
-                    }, variants), ["children", Interop_reactApi.Children.toArray(Array.from(elems_22))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_23))])])));
-                }, filter_1((vs) => (length_1(vs) > 1), bind((g_3) => g_3.ThumbnailVariants, block_1.Generation))), defaultOf()), createElement("div", createObj(singleton((elems_24 = [createElement("label", {
+                        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_25))])])));
+                    }, variants), ["children", Interop_reactApi.Children.toArray(Array.from(elems_26))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_27))])])));
+                }, filter_1((vs) => (length_1(vs) > 1), bind((g_3) => g_3.ThumbnailVariants, block_1.Generation))), defaultOf()), createElement("div", createObj(singleton((elems_28 = [createElement("label", {
                     className: "block text-xs text-slate-500 mb-1",
                     children: "Crossfade to next (ms)",
                 }), createElement("input", {
@@ -656,30 +814,37 @@ export function StoryboardTimeline_view(model, dispatch) {
                     step: 50,
                     className: "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm",
                     value: int32ToString(model.CrossfadeDurationDraft),
-                    onChange: (ev_10) => {
-                        let matchValue_4;
-                        let outArg_1 = 0;
-                        matchValue_4 = [tryParse_1(ev_10.target.value, 511, false, 32, new FSharpRef(() => outArg_1, (v_4) => {
-                            outArg_1 = (v_4 | 0);
-                        })), outArg_1];
-                        if (matchValue_4[0]) {
-                            dispatch(new TimelineMsg(10, [matchValue_4[1]]));
+                    onChange: (ev_12) => {
+                        let matchValue_12;
+                        let outArg_2 = 0;
+                        matchValue_12 = [tryParse_1(ev_12.target.value, 511, false, 32, new FSharpRef(() => outArg_2, (v_7) => {
+                            outArg_2 = (v_7 | 0);
+                        })), outArg_2];
+                        if (matchValue_12[0]) {
+                            dispatch(new TimelineMsg(10, [matchValue_12[1]]));
                         }
                     },
-                }), createElement("p", {
-                    className: "mt-1 text-xs text-slate-500",
-                    children: "Crossfade between blocks in Ken Burns preview and bake export.",
-                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_24))])))), createElement("div", createObj(singleton((elems_25 = [createElement("label", {
+                }), createElement("p", createObj(ofArray([["className", "mt-1 text-xs text-slate-500"], (value_463 = "Crossfade between blocks in Ken Burns preview and bake. Use a hard cut (0 ms) when changing location — V2V continuation works best for motion, not geography.", ["children", value_463])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_28))])))), createElement("div", createObj(singleton((elems_29 = [createElement("label", {
+                    className: "block text-xs text-slate-500 mb-1",
+                    children: "Director notes",
+                }), createElement("textarea", {
+                    className: "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm min-h-[56px]",
+                    placeholder: "Editing intent: extend prior clip, new guide frame, cut on cottage reveal…",
+                    value: model.DirectorNotesDraft,
+                    onChange: (ev_13) => {
+                        dispatch(new TimelineMsg(11, [ev_13.target.value]));
+                    },
+                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_29))])))), createElement("div", createObj(singleton((elems_30 = [createElement("label", {
                     className: "block text-xs text-slate-500 mb-1",
                     children: "Voiceover script",
                 }), createElement("textarea", {
                     className: "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm min-h-[80px]",
                     placeholder: "Narration for this block…",
                     value: model.VoiceoverDraft,
-                    onChange: (ev_11) => {
-                        dispatch(new TimelineMsg(7, [ev_11.target.value]));
+                    onChange: (ev_14) => {
+                        dispatch(new TimelineMsg(7, [ev_14.target.value]));
                     },
-                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_25))])))), createElement("div", createObj(singleton((elems_26 = [createElement("label", {
+                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_30))])))), createElement("div", createObj(singleton((elems_31 = [createElement("label", {
                     className: "block text-xs text-slate-500 mb-1",
                     children: "Mood / tone tags (comma-separated)",
                 }), createElement("input", {
@@ -687,54 +852,54 @@ export function StoryboardTimeline_view(model, dispatch) {
                     className: "w-full rounded-md bg-surface border border-surface-border px-2 py-1 text-sm",
                     placeholder: "calm, upbeat, cinematic",
                     value: model.MoodTagsDraft,
-                    onChange: (ev_12) => {
-                        dispatch(new TimelineMsg(9, [ev_12.target.value]));
+                    onChange: (ev_15) => {
+                        dispatch(new TimelineMsg(9, [ev_15.target.value]));
                     },
-                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_26))])))), createElement("label", createObj(ofArray([(value_413 = "block px-3 py-2 rounded-md border border-surface-border cursor-pointer hover:border-accent text-sm text-center", ["className", value_413]), (elems_27 = [createElement("input", {
+                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_31))])))), createElement("label", createObj(ofArray([(value_504 = "block px-3 py-2 rounded-md border border-surface-border cursor-pointer hover:border-accent text-sm text-center", ["className", value_504]), (elems_32 = [createElement("input", {
                     type: "file",
                     accept: "audio/*",
                     className: "hidden",
-                    onChange: (ev_13) => {
-                        const input_3 = ev_13.target;
+                    onChange: (ev_16) => {
+                        const input_3 = ev_16.target;
                         const files_3 = input_3.files;
                         if (!(files_3 == null) && (files_3.length > 0)) {
-                            dispatch(new TimelineMsg(24, [files_3[0]]));
+                            dispatch(new TimelineMsg(28, [files_3[0]]));
                         }
                     },
                 }), createElement("span", {
-                    children: (matchValue_5 = block_1.Audio, (matchValue_5 != null) ? ((matchValue_5.Path != null) ? ((a_1 = matchValue_5, "Replace audio")) : "Import audio") : "Import audio"),
-                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_27))])]))), defaultArg(map((p_1) => createElement("p", {
+                    children: (matchValue_13 = block_1.Audio, (matchValue_13 != null) ? ((matchValue_13.Path != null) ? ((a_1 = matchValue_13, "Replace audio")) : "Import audio") : "Import audio"),
+                })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_32))])]))), defaultArg(map((p_1) => createElement("p", {
                     className: "text-xs text-slate-500 truncate",
                     children: `Audio: ${p_1}`,
-                }), bind((a_2) => a_2.Path, block_1.Audio)), defaultOf()), createElement("button", createObj(ofArray([(value_430 = "w-full px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50", ["className", value_430]), ["disabled", model.Saving], ["children", model.Saving ? "Saving…" : "Save block fields"], ["onClick", (_arg_14) => {
-                    dispatch(new TimelineMsg(11, []));
-                }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_28))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_29))])])));
-            }, selected), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems_30))])])))), delay(() => {
+                }), bind((a_2) => a_2.Path, block_1.Audio)), defaultOf()), createElement("button", createObj(ofArray([(value_521 = "w-full px-3 py-2 rounded-md border border-surface-border text-sm hover:border-accent disabled:opacity-50", ["className", value_521]), ["disabled", model.Saving], ["children", model.Saving ? "Saving…" : "Save block fields"], ["onClick", (_arg_17) => {
+                    dispatch(new TimelineMsg(15, []));
+                }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_33))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_34))])])));
+            }, selected), defaultOf())], ["children", Interop_reactApi.Children.toArray(Array.from(elems_35))])])))), delay(() => {
                 let block_2;
                 return (model.VariantModal != null) ? ((selected != null) ? ((block_2 = selected, singleton_1(defaultArg(map((variants_1) => StoryboardTimeline_variantModalView(model, block_2, variants_1, dispatch), filter_1((vs_1) => (length_1(vs_1) > 1), bind((g_4) => g_4.ThumbnailVariants, block_2.Generation))), defaultOf())))) : singleton_1(defaultOf())) : singleton_1(defaultOf());
             }));
         }))))))))));
-    })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_31))])])));
+    })), ["children", Interop_reactApi.Children.toArray(Array.from(elems_36))])])));
 }
 
 export function StoryboardTimeline_setDragIndex(model, idx) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, idx, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, idx, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_moveUp(model, blockId) {
-    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, -1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, -1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_moveDown(model, blockId) {
-    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, 1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(StoryboardTimeline_reorder(model.Project, blockId, 1), model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_withProject(project, model) {
-    return StoryboardTimeline_selectBlock(new TimelineModel(project, false, false, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack), model.SelectedBlockId);
+    return StoryboardTimeline_selectBlock(new TimelineModel(project, false, false, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack), model.SelectedBlockId);
 }
 
 export function StoryboardTimeline_withProjectAfterGenerate(project, model) {
-    const model$0027 = StoryboardTimeline_selectBlock(new TimelineModel(project, false, false, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, toUnixTimeMilliseconds(utcNow()), model.VariantModal, model.SharePack), model.SelectedBlockId);
+    const model$0027 = StoryboardTimeline_selectBlock(new TimelineModel(project, false, false, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, toUnixTimeMilliseconds(utcNow()), model.VariantModal, model.SharePack), model.SelectedBlockId);
     const matchValue = StoryboardTimeline_selectedBlock(model$0027);
     if (matchValue == null) {
         return model$0027;
@@ -756,7 +921,7 @@ export function StoryboardTimeline_withProjectAfterGenerate(project, model) {
         }
         switch (matchResult) {
             case 0:
-                return new TimelineModel(model$0027.Project, model$0027.Saving, model$0027.Generating, model$0027.Previewing, model$0027.Baking, model$0027.PreviewUrl, model$0027.BakeUrl, model$0027.PreviewJobId, model$0027.BakeJobId, model$0027.Error, model$0027.DragIndex, model$0027.SelectedBlockId, model$0027.VoiceoverDraft, model$0027.ImagePromptDraft, model$0027.MoodTagsDraft, model$0027.CrossfadeDurationDraft, model$0027.ImagePromptQuickButtons, model$0027.ReferenceStrengthDraft, model$0027.MediaRevision, new VariantModalMode(0, []), model$0027.SharePack);
+                return new TimelineModel(model$0027.Project, model$0027.Saving, model$0027.Generating, model$0027.Previewing, model$0027.Baking, model$0027.PreviewUrl, model$0027.BakeUrl, model$0027.PreviewJobId, model$0027.BakeJobId, model$0027.Error, model$0027.DragIndex, model$0027.SelectedBlockId, model$0027.VoiceoverDraft, model$0027.ImagePromptDraft, model$0027.MoodTagsDraft, model$0027.CrossfadeDurationDraft, model$0027.DirectorNotesDraft, model$0027.ShotKindDraft, model$0027.BakeDurationDraft, model$0027.ImagePromptQuickButtons, model$0027.ReferenceStrengthDraft, model$0027.MediaRevision, new VariantModalMode(0, []), model$0027.SharePack);
             default:
                 return model$0027;
         }
@@ -764,13 +929,13 @@ export function StoryboardTimeline_withProjectAfterGenerate(project, model) {
 }
 
 export function StoryboardTimeline_withSharePack(sharePack, model) {
-    return new TimelineModel(model.Project, false, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, sharePack);
+    return new TimelineModel(model.Project, false, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, sharePack);
 }
 
 export function StoryboardTimeline_updateSharePack(f, model) {
     const matchValue = model.SharePack;
     if (matchValue != null) {
-        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, f(matchValue));
+        return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, f(matchValue));
     }
     else {
         return model;
@@ -778,30 +943,30 @@ export function StoryboardTimeline_updateSharePack(f, model) {
 }
 
 export function StoryboardTimeline_clearSharePack(model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, undefined);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, model.Error, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, undefined);
 }
 
 export function StoryboardTimeline_withPreviewUrl(url, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, url, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, url, model.BakeUrl, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_withPreviewStarted(jobId, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, true, model.Baking, model.PreviewUrl, model.BakeUrl, jobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, true, model.Baking, model.PreviewUrl, model.BakeUrl, jobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_withPreviewError(err, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, false, model.Baking, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_withBakeStarted(jobId, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, true, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, jobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, true, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, jobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_withBakeUrl(url, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, url, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, url, model.PreviewJobId, model.BakeJobId, undefined, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 
 export function StoryboardTimeline_withBakeError(err, model) {
-    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
+    return new TimelineModel(model.Project, model.Saving, model.Generating, model.Previewing, false, model.PreviewUrl, model.BakeUrl, model.PreviewJobId, model.BakeJobId, err, model.DragIndex, model.SelectedBlockId, model.VoiceoverDraft, model.ImagePromptDraft, model.MoodTagsDraft, model.CrossfadeDurationDraft, model.DirectorNotesDraft, model.ShotKindDraft, model.BakeDurationDraft, model.ImagePromptQuickButtons, model.ReferenceStrengthDraft, model.MediaRevision, model.VariantModal, model.SharePack);
 }
 

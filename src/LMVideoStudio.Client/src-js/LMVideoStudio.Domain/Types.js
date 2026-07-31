@@ -210,6 +210,62 @@ export function MockupAudioQuality_$reflection() {
     return union_type("LMVideoStudio.Domain.MockupAudioQuality", [], MockupAudioQuality, () => [[], []]);
 }
 
+export class BlockShotKind extends Union {
+    constructor(tag, fields) {
+        super();
+        this.tag = tag;
+        this.fields = fields;
+    }
+    cases() {
+        return ["FaceCloseUp", "MediumClose", "BackWide", "EnvironmentWide"];
+    }
+}
+
+export function BlockShotKind_$reflection() {
+    return union_type("LMVideoStudio.Domain.BlockShotKind", [], BlockShotKind, () => [[], [], [], []]);
+}
+
+export function BlockShotKindModule_toSchemaValue(_arg) {
+    switch (_arg.tag) {
+        case 1:
+            return "medium_close";
+        case 2:
+            return "back_wide";
+        case 3:
+            return "environment_wide";
+        default:
+            return "face_close";
+    }
+}
+
+export function BlockShotKindModule_fromSchemaValue(_arg) {
+    switch (_arg) {
+        case "face_close":
+            return new BlockShotKind(0, []);
+        case "medium_close":
+            return new BlockShotKind(1, []);
+        case "back_wide":
+            return new BlockShotKind(2, []);
+        case "environment_wide":
+            return new BlockShotKind(3, []);
+        default:
+            return undefined;
+    }
+}
+
+export function BlockShotKindModule_label(_arg) {
+    switch (_arg.tag) {
+        case 1:
+            return "Medium close (face visible)";
+        case 2:
+            return "Back / wide (no face)";
+        case 3:
+            return "Environment / establishing";
+        default:
+            return "Face close-up";
+    }
+}
+
 export class BlockAudio extends Record {
     constructor(Path, Source, MockupQuality) {
         super();
@@ -250,7 +306,7 @@ export function BlockArtifacts_$reflection() {
 }
 
 export class StoryboardBlock extends Record {
-    constructor(Id, Order, Title, Source, ThumbnailPath, ImagePrompt, VoiceoverScript, DirectorNotes, MoodTags, MockupDurationSec, BakeDurationSec, Transitions, Audio, Generation, Artifacts) {
+    constructor(Id, Order, Title, Source, ThumbnailPath, ImagePrompt, VoiceoverScript, DirectorNotes, MoodTags, ShotKind, MockupDurationSec, BakeDurationSec, Transitions, Audio, Generation, Artifacts) {
         super();
         this.Id = Id;
         this.Order = (Order | 0);
@@ -261,6 +317,7 @@ export class StoryboardBlock extends Record {
         this.VoiceoverScript = VoiceoverScript;
         this.DirectorNotes = DirectorNotes;
         this.MoodTags = MoodTags;
+        this.ShotKind = ShotKind;
         this.MockupDurationSec = MockupDurationSec;
         this.BakeDurationSec = BakeDurationSec;
         this.Transitions = Transitions;
@@ -271,7 +328,7 @@ export class StoryboardBlock extends Record {
 }
 
 export function StoryboardBlock_$reflection() {
-    return record_type("LMVideoStudio.Domain.StoryboardBlock", [], StoryboardBlock, () => [["Id", class_type("System.Guid")], ["Order", int32_type], ["Title", option_type(string_type)], ["Source", BlockSource_$reflection()], ["ThumbnailPath", option_type(string_type)], ["ImagePrompt", option_type(string_type)], ["VoiceoverScript", option_type(string_type)], ["DirectorNotes", option_type(string_type)], ["MoodTags", list_type(string_type)], ["MockupDurationSec", option_type(float64_type)], ["BakeDurationSec", option_type(float64_type)], ["Transitions", option_type(TransitionSpec_$reflection())], ["Audio", option_type(BlockAudio_$reflection())], ["Generation", option_type(BlockGeneration_$reflection())], ["Artifacts", option_type(BlockArtifacts_$reflection())]]);
+    return record_type("LMVideoStudio.Domain.StoryboardBlock", [], StoryboardBlock, () => [["Id", class_type("System.Guid")], ["Order", int32_type], ["Title", option_type(string_type)], ["Source", BlockSource_$reflection()], ["ThumbnailPath", option_type(string_type)], ["ImagePrompt", option_type(string_type)], ["VoiceoverScript", option_type(string_type)], ["DirectorNotes", option_type(string_type)], ["MoodTags", list_type(string_type)], ["ShotKind", option_type(BlockShotKind_$reflection())], ["MockupDurationSec", option_type(float64_type)], ["BakeDurationSec", option_type(float64_type)], ["Transitions", option_type(TransitionSpec_$reflection())], ["Audio", option_type(BlockAudio_$reflection())], ["Generation", option_type(BlockGeneration_$reflection())], ["Artifacts", option_type(BlockArtifacts_$reflection())]]);
 }
 
 export class StylePack extends Record {
@@ -327,6 +384,10 @@ export const ProjectModule_mockupDurationMaxSec = 4;
 
 export const ProjectModule_defaultMockupDurationSec = 3.5;
 
+export const ProjectModule_bakeDurationMinSec = 0.5;
+
+export const ProjectModule_bakeDurationMaxSec = 600;
+
 export function ProjectModule_create(name) {
     const now = utcNow();
     return new Project(1, newGuid(), name, now, now, undefined, new SequencePreset(0, []), ProjectModule_defaultMockupDurationSec, new RenderDefaults(RenderProfileModule_defaultMockup, RenderProfileModule_defaultBake), undefined, empty(), TransitionSpecModule_defaultMockup);
@@ -340,11 +401,18 @@ export function ProjectModule_reorderBlocks(project, blockIds) {
     const lookup = ofList(map((b) => [b.Id, b], project.Blocks), {
         Compare: comparePrimitives,
     });
-    return ProjectModule_touch(new Project(project.SchemaVersion, project.Id, project.Name, project.CreatedAt, project.UpdatedAt, project.Brief, project.SequencePreset, project.DefaultMockupDurationSec, project.RenderDefaults, project.StylePack, mapIndexed((i, b_1) => (new StoryboardBlock(b_1.Id, i, b_1.Title, b_1.Source, b_1.ThumbnailPath, b_1.ImagePrompt, b_1.VoiceoverScript, b_1.DirectorNotes, b_1.MoodTags, b_1.MockupDurationSec, b_1.BakeDurationSec, b_1.Transitions, b_1.Audio, b_1.Generation, b_1.Artifacts)), choose((id) => tryFind(id, lookup), blockIds)), project.TransitionsDefault));
+    return ProjectModule_touch(new Project(project.SchemaVersion, project.Id, project.Name, project.CreatedAt, project.UpdatedAt, project.Brief, project.SequencePreset, project.DefaultMockupDurationSec, project.RenderDefaults, project.StylePack, mapIndexed((i, b_1) => (new StoryboardBlock(b_1.Id, i, b_1.Title, b_1.Source, b_1.ThumbnailPath, b_1.ImagePrompt, b_1.VoiceoverScript, b_1.DirectorNotes, b_1.MoodTags, b_1.ShotKind, b_1.MockupDurationSec, b_1.BakeDurationSec, b_1.Transitions, b_1.Audio, b_1.Generation, b_1.Artifacts)), choose((id) => tryFind(id, lookup), blockIds)), project.TransitionsDefault));
 }
 
 export function ProjectModule_effectiveMockupDuration(project, block) {
     return defaultArg(block.MockupDurationSec, project.DefaultMockupDurationSec);
+}
+
+/**
+ * Final export clip length: explicit bake duration, else mockup timing.
+ */
+export function ProjectModule_effectiveBakeDuration(project, block) {
+    return defaultArg(orElse(block.BakeDurationSec, block.MockupDurationSec), project.DefaultMockupDurationSec);
 }
 
 /**

@@ -68,7 +68,7 @@ Update `identifier` and `bundle.publisher` to match the reserved name and publis
 2. **Apps and Games → New product → MSIX or packaged app** (or EXE/MSI app linking to offline installer per Tauri docs).
 3. Reserve a unique product name and note the **Package/Store identity** (e.g. `PublisherName.AppName`).
 4. Align `tauri.microsoftstore.conf.json` `identifier` and `bundle.publisher` with that identity.
-5. Prepare listing: description, screenshots, privacy policy (required — app downloads Ollama/models to `%AppData%` on first run).
+5. Prepare listing: description, screenshots, privacy policy (required — Lemonade and model downloads are separate first-run dependencies).
 6. Upload MSI or MSIX from `make build-msix` output.
 7. Complete age ratings, pricing, and submission checklist.
 
@@ -81,12 +81,12 @@ Update `identifier` and `bundle.publisher` to match the reserved name and publis
 ### Submission checklist
 
 - [ ] Partner Center app registered; identity matches `tauri.microsoftstore.conf.json`
-- [ ] Privacy policy URL (local AI, Ollama, model downloads)
+- [ ] Privacy policy URL (local AI, Lemonade, model downloads)
 - [ ] Offline WebView2 MSI built (`make build-msix`)
 - [ ] No in-app GitHub updater prompts (Settings hides "Check for updates" in store flavor)
 - [ ] Sidecars bundled: Host + worker + FFmpeg resources
 - [ ] Test install on clean Windows 10/11 VM
-- [ ] Review notes explaining first-run bootstrap (Ollama, GPU worker, disk space)
+- [ ] Review notes explaining first-run bootstrap (Lemonade, GPU worker, disk space)
 
 ## CI
 

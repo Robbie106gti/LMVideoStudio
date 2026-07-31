@@ -88,7 +88,7 @@ module Settings =
     let private bootstrapDoneKey = "lmvs_bootstrap_done"
 
     let private allSystemsOk (s: SystemStatusDto) =
-        s.Host = "ok" && s.Ollama && s.Worker
+        s.Host = "ok" && s.LocalAi && s.Worker
 
     let private warmupLabel (s: SystemStatusDto) =
         if s.WarmupComplete then "GPU warmup: complete"
@@ -191,7 +191,7 @@ module Settings =
 
                                 prop.className "text-sm"
 
-                                prop.text "First run — bootstrap checks Ollama, Python worker, model catalog, FFmpeg, and sidecar health."
+                                prop.text "First run — bootstrap checks local AI, Python worker, model catalog, FFmpeg, and sidecar health."
 
                             ]
 
@@ -247,7 +247,7 @@ module Settings =
 
                                     prop.className "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
 
-                                    prop.text "All systems OK — Host, Ollama, and Worker are reachable."
+                                    prop.text "All systems OK — Host, local AI, and Worker are reachable."
 
                                 ]
 
@@ -263,7 +263,8 @@ module Settings =
 
                                         prop.text (
 
-                                            if s.Ollama then "Ollama: reachable" else "Ollama: offline"
+                                            if s.LocalAi then $"Local AI ({s.LocalAiProvider}): reachable"
+                                            else $"Local AI ({s.LocalAiProvider}): offline"
 
                                         )
 
@@ -369,9 +370,9 @@ module Settings =
 
                                         prop.text (
 
-                                            if m.OllamaReachable then "Ollama registry: reachable"
+                                            if m.LocalAiReachable then $"Local AI registry ({m.LocalAiProvider}): reachable"
 
-                                            else "Ollama registry: offline"
+                                            else $"Local AI registry ({m.LocalAiProvider}): offline"
 
                                         )
 

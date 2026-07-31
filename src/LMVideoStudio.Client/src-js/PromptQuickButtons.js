@@ -18,7 +18,7 @@ export function QuickButton_$reflection() {
 
 const storageKey = "lmvs_prompt_quick_buttons";
 
-export const builtIn = ofArray([new QuickButton("Establishing", "Wide establishing shot, cinematic lighting, shallow depth of field"), new QuickButton("Close-up", "Tight close-up on subject, soft bokeh background, detailed texture"), new QuickButton("Product hero", "Product hero shot on clean surface, studio lighting, brand colors"), new QuickButton("CTA end card", "Bold end-card frame with space for logo and call-to-action text")]);
+export const builtIn = ofArray([new QuickButton("Establishing", "Wide establishing shot, cinematic lighting, shallow depth of field"), new QuickButton("Close-up", "Tight close-up on subject, soft bokeh background, detailed texture"), new QuickButton("Product hero", "Product hero shot on clean surface, studio lighting, brand colors"), new QuickButton("CTA end card", "Bold end-card frame with space for logo and call-to-action text"), new QuickButton("Walk / motion", "Subject walks at a believable pace, steady camera, natural motion"), new QuickButton("Continue shot", "Continue the same movement and framing, subtle camera drift"), new QuickButton("Enter space", "Enter the room, notice a key detail, approach slowly"), new QuickButton("Reaction beat", "Subject reacts with a slight turn and pause, emotional beat")]);
 
 const decodeButton = (path_2) => ((v) => Thoth_Json_Net_Decode_object((get$) => {
     let objectArg, objectArg_1;

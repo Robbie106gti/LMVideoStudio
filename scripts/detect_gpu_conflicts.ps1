@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Advisory scan for processes that may compete with LMVideoStudio GPU / Ollama work.
+  Advisory scan for processes that may compete with LMVideoStudio GPU / local AI work.
   Exit 0 always unless -Strict and blocking conflicts found.
 
 .EXAMPLE
@@ -59,25 +59,43 @@ foreach ($pattern in $gamePatterns) {
     }
 }
 
+$localAiProvider = if ($env:LMVS_LOCAL_AI_PROVIDER) { $env:LMVS_LOCAL_AI_PROVIDER.ToLowerInvariant() } else { "lemonade" }
+$localAiDefaultUrl = if ($localAiProvider -eq "ollama") { "http://127.0.0.1:11434" } else { "http://127.0.0.1:13305" }
+$localAiBaseUrl = if ($env:LMVS_LOCAL_AI_BASE_URL) { $env:LMVS_LOCAL_AI_BASE_URL.TrimEnd('/') } else { $localAiDefaultUrl }
+
 try {
-    $tags = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -TimeoutSec 3
-    $loaded = @($tags.models)
-    if ($loaded.Count -gt 0) {
-        $big = $loaded | Where-Object { $_.size -gt 3GB } | Select-Object -First 3
-        if ($big) {
+    if ($localAiProvider -eq "lemonade") {
+        $health = Invoke-RestMethod -Uri "$localAiBaseUrl/api/v1/health" -TimeoutSec 3
+        $loaded = @($health.all_models_loaded)
+
+        if ($loaded.Count -gt 0) {
             $warnings += [pscustomobject]@{
-                kind     = "ollama_models_present"
-                name     = ($big | ForEach-Object { $_.name }) -join ", "
+                kind     = "local_ai_models_loaded"
+                name     = ($loaded | ForEach-Object { $_.model_name }) -join ", "
                 severity = "advisory"
-                message  = "Ollama has models installed; another app may have loaded one into VRAM"
+                message  = "Lemonade already has model(s) loaded and may be using GPU memory"
             }
         }
+    } elseif ($localAiProvider -eq "ollama") {
+        $running = Invoke-RestMethod -Uri "$localAiBaseUrl/api/ps" -TimeoutSec 3
+        $loaded = @($running.models)
+
+        if ($loaded.Count -gt 0) {
+            $warnings += [pscustomobject]@{
+                kind     = "local_ai_models_loaded"
+                name     = ($loaded | ForEach-Object { $_.name }) -join ", "
+                severity = "advisory"
+                message  = "Ollama already has model(s) loaded and may be using GPU memory"
+            }
+        }
+    } else {
+        throw "Unsupported LMVS_LOCAL_AI_PROVIDER '$localAiProvider'"
     }
 } catch {
     $warnings += [pscustomobject]@{
-        kind     = "ollama_unreachable"
+        kind     = "local_ai_unreachable"
         severity = "info"
-        message  = "Ollama not running yet (OK before bootstrap)"
+        message  = "$localAiProvider not running yet (OK before bootstrap)"
     }
 }
 

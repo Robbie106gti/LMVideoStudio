@@ -18,7 +18,7 @@ module ExportAndGenerationTests =
     type FeatureTests() =
         let overrides =
             { Worker = Some(TestMocks.createWorkerProvider())
-              Ollama = Some(TestMocks.createOllamaProvider TestMocks.sampleOutlineJson) }
+              LocalAi = Some(TestMocks.createLocalAiProvider TestMocks.sampleOutlineJson) }
 
         let fixture = TestHostFactory.TestHostFixture(Some overrides)
 
@@ -103,7 +103,7 @@ module ExportAndGenerationTests =
             }
 
         [<Fact>]
-        let ``POST outline generate returns blocks from mock Ollama`` () =
+        let ``POST outline generate returns blocks from mock local AI`` () =
             task {
                 let! projectId = createProjectWithBlock "Outline"
                 let body = """{"brief":"Launch video for a coffee brand"}"""
@@ -193,6 +193,8 @@ module ExportAndGenerationTests =
                 let! body = response.Content.ReadAsStringAsync()
                 body.Contains("manifestExists") |> should equal true
                 body.Contains("manifestPath") |> should equal true
+                body.Contains("localAiProvider") |> should equal true
+                body.Contains("configuredModel") |> should equal true
             }
 
         [<Fact>]

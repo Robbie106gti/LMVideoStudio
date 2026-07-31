@@ -14,7 +14,8 @@ Use this list before tagging a release. `scripts/dev.ps1` covers day-to-day deve
 
 - [ ] `.\scripts\build-sidecars.ps1` produces Host + worker under `sidecars/`
 - [ ] `.\scripts\sync_models.ps1 -Check` reports manifest OK
-- [ ] Ollama model from `config/models.manifest.json` available (or documented offline fallback)
+- [ ] Lemonade is reachable and the configured model from `config/models.manifest.json` is downloaded
+- [ ] If using the compatibility path, `LMVS_LOCAL_AI_PROVIDER=ollama` is explicitly documented
 - [ ] FFmpeg available via sidecar bin or PATH (Ken Burns / share pack)
 
 ## Installer build

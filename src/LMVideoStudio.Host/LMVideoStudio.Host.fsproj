@@ -36,6 +36,8 @@
 
     <Compile Include="ConflictScan.fs" />
 
+    <Compile Include="LocalAiProvider.fs" />
+
     <Compile Include="OllamaProvider.fs" />
 
     <Compile Include="OutlineGeneration.fs" />
