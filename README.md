@@ -55,6 +55,11 @@ Image generation defaults to `auto`: the host selects Lemonade only when its hea
 | `LMVS_VIDEO_PROVIDER` | unset (disabled) | Set to `sdcpp` only for a qualified Wan server |
 | `LMVS_VIDEO_BASE_URL` | `http://127.0.0.1:1234` | Separate stable-diffusion.cpp loopback service |
 | `LMVS_VIDEO_TIMEOUT_MINUTES` | `30` | GPU queue timeout for video generation |
+| `LMVS_RADEON_FINISHING` | `off` | `auto` uses the optional AMD finishing runner; `required` fails the bake when it cannot run |
+| `LMVS_FSR_FRAME_GENERATION` | unset (off) | Set to `true` to opt into 24-to-48-fps interpolation; thin geometry can ghost |
+| `LMVS_FSR_FRAMEGEN_EXE` | unset | Required only when frame generation is enabled; qualified 640x352 FSR 4 sidecar |
+| `LMVS_FSR_UPSCALE_EXE` | unset | Qualified 640x360-to-1920x1080 FSR 4 ML sidecar |
+| `LMVS_VIDEO_ENCODER` | `auto` | Generated-video normalization tries `h264_amf`, then falls back to `libx264`; set `cpu` to skip AMF |
 
 Wan video is intentionally not routed through Lemonade because its installed API has no verified video role. Start a separate stable-diffusion.cpp server with Wan2.2 TI2V 5B, then require `vid_gen` from `GET /sdcpp/v1/capabilities` before enabling it:
 
@@ -64,7 +69,38 @@ $env:LMVS_VIDEO_BASE_URL = "http://127.0.0.1:1234"
 .\scripts\dev.ps1
 ```
 
-The timeline’s “Generate Wan video from thumbnail” action creates a 33-frame 832x480 WebM and stores it on the block. LMVideoStudio does not download weights or own the external server lifecycle. The portable, checksum-pinned model plan and dry-run setup helper live in Agent System Kit’s `local-media-models` skill.
+The timeline’s “Generate Wan video from thumbnail” action creates a 121-frame 640x352 WebM at 24 fps (five seconds) and stores it on the block. Sampling is model-aware: a capability response whose `model.name` contains `FastWan` uses the verified three-step LCM, CFG 1, flow-shift 3 profile; other Wan models use 36-step SmoothStep, CFG 5, flow-shift 5. Both use 0.60 image strength to preserve a stable camera and subject geometry. Explicit positive `steps` in the API still overrides the selected default.
+
+The measured fast profile used `FastWan2.2-TI2V-5B-q6_k.gguf` plus the Wan 2.2 TI2V 5B tiny decoder `taew2_2.safetensors`. The server must advertise `vid_gen` and its actual model name; LMVideoStudio does not download weights or own the external server lifecycle. The portable, checksum-pinned model plan and dry-run setup helper live in Agent System Kit’s `local-media-models` skill.
+
+Final bake now consumes a block's generated `bakeVideoPath` when it exists instead of replacing it with a Ken Burns animation of the thumbnail. Generated clips are normalized to the bake dimensions and frame rate. On Windows, normalization tries AMD AMF H.264 first and automatically retries with CPU `libx264` when AMF is unavailable.
+
+#### Optional Radeon FSR finishing
+
+`scripts/radeon-finish.ps1` implements the qualified 640x352-at-24-fps finishing profile:
+
+1. deflicker, with capped stabilization available only as an explicit switch;
+2. add four safe pixels above and below to form an exact 640x360 16:9 source;
+3. AMD FSR 4 ML 3x upscaling to 1920x1080;
+4. AMF H.264 encoding with CPU fallback.
+
+Optional frame generation runs before padding and doubles 24 fps to 48 fps. It uses scene-jump detection and holds a real frame instead of interpolating across a cut, but remains opt-in because thin cables and similar geometry can produce doubled edges.
+
+The app does not download or install AMD's SDK/runtime and does not copy its managed DLLs. Configure only locally qualified, AMD-signed sidecars. `auto` preserves the source clip if they are absent or fail; `required` fails explicitly.
+
+```powershell
+$env:LMVS_RADEON_FINISHING = "auto"
+$env:LMVS_FSR_UPSCALE_EXE = "C:\path\to\qualified\fsr-upscale-640x360-to-1920x1080.exe"
+
+# Optional 48-fps mode:
+$env:LMVS_FSR_FRAME_GENERATION = "true"
+$env:LMVS_FSR_FRAMEGEN_EXE = "C:\path\to\qualified\fsr-framegen-640x352.exe"
+
+# Inspect the fixed profile without touching input, output, or services.
+.\scripts\radeon-finish.ps1 -InputPath input.webm -OutputPath output.mp4 -PlanOnly
+```
+
+The FSR sidecars use synthetic flat depth and motion metadata because Wan does not expose engine depth or motion-vector buffers. Per-frame upscaler resets prioritize deterministic output. A future persistent sidecar can retain the same contract while removing per-frame process-launch overhead.
 
 Temporary Ollama compatibility is explicit:
 

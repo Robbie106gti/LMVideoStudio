@@ -104,6 +104,7 @@ module TestMocks =
     let clearFfmpegStubs () =
         FfmpegExport.kenBurnsHook <- None
         FfmpegExport.ffmpegHook <- None
+        FfmpegExport.radeonFinishingHook <- None
         FfmpegExport.runProcessHook <- None
         FfmpegExport.findFfmpegOverride <- None
         FfmpegExport.processKillHook <- None

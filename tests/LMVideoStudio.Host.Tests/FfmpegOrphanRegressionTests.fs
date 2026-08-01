@@ -38,6 +38,7 @@ module FfmpegOrphanRegressionTests =
         FfmpegExport.killAllActiveHook <- None
         FfmpegExport.kenBurnsHook <- None
         FfmpegExport.ffmpegHook <- None
+        FfmpegExport.radeonFinishingHook <- None
         FfmpegExport.killAllActive()
 
     let private createProjectWithBlock (fixture: TestHostFactory.TestHostFixture) name =

@@ -360,11 +360,10 @@ let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string opt
 let generateBlockVideo (projectId: Guid) (blockId: Guid) (prompt: string option) =
     async {
         let fields =
-            [ "width", Encode.int 832
-              "height", Encode.int 480
-              "frames", Encode.int 33
-              "fps", Encode.int 16
-              "steps", Encode.int 28
+            [ "width", Encode.int 640
+              "height", Encode.int 352
+              "frames", Encode.int 121
+              "fps", Encode.int 24
               "seed", Encode.int 42 ]
             @ (prompt
                |> Option.filter (not << System.String.IsNullOrWhiteSpace)

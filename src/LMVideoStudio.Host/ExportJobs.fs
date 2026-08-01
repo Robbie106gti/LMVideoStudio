@@ -408,16 +408,97 @@ module ExportJobs =
                                     if ct.IsCancellationRequested then
                                         Error "Bake cancelled"
                                     else
-                                    let rel =
+                                    let videoRel =
+                                        block.Artifacts
+                                        |> Option.bind (fun artifacts -> artifacts.BakeVideoPath)
+
+                                    let imageRel =
                                         Project.preferBakeImagePath block
                                         |> Option.defaultWith (fun () -> block.ThumbnailPath.Value)
 
-                                    let input = Path.Combine(folder, rel.Replace('/', Path.DirectorySeparatorChar))
+                                    let videoInput =
+                                        videoRel
+                                        |> Option.map (fun rel ->
+                                            rel,
+                                            Path.Combine(folder, rel.Replace('/', Path.DirectorySeparatorChar)))
+                                        |> Option.filter (fun (_, path) -> File.Exists path)
 
-                                    if not (File.Exists input) then
-                                        Error $"Thumbnail missing: {rel}"
-                                    else
-                                        let duration = Project.effectiveBakeDuration project block
+                                    let imageInput =
+                                        imageRel,
+                                        Path.Combine(folder, imageRel.Replace('/', Path.DirectorySeparatorChar))
+
+                                    let duration = Project.effectiveBakeDuration project block
+
+                                    match videoInput with
+                                    | Some(_, input) ->
+                                        let clipPath = Path.Combine(tmpDir, $"block_{i:D3}.mp4")
+                                        let radeonPath = Path.Combine(tmpDir, $"block_{i:D3}_radeon.mp4")
+
+                                        let preparedInput =
+                                            match FfmpegExport.runRadeonFinishing repoRoot input radeonPath ct with
+                                            | FfmpegExport.RadeonFinishingOutcome.Applied(path, _) ->
+                                                publishProgress
+                                                    jobId
+                                                    "radeon_finish"
+                                                    $"Radeon FSR finishing applied to clip {i + 1}/{total}"
+                                                    JobStatus.Running
+                                                    None
+                                                    (Some i)
+                                                    (Some total)
+
+                                                Ok path
+                                            | FfmpegExport.RadeonFinishingOutcome.Skipped _ -> Ok input
+                                            | FfmpegExport.RadeonFinishingOutcome.Failed(message, true) -> Error message
+                                            | FfmpegExport.RadeonFinishingOutcome.Failed(message, false) ->
+                                                publishProgress
+                                                    jobId
+                                                    "radeon_finish"
+                                                    $"Radeon finishing unavailable; using source video: {message}"
+                                                    JobStatus.Running
+                                                    None
+                                                    (Some i)
+                                                    (Some total)
+
+                                                Ok input
+
+                                        match preparedInput with
+                                        | Error err -> Error err
+                                        | Ok input ->
+                                            publishProgress
+                                                jobId
+                                                $"block_{i + 1}"
+                                                $"Bake clip {i + 1}/{total} · {duration}s · generated video…"
+                                                JobStatus.Running
+                                                (Some(float (i + 1) / float total))
+                                                (Some i)
+                                                (Some total)
+
+                                            let runOpts =
+                                                { FfmpegExport.defaultRunOptions with
+                                                    TimeoutMs = FfmpegExport.MockupClipTimeoutMs
+                                                    CancellationToken = ct }
+
+                                            let videoResult =
+                                                FfmpegExport.runVideoClip
+                                                    repoRoot
+                                                    { InputPath = input
+                                                      OutputPath = clipPath
+                                                      Width = profile.Width
+                                                      Height = profile.Height
+                                                      Fps = FfmpegExport.MockupFps
+                                                      DurationSec = duration }
+                                                    (Some runOpts)
+
+                                            if videoResult.Success then Ok(clipPath, duration, block)
+                                            else Error videoResult.Message
+                                    | None ->
+                                      let imageRel, input = imageInput
+
+                                      if not (File.Exists input) then
+                                        match videoRel with
+                                        | Some rel -> Error $"Generated video missing: {rel}; thumbnail missing: {imageRel}"
+                                        | None -> Error $"Thumbnail missing: {imageRel}"
+                                      else
 
                                         let shotLabel =
                                             block.ShotKind

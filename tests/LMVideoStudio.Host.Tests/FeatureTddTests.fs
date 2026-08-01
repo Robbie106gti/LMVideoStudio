@@ -268,6 +268,122 @@ module FeatureTddTests =
             }
 
         [<Fact>]
+        let ``Bake job prefers generated video artifact over Ken Burns thumbnail`` () =
+            task {
+                TestMocks.installFfmpegStubs()
+                let kenBurnsInputs = ResizeArray<string>()
+                let ffmpegInvocations = ResizeArray<string list>()
+                let prevKb = FfmpegExport.kenBurnsHook
+                let prevFf = FfmpegExport.ffmpegHook
+
+                FfmpegExport.kenBurnsHook <-
+                    Some(fun opts ct ->
+                        kenBurnsInputs.Add opts.InputPath
+                        prevKb.Value opts ct)
+
+                FfmpegExport.ffmpegHook <-
+                    Some(fun args ->
+                        ffmpegInvocations.Add args
+                        prevFf.Value args)
+
+                try
+                    let! projectId = createProjectWithBlock fixture "Bake generated video"
+                    let folder = fixture.Services.Store.ProjectFolder projectId
+                    let assetsDir = Path.Combine(folder, "assets")
+                    Directory.CreateDirectory assetsDir |> ignore
+                    let videoPath = Path.Combine(assetsDir, "generated.webm")
+                    File.WriteAllBytes(videoPath, [| 0x1Auy; 0x45uy; 0xDFuy; 0xA3uy |])
+
+                    let! getResp = fixture.Client.GetAsync($"/projects/{projectId}")
+                    let! getBody = getResp.Content.ReadAsStringAsync()
+                    let blockId =
+                        JsonDocument.Parse(getBody).RootElement.GetProperty("blocks").EnumerateArray()
+                        |> Seq.head
+                        |> fun el -> el.GetProperty("id").GetGuid()
+
+                    let patchBody =
+                        """{"artifacts":{"bakeVideoPath":"assets/generated.webm"}}"""
+
+                    use patch = new StringContent(patchBody, Encoding.UTF8, "application/json")
+                    let! _ = fixture.Client.PatchAsync($"/projects/{projectId}/blocks/{blockId}", patch)
+                    let! response =
+                        fixture.Client.PostAsync(
+                            $"/projects/{projectId}/bake",
+                            new StringContent("", Encoding.UTF8, "application/json")
+                        )
+
+                    response.StatusCode |> should equal HttpStatusCode.Accepted
+                    let! _ = waitForBakeOutput fixture.Services.Store projectId 8000
+                    kenBurnsInputs.Count |> should equal 0
+
+                    ffmpegInvocations
+                    |> Seq.exists (fun args -> args |> List.exists (fun arg -> arg.EndsWith("generated.webm")))
+                    |> should equal true
+                finally
+                    FfmpegExport.kenBurnsHook <- prevKb
+                    FfmpegExport.ffmpegHook <- prevFf
+            }
+
+        [<Fact>]
+        let ``Bake normalizes Radeon-finished generated video when enabled`` () =
+            task {
+                TestMocks.installFfmpegStubs()
+                let ffmpegInvocations = ResizeArray<string list>()
+                let prevFf = FfmpegExport.ffmpegHook
+                let previousMode = Environment.GetEnvironmentVariable "LMVS_RADEON_FINISHING"
+                Environment.SetEnvironmentVariable("LMVS_RADEON_FINISHING", "auto")
+
+                FfmpegExport.radeonFinishingHook <-
+                    Some(fun _input output _ct ->
+                        File.WriteAllBytes(output, [| 0uy; 0uy; 0uy; 0uy |])
+                        FfmpegExport.RadeonFinishingOutcome.Applied(output, "test"))
+
+                FfmpegExport.ffmpegHook <-
+                    Some(fun args ->
+                        ffmpegInvocations.Add args
+                        prevFf.Value args)
+
+                try
+                    let! projectId = createProjectWithBlock fixture "Bake Radeon finished video"
+                    let folder = fixture.Services.Store.ProjectFolder projectId
+                    let assetsDir = Path.Combine(folder, "assets")
+                    Directory.CreateDirectory assetsDir |> ignore
+                    File.WriteAllBytes(Path.Combine(assetsDir, "generated.webm"), [| 0x1Auy; 0x45uy; 0xDFuy; 0xA3uy |])
+
+                    let! getResp = fixture.Client.GetAsync($"/projects/{projectId}")
+                    let! getBody = getResp.Content.ReadAsStringAsync()
+                    let blockId =
+                        JsonDocument.Parse(getBody).RootElement.GetProperty("blocks").EnumerateArray()
+                        |> Seq.head
+                        |> fun el -> el.GetProperty("id").GetGuid()
+
+                    use patch =
+                        new StringContent(
+                            """{"artifacts":{"bakeVideoPath":"assets/generated.webm"}}""",
+                            Encoding.UTF8,
+                            "application/json"
+                        )
+
+                    let! _ = fixture.Client.PatchAsync($"/projects/{projectId}/blocks/{blockId}", patch)
+                    let! response =
+                        fixture.Client.PostAsync(
+                            $"/projects/{projectId}/bake",
+                            new StringContent("", Encoding.UTF8, "application/json")
+                        )
+
+                    response.StatusCode |> should equal HttpStatusCode.Accepted
+                    let! _ = waitForBakeOutput fixture.Services.Store projectId 8000
+
+                    ffmpegInvocations
+                    |> Seq.exists (fun args -> args |> List.exists (fun arg -> arg.EndsWith("block_000_radeon.mp4")))
+                    |> should equal true
+                finally
+                    FfmpegExport.ffmpegHook <- prevFf
+                    FfmpegExport.radeonFinishingHook <- None
+                    Environment.SetEnvironmentVariable("LMVS_RADEON_FINISHING", previousMode)
+            }
+
+        [<Fact>]
         let ``Bake SSE includes upscale step when worker upscale queued`` () =
             task {
                 TestMocks.installFfmpegStubs()
@@ -290,6 +406,53 @@ module FeatureTddTests =
                 TestMocks.clearFfmpegStubs ()
                 TestMocks.clearColorStub ()
                 (fixture :> IDisposable).Dispose()
+
+    [<Collection("HostSerial")>]
+    type RadeonEncodingTests() =
+        [<Fact>]
+        let ``Generated video preparation tries AMF then falls back to x264`` () =
+            let root = Path.Combine(Path.GetTempPath(), $"lmvs_amf_fallback_{Guid.NewGuid():N}")
+            Directory.CreateDirectory root |> ignore
+            let input = Path.Combine(root, "input.webm")
+            let output = Path.Combine(root, "output.mp4")
+            File.WriteAllBytes(input, [| 0x1Auy; 0x45uy; 0xDFuy; 0xA3uy |])
+            let encoders = ResizeArray<string>()
+
+            FfmpegExport.ffmpegHook <-
+                Some(fun args ->
+                    let encoder =
+                        args
+                        |> List.tryFindIndex ((=) "-c:v")
+                        |> Option.map (fun index -> args.[index + 1])
+                        |> Option.defaultValue "missing"
+
+                    encoders.Add encoder
+
+                    if encoder = "h264_amf" then
+                        Error "AMF unavailable"
+                    else
+                        File.WriteAllBytes(output, [| 0uy; 0uy; 0uy; 0uy |])
+                        Ok "stub")
+
+            try
+                let result =
+                    FfmpegExport.runVideoClip
+                        root
+                        { InputPath = input
+                          OutputPath = output
+                          Width = 1024
+                          Height = 576
+                          Fps = 16
+                          DurationSec = 5.0 }
+                        None
+
+                result.Success |> should equal true
+                encoders |> Seq.toList |> should equal [ "h264_amf"; "libx264" ]
+            finally
+                TestMocks.clearFfmpegStubs ()
+
+                if Directory.Exists root then
+                    Directory.Delete(root, true)
 
     [<Collection("HostSerial")>]
     type TransitionExportTests() =
@@ -568,3 +731,44 @@ module FeatureTddTests =
             script.Contains("verify-sidecar-staging.ps1") |> should equal true
             script.Contains("build-prereqs.ps1") |> should equal true
             script.Contains("tauri build") |> should equal true
+
+        [<Fact>]
+        let ``Radeon finishing script exposes a non-mutating pipeline plan`` () =
+            let repoRoot = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", ".."))
+            let scriptPath = Path.Combine(repoRoot, "scripts", "radeon-finish.ps1")
+            File.Exists scriptPath |> should equal true
+            let psi = ProcessStartInfo()
+            psi.FileName <- "pwsh"
+            psi.ArgumentList.Add "-NoProfile"
+            psi.ArgumentList.Add "-File"
+            psi.ArgumentList.Add scriptPath
+            psi.ArgumentList.Add "-InputPath"
+            psi.ArgumentList.Add "input.webm"
+            psi.ArgumentList.Add "-OutputPath"
+            psi.ArgumentList.Add "output.mp4"
+            psi.ArgumentList.Add "-PlanOnly"
+            psi.RedirectStandardError <- true
+            psi.RedirectStandardOutput <- true
+            psi.UseShellExecute <- false
+            use proc = Process.Start psi
+            let stdout = proc.StandardOutput.ReadToEnd()
+            let stderr = proc.StandardError.ReadToEnd()
+            proc.WaitForExit 30000 |> ignore
+            proc.ExitCode |> should equal 0
+            String.IsNullOrWhiteSpace stderr |> should equal true
+            use plan = JsonDocument.Parse stdout
+            plan.RootElement.GetProperty("source_width").GetInt32() |> should equal 640
+            plan.RootElement.GetProperty("source_height").GetInt32() |> should equal 352
+            plan.RootElement.GetProperty("output_width").GetInt32() |> should equal 1920
+            plan.RootElement.GetProperty("output_height").GetInt32() |> should equal 1080
+            plan.RootElement.GetProperty("output_fps").GetInt32() |> should equal 24
+            plan.RootElement.GetProperty("frame_generation").GetBoolean() |> should equal false
+
+            plan.RootElement.GetProperty("stages").EnumerateArray()
+            |> Seq.map (fun value -> value.GetString())
+            |> Seq.toList
+            |> should equal
+                [ "deflicker"
+                  "pad_to_16_9"
+                  "fsr4_ml_upscale"
+                  "amf_encode_with_cpu_fallback" ]

@@ -322,6 +322,7 @@ module Program =
                                     return
                                         { SdCppVideoProvider.VideoHealth.Ready = false
                                           SupportedModes = []
+                                          ModelName = None
                                           Error = None }
                                 }
 
@@ -578,11 +579,11 @@ module Program =
 
                             let options: BlockVideoGeneration.GenerateVideoOptions =
                                 { Prompt = prompt
-                                  Width = intValue "width" 832
-                                  Height = intValue "height" 480
-                                  Frames = intValue "frames" 33
-                                  Fps = intValue "fps" 16
-                                  Steps = intValue "steps" 28
+                                  Width = intValue "width" 640
+                                  Height = intValue "height" 352
+                                  Frames = intValue "frames" 121
+                                  Fps = intValue "fps" 24
+                                  Steps = intValue "steps" 0
                                   Seed = intValue "seed" 42 }
 
                             match! services.VideoGeneration.Generate(projectId, blockId, options) with

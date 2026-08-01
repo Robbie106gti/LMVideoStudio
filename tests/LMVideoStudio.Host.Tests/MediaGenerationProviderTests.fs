@@ -170,6 +170,7 @@ module SdCppVideoProviderTests =
 
             health.Ready |> should equal false
             health.SupportedModes |> should equal [ "img_gen" ]
+            health.ModelName |> should equal None
         }
 
     [<Fact>]
@@ -219,6 +220,58 @@ module SdCppVideoProviderTests =
             use payload = JsonDocument.Parse submissionBody
             payload.RootElement.GetProperty("video_frames").GetInt32() |> should equal 33
             payload.RootElement.GetProperty("init_image").ValueKind |> should equal JsonValueKind.Null
+            payload.RootElement.GetProperty("strength").GetDouble() |> should equal 0.60
+            let sample = payload.RootElement.GetProperty "sample_params"
+            sample.GetProperty("scheduler").GetString() |> should equal "smoothstep"
+            sample.GetProperty("sample_steps").GetInt32() |> should equal 28
+            sample.GetProperty("flow_shift").GetDouble() |> should equal 5.0
+            sample.GetProperty("guidance").GetProperty("txt_cfg").GetDouble() |> should equal 5.0
+        }
+
+    [<Fact>]
+    let ``Video provider selects distilled defaults for an advertised FastWan model`` () =
+        task {
+            let mutable submissionBody = ""
+
+            let handler =
+                TestMocks.StubHttpHandler(fun req ->
+                    match req.Method.Method, req.RequestUri.AbsolutePath with
+                    | "GET", "/sdcpp/v1/capabilities" ->
+                        TestMocks.jsonResponse
+                            HttpStatusCode.OK
+                            """{"supported_modes":["vid_gen"],"model":{"name":"FastWan2.2-TI2V-5B-q6_k.gguf"}}"""
+                    | "POST", "/sdcpp/v1/vid_gen" ->
+                        submissionBody <- req.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                        TestMocks.jsonResponse HttpStatusCode.Accepted """{"id":"job_fast","status":"queued","poll_url":"/sdcpp/v1/jobs/job_fast"}"""
+                    | "GET", "/sdcpp/v1/jobs/job_fast" ->
+                        TestMocks.jsonResponse HttpStatusCode.OK $"""{{"id":"job_fast","status":"completed","result":{{"output_format":"webm","mime_type":"video/webm","fps":24,"frame_count":121,"b64_json":"{video}"}}}}"""
+                    | _ -> TestMocks.jsonResponse HttpStatusCode.NotFound "{}")
+
+            use client = new HttpClient(handler, disposeHandler = true)
+            use provider = SdCppVideoProvider.SdCppVideoProvider("http://127.0.0.1:1234", client, TimeSpan.Zero)
+
+            let! result =
+                provider.Generate(
+                    { Prompt = "cable car moves uphill"
+                      Width = 640
+                      Height = 352
+                      Frames = 121
+                      Fps = 24
+                      Steps = 0
+                      Seed = 42
+                      InitImageBase64 = None }
+                )
+
+            match result with
+            | Error error -> failwith error
+            | Ok output -> output.FrameCount |> should equal 121
+
+            use payload = JsonDocument.Parse submissionBody
+            let sample = payload.RootElement.GetProperty "sample_params"
+            sample.GetProperty("scheduler").GetString() |> should equal "lcm"
+            sample.GetProperty("sample_steps").GetInt32() |> should equal 3
+            sample.GetProperty("flow_shift").GetDouble() |> should equal 3.0
+            sample.GetProperty("guidance").GetProperty("txt_cfg").GetDouble() |> should equal 1.0
         }
 
     [<Theory>]

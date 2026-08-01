@@ -159,6 +159,56 @@ module FfmpegExport =
           Message: string
           Args: string list }
 
+    type VideoClipOptions =
+        { InputPath: string
+          OutputPath: string
+          Width: int
+          Height: int
+          Fps: int
+          DurationSec: float }
+
+    type RadeonFinishingOutcome =
+        | Skipped of string
+        | Applied of outputPath: string * detail: string
+        | Failed of detail: string * fatal: bool
+
+    /// Test hook: replaces the optional Radeon finishing script.
+    let mutable radeonFinishingHook: (string -> string -> CancellationToken -> RadeonFinishingOutcome) option = None
+
+    let private buildVideoClipArgsForEncoder (encoder: string) (opts: VideoClipOptions) =
+        let inv = System.Globalization.CultureInfo.InvariantCulture
+        let duration = (max 0.5 opts.DurationSec).ToString(inv)
+        let fps = (max 1 opts.Fps).ToString(inv)
+        let filter =
+            $"tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},setpts=PTS-STARTPTS,scale={opts.Width}:{opts.Height}:force_original_aspect_ratio=decrease:flags=lanczos,pad={opts.Width}:{opts.Height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}"
+
+        let encodingArgs =
+            if encoder = "h264_amf" then
+                [ "-c:v"; "h264_amf"
+                  "-usage"; "transcoding"
+                  "-quality"; "quality"
+                  "-rc"; "cqp"
+                  "-qp_i"; "18"
+                  "-qp_p"; "20"
+                  "-profile:v"; "high" ]
+            else
+                [ "-c:v"; "libx264"
+                  "-preset"; "fast"
+                  "-crf"; "18" ]
+
+        [ "-y"
+          "-nostdin"
+          "-i"; opts.InputPath
+          "-vf"; filter
+          "-an" ]
+        @ encodingArgs
+        @ [ "-pix_fmt"; "yuv420p"
+            "-vsync"; "cfr"
+            opts.OutputPath ]
+
+    let buildVideoClipArgs (opts: VideoClipOptions) =
+        buildVideoClipArgsForEncoder "libx264" opts
+
     /// Test hook: when set, bypasses real FFmpeg for Ken Burns clip generation.
     let mutable kenBurnsHook: (KenBurnsOptions -> CancellationToken -> ExportResult) option = None
 
@@ -302,6 +352,104 @@ module FfmpegExport =
                   OutputPath = None
                   Message = "FFmpeg exited 0 but output file missing"
                   Args = args }
+
+    let runVideoClip (repoRoot: string) (opts: VideoClipOptions) (runOpts: FfmpegRunOptions option) =
+        let outDir = Path.GetDirectoryName opts.OutputPath
+
+        if not (String.IsNullOrEmpty outDir) then
+            Directory.CreateDirectory outDir |> ignore
+
+        let encoderPreference = Environment.GetEnvironmentVariable "LMVS_VIDEO_ENCODER"
+        let encoders =
+            if String.Equals(encoderPreference, "cpu", StringComparison.OrdinalIgnoreCase) then
+                [ "libx264" ]
+            else
+                [ "h264_amf"; "libx264" ]
+
+        let rec tryEncoders remaining lastError lastArgs =
+            match remaining with
+            | [] ->
+                { Success = false
+                  OutputPath = None
+                  Message = defaultArg lastError "No video encoder available"
+                  Args = lastArgs }
+            | encoder :: rest ->
+                let args = buildVideoClipArgsForEncoder encoder opts
+
+                match runFfmpeg repoRoot args runOpts with
+                | Ok _ when File.Exists opts.OutputPath ->
+                    { Success = true
+                      OutputPath = Some opts.OutputPath
+                      Message = $"Generated video clip prepared with {encoder}"
+                      Args = args }
+                | Ok _ ->
+                    tryEncoders rest (Some "FFmpeg exited 0 but output file missing") args
+                | Error err ->
+                    tryEncoders rest (Some err) args
+
+        tryEncoders encoders None []
+
+    let runRadeonFinishing (repoRoot: string) (inputPath: string) (outputPath: string) (ct: CancellationToken) =
+        let configuredMode =
+            match Environment.GetEnvironmentVariable "LMVS_RADEON_FINISHING" with
+            | null
+            | "" -> "off"
+            | value -> value.Trim().ToLowerInvariant()
+
+        if configuredMode = "off" || configuredMode = "false" || configuredMode = "0" then
+            Skipped "Radeon finishing is disabled"
+        else
+            match radeonFinishingHook with
+            | Some hook -> hook inputPath outputPath ct
+            | None ->
+                let fatal = configuredMode = "required"
+                let frameGenerationExe = Environment.GetEnvironmentVariable "LMVS_FSR_FRAMEGEN_EXE"
+                let upscaleExe = Environment.GetEnvironmentVariable "LMVS_FSR_UPSCALE_EXE"
+                let frameGenerationEnabled =
+                    match Environment.GetEnvironmentVariable "LMVS_FSR_FRAME_GENERATION" with
+                    | value when String.Equals(value, "true", StringComparison.OrdinalIgnoreCase) -> true
+                    | "1" -> true
+                    | _ -> false
+                let scriptPath = Path.Combine(repoRoot, "scripts", "radeon-finish.ps1")
+
+                if not (OperatingSystem.IsWindows()) then
+                    Failed("Radeon finishing currently requires Windows DirectX 12", fatal)
+                elif not (File.Exists scriptPath) then
+                    Failed("scripts/radeon-finish.ps1 is missing", fatal)
+                elif frameGenerationEnabled && (String.IsNullOrWhiteSpace frameGenerationExe || not (File.Exists frameGenerationExe)) then
+                    Failed("LMVS_FSR_FRAMEGEN_EXE is not configured or missing", fatal)
+                elif String.IsNullOrWhiteSpace upscaleExe || not (File.Exists upscaleExe) then
+                    Failed("LMVS_FSR_UPSCALE_EXE is not configured or missing", fatal)
+                else
+                    let args =
+                        [ "-NoProfile"
+                          "-ExecutionPolicy"; "Bypass"
+                          "-File"; scriptPath
+                          "-InputPath"; inputPath
+                          "-OutputPath"; outputPath
+                          "-FrameGenerationExe"; frameGenerationExe
+                          "-UpscaleExe"; upscaleExe
+                          "-Encoder"; "auto" ]
+                        @ (if frameGenerationEnabled then [ "-FrameGeneration" ] else [])
+
+                    let runOpts =
+                        { TimeoutMs = 600_000
+                          CancellationToken = ct }
+
+                    let code, detail = runProcess "powershell.exe" args runOpts
+
+                    if code = 0 && File.Exists outputPath then
+                        Applied(outputPath, detail)
+                    elif ct.IsCancellationRequested then
+                        Failed("Radeon finishing cancelled", true)
+                    else
+                        let message =
+                            if String.IsNullOrWhiteSpace detail then
+                                $"Radeon finishing failed ({code})"
+                            else
+                                $"Radeon finishing failed ({code}): {detail}"
+
+                        Failed(message, fatal)
 
     type ClipSegment =
         { Path: string

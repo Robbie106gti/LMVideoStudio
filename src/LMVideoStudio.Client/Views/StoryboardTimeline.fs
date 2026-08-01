@@ -1004,7 +1004,7 @@ module StoryboardTimeline =
                                             Html.button [
                                                 prop.className "w-full px-3 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm font-medium disabled:opacity-50"
                                                 prop.disabled (model.VideoGenerating || model.Generating || block.ThumbnailPath.IsNone)
-                                                prop.title "Generates a 33-frame 832x480 Wan clip from this block's thumbnail. Requires LMVS_VIDEO_PROVIDER=sdcpp and a qualified loopback Wan server."
+                                                prop.title "Generates a five-second 640x352 Wan clip at 24 fps from this block's thumbnail. Requires LMVS_VIDEO_PROVIDER=sdcpp and a qualified loopback Wan server."
                                                 prop.text (if model.VideoGenerating then "Generating Wan clip…" else "Generate Wan video from thumbnail")
                                                 prop.onClick (fun _ -> dispatch GenerateVideo)
                                             ]

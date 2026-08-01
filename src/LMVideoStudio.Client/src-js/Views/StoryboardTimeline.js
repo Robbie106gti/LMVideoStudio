@@ -775,7 +775,7 @@ export function StoryboardTimeline_view(model, dispatch) {
                     onClick: (_arg_13) => {
                         dispatch(new TimelineMsg(16, []));
                     },
-                }), createElement("button", createObj(ofArray([(value_405 = "w-full px-3 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm font-medium disabled:opacity-50", ["className", value_405]), ["disabled", (model.VideoGenerating ? true : model.Generating) ? true : (block_1.ThumbnailPath == null)], (value_409 = "Generates a 33-frame 832x480 Wan clip from this block\'s thumbnail. Requires LMVS_VIDEO_PROVIDER=sdcpp and a qualified loopback Wan server.", ["title", value_409]), ["children", model.VideoGenerating ? "Generating Wan clip…" : "Generate Wan video from thumbnail"], ["onClick", (_arg_14) => {
+                }), createElement("button", createObj(ofArray([(value_405 = "w-full px-3 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm font-medium disabled:opacity-50", ["className", value_405]), ["disabled", (model.VideoGenerating ? true : model.Generating) ? true : (block_1.ThumbnailPath == null)], (value_409 = "Generates a five-second 640x352 Wan clip at 24 fps from this block\'s thumbnail. Requires LMVS_VIDEO_PROVIDER=sdcpp and a qualified loopback Wan server.", ["title", value_409]), ["children", model.VideoGenerating ? "Generating Wan clip…" : "Generate Wan video from thumbnail"], ["onClick", (_arg_14) => {
                     dispatch(new TimelineMsg(17, []));
                 }]]))), defaultArg(map((path_1) => {
                     let elems_24;

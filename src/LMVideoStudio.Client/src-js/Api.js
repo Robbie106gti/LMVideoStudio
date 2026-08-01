@@ -388,7 +388,7 @@ export function generateBlockThumbnail(projectId, blockId, prompt, variantCount,
 
 export function generateBlockVideo(projectId, blockId, prompt) {
     return singleton.Delay(() => {
-        const body = toString(0, object_1(append(ofArray([["width", 832], ["height", 480], ["frames", 33], ["fps", 16], ["steps", 28], ["seed", 42]]), defaultArg(map_1((value_8) => singleton_1(["prompt", value_8]), filter((arg) => !isNullOrWhiteSpace(arg), prompt)), empty()))));
+        const body = toString(0, object_1(append(ofArray([["width", 640], ["height", 352], ["frames", 121], ["fps", 24], ["seed", 42]]), defaultArg(map_1((value_7) => singleton_1(["prompt", value_7]), filter((arg) => !isNullOrWhiteSpace(arg), prompt)), empty()))));
         return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}/video/generate`, "POST", body), (_arg) => {
             const text = _arg[1];
             const status = _arg[0] | 0;

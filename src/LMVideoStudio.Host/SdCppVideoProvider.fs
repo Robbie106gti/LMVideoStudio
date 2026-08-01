@@ -11,6 +11,7 @@ module SdCppVideoProvider =
     type VideoHealth =
         { Ready: bool
           SupportedModes: string list
+          ModelName: string option
           Error: string option }
 
     type GenerateVideoRequest =
@@ -70,7 +71,7 @@ module SdCppVideoProvider =
                     use! response = http.GetAsync($"{baseUrl}/sdcpp/v1/capabilities")
 
                     if not response.IsSuccessStatusCode then
-                        return { Ready = false; SupportedModes = []; Error = Some $"HTTP {(int response.StatusCode)}" }
+                        return { Ready = false; SupportedModes = []; ModelName = None; Error = Some $"HTTP {(int response.StatusCode)}" }
                     else
                         let! body = response.Content.ReadAsStringAsync()
                         use doc = JsonDocument.Parse body
@@ -84,12 +85,21 @@ module SdCppVideoProvider =
                                 |> Seq.toList
                             | _ -> []
 
+                        let modelName =
+                            match doc.RootElement.TryGetProperty "model" with
+                            | true, model when model.ValueKind = JsonValueKind.Object ->
+                                match model.TryGetProperty "name" with
+                                | true, value when value.ValueKind = JsonValueKind.String -> Option.ofObj (value.GetString())
+                                | _ -> None
+                            | _ -> None
+
                         return
                             { Ready = modes |> List.contains "vid_gen"
                               SupportedModes = modes
+                              ModelName = modelName
                               Error = if modes |> List.contains "vid_gen" then None else Some "Loaded model does not advertise vid_gen" }
                 with ex ->
-                    return { Ready = false; SupportedModes = []; Error = Some ex.Message }
+                    return { Ready = false; SupportedModes = []; ModelName = None; Error = Some ex.Message }
             }
 
         member this.Generate(request: GenerateVideoRequest) : Task<Result<GenerateVideoResult, string>> =
@@ -100,22 +110,32 @@ module SdCppVideoProvider =
                     return Error(health.Error |> Option.defaultValue "stable-diffusion.cpp video provider is not ready")
                 else
                     let frames = normalizeFrameCount request.Frames
+                    let fastWan =
+                        health.ModelName
+                        |> Option.exists (fun name -> name.Contains("FastWan", StringComparison.OrdinalIgnoreCase))
+
+                    let steps = if request.Steps > 0 then request.Steps else if fastWan then 3 else 36
+                    let scheduler = if fastWan then "lcm" else "smoothstep"
+                    let flowShift = if fastWan then 3.0 else 5.0
+                    let cfg = if fastWan then 1.0 else 5.0
                     let payload =
                         JsonSerializer.Serialize(
                             {| prompt = request.Prompt
-                               negative_prompt = ""
+                               negative_prompt = "deformation, duplicate subject, changing geometry, camera shake, jitter, flicker, sudden scene change, text, watermark"
                                width = request.Width
                                height = request.Height
                                seed = request.Seed
                                video_frames = frames
                                fps = request.Fps
+                               strength = 0.60
                                init_image = request.InitImageBase64 |> Option.toObj
                                output_format = "webm"
                                sample_params =
-                                {| scheduler = "discrete"
+                                {| scheduler = scheduler
                                    sample_method = "euler"
-                                   sample_steps = request.Steps
-                                   flow_shift = 3.0 |} |}
+                                   sample_steps = steps
+                                   flow_shift = flowShift
+                                   guidance = {| txt_cfg = cfg; img_cfg = cfg |} |} |}
                         )
 
                     use content = new StringContent(payload, Encoding.UTF8, "application/json")

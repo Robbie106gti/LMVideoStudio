@@ -32,8 +32,8 @@ module BlockVideoGeneration =
             task {
                 if not enabled then
                     return Error "AI video generation is disabled. Set LMVS_VIDEO_PROVIDER=sdcpp and start the qualified loopback Wan service."
-                elif options.Width <= 0 || options.Height <= 0 || options.Fps <= 0 || options.Steps <= 0 then
-                    return Error "Video width, height, fps, and steps must be positive"
+                elif options.Width <= 0 || options.Height <= 0 || options.Fps <= 0 || options.Steps < 0 then
+                    return Error "Video width, height, and fps must be positive; steps must be zero (automatic) or positive"
                 else
                     match store.Load projectId with
                     | Error error -> return Error error
