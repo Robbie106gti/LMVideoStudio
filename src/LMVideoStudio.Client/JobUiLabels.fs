@@ -16,6 +16,7 @@ let activityPhaseTitle phase =
     | "bootstrap" -> "Bootstrap"
     | "bake" -> "Bake export (CPU FFmpeg)"
     | "audio_generate" -> "Voiceover (GPU queue)"
+    | "video_generate" -> "Wan video (GPU service)"
     | other -> other.Replace('_', ' ') |> titleCaseWords
 
 /// Footer status bar (short label).
@@ -27,4 +28,5 @@ let footerPhaseTitle phase =
     | "bootstrap" -> "Bootstrap"
     | "bake" -> "Bake"
     | "audio_generate" -> "Voiceover"
+    | "video_generate" -> "Video"
     | other -> other.Replace('_', ' ') |> titleCaseWords

@@ -29,6 +29,8 @@ export function activityPhaseTitle(phase) {
             return "Bake export (CPU FFmpeg)";
         case "audio_generate":
             return "Voiceover (GPU queue)";
+        case "video_generate":
+            return "Wan video (GPU service)";
         default:
             return titleCaseWords(replace(phase, "_", " "));
     }
@@ -51,6 +53,8 @@ export function footerPhaseTitle(phase) {
             return "Bake";
         case "audio_generate":
             return "Voiceover";
+        case "video_generate":
+            return "Video";
         default:
             return titleCaseWords(replace(phase, "_", " "));
     }

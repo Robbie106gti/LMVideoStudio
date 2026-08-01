@@ -36,6 +36,7 @@ module BlockGeneration =
         (
             store: ProjectStore.ProjectStore,
             worker: PythonWorkerProvider.PythonWorkerProvider,
+            media: MediaGenerationProvider.MediaGenerationProvider,
             gpu: GpuQueueService,
             events: JobEventHub,
             conflicts: ConflictScan.ConflictScanService
@@ -281,7 +282,7 @@ module BlockGeneration =
                                             fun () ->
                                                 match refData with
                                                 | Some b64 ->
-                                                    worker.GenerateForProfile(
+                                                    media.GenerateForProfile(
                                                         profile,
                                                         prompt,
                                                         seed = seed,
@@ -289,7 +290,7 @@ module BlockGeneration =
                                                         strength = referenceStrength
                                                     )
                                                 | None ->
-                                                    worker.GenerateForProfile(
+                                                    media.GenerateForProfile(
                                                         profile,
                                                         prompt,
                                                         seed = seed,
@@ -322,7 +323,8 @@ module BlockGeneration =
                                                     )
 
                                                     return Error err
-                                                | Ok result ->
+                                                | Ok generated ->
+                                                    let result = generated.Image
                                                     if refB64.IsSome && result.Mode <> Some "img2img" then
                                                         events.Publish(
                                                             JobEvent.create

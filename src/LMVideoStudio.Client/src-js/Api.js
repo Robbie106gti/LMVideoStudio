@@ -386,6 +386,17 @@ export function generateBlockThumbnail(projectId, blockId, prompt, variantCount,
     });
 }
 
+export function generateBlockVideo(projectId, blockId, prompt) {
+    return singleton.Delay(() => {
+        const body = toString(0, object_1(append(ofArray([["width", 832], ["height", 480], ["frames", 33], ["fps", 16], ["steps", 28], ["seed", 42]]), defaultArg(map_1((value_8) => singleton_1(["prompt", value_8]), filter((arg) => !isNullOrWhiteSpace(arg), prompt)), empty()))));
+        return singleton.Bind(fetchAsync(`${hostBase()}/projects/${projectId}/blocks/${blockId}/video/generate`, "POST", body), (_arg) => {
+            const text = _arg[1];
+            const status = _arg[0] | 0;
+            return ((status >= 200) && (status < 300)) ? singleton.ReturnFrom(decodeProjectFromResponse(text, projectId)) : singleton.Return(new FSharpResult$2(1, [text]));
+        });
+    });
+}
+
 export function updateBlock(projectId, blockId, voiceoverScript, imagePrompt, crossfadeDurationMs, moodTags, directorNotes, shotKind, bakeDurationSec, clearBakeDuration) {
     return singleton.Delay(() => {
         const transitionFields = defaultArg(map_1((ms) => singleton_1(["transitions", object_1([["toNext", object_1([["type", "crossfade"], ["durationMs", ms]])]])]), crossfadeDurationMs), empty());

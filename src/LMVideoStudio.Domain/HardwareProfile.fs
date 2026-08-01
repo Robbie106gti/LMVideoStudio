@@ -23,6 +23,7 @@ module HardwareProfile =
 
 type GpuJobKind =
     | ImageGenerate
+    | VideoGenerate
     | ImageUpscale
     | AudioGenerate
     | MockupPreview

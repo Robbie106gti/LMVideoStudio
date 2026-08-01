@@ -45,10 +45,16 @@ type GpuQueueService(queue: IGpuJobQueue, worker: PythonWorkerProvider.PythonWor
     let coldTimeout = TimeSpan.FromSeconds 300.0
     let warmTimeout = TimeSpan.FromSeconds 120.0
 
+    let videoTimeout =
+        match Int32.TryParse(Environment.GetEnvironmentVariable "LMVS_VIDEO_TIMEOUT_MINUTES") with
+        | true, minutes when minutes > 0 -> TimeSpan.FromMinutes(float minutes)
+        | _ -> TimeSpan.FromMinutes 30.0
+
     let isWarmRun () = File.Exists warmupMarkerPath
 
     let timeoutForKind (kind: GpuJobKind) =
         match kind with
+        | GpuJobKind.VideoGenerate -> videoTimeout
         | GpuJobKind.ImageGenerate when isWarmRun () -> warmTimeout
         | GpuJobKind.ImageUpscale when isWarmRun () -> warmTimeout
         | GpuJobKind.AudioGenerate -> warmTimeout

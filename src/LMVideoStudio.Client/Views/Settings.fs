@@ -173,7 +173,7 @@ module Settings =
 
                     prop.className "text-sm text-slate-400"
 
-                    prop.text "Generate thumbnails uses GPU (Stable Diffusion). Stitch Ken Burns preview and bake export use CPU (FFmpeg). Preview is a timing check on stills, not AI video."
+                    prop.text "Generate thumbnails uses the verified Lemonade image model or worker fallback. Wan clips use a separately configured local sd.cpp server. Ken Burns preview and bake export use CPU FFmpeg."
 
                 ]
 

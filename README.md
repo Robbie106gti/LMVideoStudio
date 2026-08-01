@@ -43,6 +43,29 @@ LMVideoStudio does not install provider software. Install and launch Lemonade se
 .\scripts\setup-local-ai.ps1
 ```
 
+### Local media providers
+
+Image generation defaults to `auto`: the host selects Lemonade only when its health endpoint succeeds and the exact configured model is reported as downloaded. Otherwise it preserves the existing Python-worker path. Explicit `lemonade` mode fails closed instead of silently changing models.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `LMVS_IMAGE_PROVIDER` | `auto` | `auto`, `lemonade`, or compatibility `worker` |
+| `LMVS_IMAGE_BASE_URL` | `http://127.0.0.1:13305` | Lemonade loopback service |
+| `LMVS_IMAGE_MODEL` | `user.Z-Image-Turbo-Q6` | Exact downloaded Lemonade image model |
+| `LMVS_VIDEO_PROVIDER` | unset (disabled) | Set to `sdcpp` only for a qualified Wan server |
+| `LMVS_VIDEO_BASE_URL` | `http://127.0.0.1:1234` | Separate stable-diffusion.cpp loopback service |
+| `LMVS_VIDEO_TIMEOUT_MINUTES` | `30` | GPU queue timeout for video generation |
+
+Wan video is intentionally not routed through Lemonade because its installed API has no verified video role. Start a separate stable-diffusion.cpp server with Wan2.2 TI2V 5B, then require `vid_gen` from `GET /sdcpp/v1/capabilities` before enabling it:
+
+```powershell
+$env:LMVS_VIDEO_PROVIDER = "sdcpp"
+$env:LMVS_VIDEO_BASE_URL = "http://127.0.0.1:1234"
+.\scripts\dev.ps1
+```
+
+The timeline’s “Generate Wan video from thumbnail” action creates a 33-frame 832x480 WebM and stores it on the block. LMVideoStudio does not download weights or own the external server lifecycle. The portable, checksum-pinned model plan and dry-run setup helper live in Agent System Kit’s `local-media-models` skill.
+
 Temporary Ollama compatibility is explicit:
 
 ```powershell
@@ -129,7 +152,8 @@ Project files live under `%LOCALAPPDATA%\LMVideoStudio\projects\{id}\` (override
 
 | Action | Processor | Notes |
 |--------|-----------|--------|
-| **Generate thumbnail** (timeline) | **GPU** | Python worker at `:8765` — Stable Diffusion on `cuda` / ROCm (`torch.cuda`) |
+| **Generate thumbnail** (timeline) | **GPU** | Lemonade Z-Image when verified; otherwise the existing Python worker in `auto` mode |
+| **Generate Wan video** (selected block) | **GPU** | Separate loopback stable-diffusion.cpp service; disabled unless explicitly configured |
 | **Upscale** (bake path) | **GPU** | Real-ESRGAN via worker |
 | **Refresh mockup preview** | **CPU** | FFmpeg Ken Burns per block + concat (`libx264`) — one clip at a time per job |
 | **Bake export** | **CPU** (+ GPU upscale if enabled) | Same FFmpeg stitch as mockup; upscale step uses worker GPU |

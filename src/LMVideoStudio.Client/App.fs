@@ -48,6 +48,7 @@ type AppMsg =
     | ImportDone of Result<LMVideoStudio.Domain.Project, string>
     | BlockFieldsSaved of Result<LMVideoStudio.Domain.Project, string>
     | GenerateDone of Result<LMVideoStudio.Domain.Project, string>
+    | VideoGenerateDone of Result<LMVideoStudio.Domain.Project, string>
     | AudioImportDone of Result<LMVideoStudio.Domain.Project, string>
     | PreviewStarted of Result<PreviewStartDto, string>
     | PreviewReady of string
@@ -1189,6 +1190,26 @@ let update msg model =
                     GenerateDone
         | _ -> model, Cmd.none
 
+    | TimelineMsg TimelineMsg.GenerateVideo ->
+        match model.Page with
+        | TimelinePage t ->
+            match t.SelectedBlockId with
+            | None -> model, Cmd.none
+            | Some blockId ->
+                let prompt =
+                    if StoryboardTimeline.isUnusablePromptDraft t.ImagePromptDraft
+                       || System.String.IsNullOrWhiteSpace t.ImagePromptDraft then
+                        None
+                    else
+                        Some t.ImagePromptDraft
+
+                { model with Page = TimelinePage { t with VideoGenerating = true; Error = None } },
+                Cmd.OfAsync.perform
+                    (fun () -> generateBlockVideo t.Project.Id blockId prompt)
+                    ()
+                    VideoGenerateDone
+        | _ -> model, Cmd.none
+
     | TimelineMsg (TimelineMsg.ImportReferenceImage file) ->
         match model.Page with
         | TimelinePage t ->
@@ -1268,6 +1289,20 @@ let update msg model =
         match model.Page with
         | TimelinePage t ->
             { model with Page = TimelinePage { t with Generating = false; Error = Some err } },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | VideoGenerateDone(Ok project) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage(StoryboardTimeline.withProjectAfterGenerate project t) },
+            Cmd.none
+        | _ -> model, Cmd.none
+
+    | VideoGenerateDone(Error err) ->
+        match model.Page with
+        | TimelinePage t ->
+            { model with Page = TimelinePage { t with VideoGenerating = false; Error = Some err } },
             Cmd.none
         | _ -> model, Cmd.none
 

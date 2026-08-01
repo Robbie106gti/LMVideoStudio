@@ -10,6 +10,7 @@ type JobPhase =
     | Repair
     | Outline
     | ImageGenerate
+    | VideoGenerate
     | ImageUpscale
     | AudioGenerate
     | Export
@@ -24,6 +25,7 @@ module JobPhase =
         | Repair -> "repair"
         | Outline -> "outline"
         | ImageGenerate -> "image_generate"
+        | VideoGenerate -> "video_generate"
         | ImageUpscale -> "image_upscale"
         | AudioGenerate -> "audio_generate"
         | Export -> "export"

@@ -89,6 +89,13 @@ module OpenApi =
         "responses": { "202": { "description": "generation started" } }
       }
     },
+    "/projects/{projectId}/blocks/{blockId}/video/generate": {
+      "post": {
+        "summary": "Generate a Wan image-to-video clip through the qualified loopback stable-diffusion.cpp provider",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "prompt": { "type": "string" }, "width": { "type": "integer" }, "height": { "type": "integer" }, "frames": { "type": "integer" }, "fps": { "type": "integer" }, "steps": { "type": "integer" }, "seed": { "type": "integer" } } } } } },
+        "responses": { "202": { "description": "video generated and attached to the block" }, "400": { "description": "provider disabled, unavailable, or generation failed" } }
+      }
+    },
     "/jobs/{jobId}/events": {
       "get": { "summary": "SSE job progress", "responses": { "200": { "description": "text/event-stream" } } }
     }

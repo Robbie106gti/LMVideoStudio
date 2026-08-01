@@ -47,12 +47,12 @@ export class GpuJobKind extends Union {
         this.fields = fields;
     }
     cases() {
-        return ["ImageGenerate", "ImageUpscale", "AudioGenerate", "MockupPreview", "BakeExport"];
+        return ["ImageGenerate", "VideoGenerate", "ImageUpscale", "AudioGenerate", "MockupPreview", "BakeExport"];
     }
 }
 
 export function GpuJobKind_$reflection() {
-    return union_type("LMVideoStudio.Domain.GpuJobKind", [], GpuJobKind, () => [[], [], [], [], []]);
+    return union_type("LMVideoStudio.Domain.GpuJobKind", [], GpuJobKind, () => [[], [], [], [], [], []]);
 }
 
 export class GpuJobStatus extends Union {

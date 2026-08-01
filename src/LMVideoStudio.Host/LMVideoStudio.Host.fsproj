@@ -30,6 +30,10 @@
 
     <Compile Include="PythonWorkerProvider.fs" />
 
+    <Compile Include="MediaGenerationProvider.fs" />
+
+    <Compile Include="SdCppVideoProvider.fs" />
+
     <Compile Include="GpuQueue.fs" />
 
     <Compile Include="ExportJobs.fs" />
@@ -59,6 +63,8 @@
     <Compile Include="VoiceoverGeneration.fs" />
 
     <Compile Include="BlockGeneration.fs" />
+
+    <Compile Include="BlockVideoGeneration.fs" />
 
     <Compile Include="Bootstrap.fs" />
 

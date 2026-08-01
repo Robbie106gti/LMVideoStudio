@@ -108,7 +108,7 @@ export function Settings_view(model, dispatch) {
         children: "Settings",
     })), delay(() => {
         let value_8;
-        return append(singleton(createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_8 = "Generate thumbnails uses GPU (Stable Diffusion). Stitch Ken Burns preview and bake export use CPU (FFmpeg). Preview is a timing check on stills, not AI video.", ["children", value_8])])))), delay(() => {
+        return append(singleton(createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_8 = "Generate thumbnails uses the verified Lemonade image model or worker fallback. Wan clips use a separately configured local sd.cpp server. Ken Burns preview and bake export use CPU FFmpeg.", ["children", value_8])])))), delay(() => {
             let elems_1, elems;
             return append(model.ShowFirstRunBanner ? singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-accent/40 bg-accent/10 p-4 space-y-3"], (elems_1 = [createElement("p", {
                 className: "text-sm",

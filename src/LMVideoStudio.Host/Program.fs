@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Net.Http
 open System.Text
+open System.Text.Json
 open Giraffe
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
@@ -32,7 +33,10 @@ module Program =
           Models: ModelSync.ModelSyncService
           LocalAi: LocalAiProvider.LocalAiProvider
           Worker: PythonWorkerProvider.PythonWorkerProvider
+          Media: MediaGenerationProvider.MediaGenerationProvider
+          Video: SdCppVideoProvider.SdCppVideoProvider
           Generation: BlockGeneration.BlockGenerationService
+          VideoGeneration: BlockVideoGeneration.BlockVideoGenerationService
           Preview: ExportJobs.MockupPreviewService
           Bake: ExportJobs.BakeJobService
           Outline: OutlineGeneration.OutlineGenerationService
@@ -303,7 +307,43 @@ module Program =
                 >=> fun next ctx ->
                     task {
                         let! status = services.Models.GetStatus()
-                        do! writeJson ctx 200 (jsonObj status)
+                        let! image = services.Media.HealthCheck()
+                        let videoProvider =
+                            if String.Equals(Environment.GetEnvironmentVariable "LMVS_VIDEO_PROVIDER", "sdcpp", StringComparison.OrdinalIgnoreCase) then
+                                "sdcpp"
+                            else
+                                "disabled"
+
+                        let! video =
+                            if videoProvider = "sdcpp" then
+                                services.Video.HealthCheck()
+                            else
+                                task {
+                                    return
+                                        { SdCppVideoProvider.VideoHealth.Ready = false
+                                          SupportedModes = []
+                                          Error = None }
+                                }
+
+                        do!
+                            writeJson ctx 200 (
+                                jsonObj
+                                    {| localAiReachable = status.localAiReachable
+                                       localAiProvider = status.localAiProvider
+                                       configuredModel = status.configuredModel
+                                       configuredModelAvailable = status.configuredModelAvailable
+                                       modelCount = status.modelCount
+                                       ollamaReachable = status.ollamaReachable
+                                       workerReachable = status.workerReachable
+                                       manifestPath = status.manifestPath
+                                       manifestExists = status.manifestExists
+                                       imageProvider = image.SelectedProvider
+                                       imageModel = services.Media.Config.LemonadeModel
+                                       imageReady = image.Ready
+                                       videoProvider = videoProvider
+                                       videoReady = video.Ready
+                                       videoSupportedModes = video.SupportedModes |}
+                            )
                         return! next ctx
                     }
 
@@ -513,6 +553,50 @@ module Program =
                             do! writeJson ctx 202 (
                                 $"{{\"jobId\":\"{result.jobId}\",\"variants\":[{variantsJson}],\"block\":{blockJson},\"projectJson\":{escapedProject}}}"
                             )
+
+                        return! next ctx
+                    })
+
+                POST
+                >=> routef "/projects/%O/blocks/%O/video/generate" (fun (projectId: Guid, blockId: Guid) next ctx ->
+                    task {
+                        let! body = readBody ctx
+
+                        try
+                            use doc = JsonDocument.Parse(if String.IsNullOrWhiteSpace body then "{}" else body)
+                            let root = doc.RootElement
+
+                            let intValue (name: string) fallback =
+                                match root.TryGetProperty name with
+                                | true, value when value.ValueKind = JsonValueKind.Number -> value.GetInt32()
+                                | _ -> fallback
+
+                            let prompt =
+                                match root.TryGetProperty "prompt" with
+                                | true, value when value.ValueKind = JsonValueKind.String -> Option.ofObj (value.GetString())
+                                | _ -> None
+
+                            let options: BlockVideoGeneration.GenerateVideoOptions =
+                                { Prompt = prompt
+                                  Width = intValue "width" 832
+                                  Height = intValue "height" 480
+                                  Frames = intValue "frames" 33
+                                  Fps = intValue "fps" 16
+                                  Steps = intValue "steps" 28
+                                  Seed = intValue "seed" 42 }
+
+                            match! services.VideoGeneration.Generate(projectId, blockId, options) with
+                            | Error error -> do! writeJson ctx 400 (jsonObj {| error = error |})
+                            | Ok result ->
+                                do!
+                                    writeJson ctx 202 (
+                                        jsonObj
+                                            {| jobId = result.JobId
+                                               videoPath = result.VideoPath
+                                               projectJson = Json.encodeProject result.Project |}
+                                    )
+                        with ex ->
+                            do! writeJson ctx 400 (jsonObj {| error = ex.Message |})
 
                         return! next ctx
                     })
@@ -1159,11 +1243,35 @@ module Program =
             ovr.Worker
             |> Option.defaultWith (fun () -> PythonWorkerProvider.PythonWorkerProvider("http://127.0.0.1:8765"))
 
+        let mediaConfig =
+            if ovr.Worker.IsSome then
+                { MediaGenerationProvider.configFromEnvironment () with
+                    Mode = MediaGenerationProvider.ImageProviderMode.Worker }
+            else
+                MediaGenerationProvider.configFromEnvironment ()
+
+        let media = MediaGenerationProvider.MediaGenerationProvider(mediaConfig, worker)
+
+        let videoBaseUrl =
+            match Environment.GetEnvironmentVariable "LMVS_VIDEO_BASE_URL" with
+            | value when not (String.IsNullOrWhiteSpace value) -> value.Trim()
+            | _ -> "http://127.0.0.1:1234"
+
+        let videoEnabled =
+            String.Equals(
+                Environment.GetEnvironmentVariable "LMVS_VIDEO_PROVIDER",
+                "sdcpp",
+                StringComparison.OrdinalIgnoreCase
+            )
+
+        let videoProvider = SdCppVideoProvider.SdCppVideoProvider(videoBaseUrl)
+
         let gpuQueue = GpuQueueService(SingleFlightGpuQueue(), worker, repoRoot)
 
         let bootstrap = Bootstrap.BootstrapService(repoRoot, events, models, localAi, worker, gpuQueue)
         let conflicts = ConflictScan.ConflictScanService repoRoot
-        let generation = BlockGeneration.BlockGenerationService(store, worker, gpuQueue, events, conflicts)
+        let generation = BlockGeneration.BlockGenerationService(store, worker, media, gpuQueue, events, conflicts)
+        let videoGeneration = BlockVideoGeneration.BlockVideoGenerationService(store, videoProvider, gpuQueue, events, videoEnabled)
         let preview = ExportJobs.MockupPreviewService(store, events, repoRoot)
         let bake = ExportJobs.BakeJobService(store, events, repoRoot, worker, gpuQueue)
         let outline = OutlineGeneration.OutlineGenerationService localAi
@@ -1184,7 +1292,10 @@ module Program =
           Models = models
           LocalAi = localAi
           Worker = worker
+          Media = media
+          Video = videoProvider
           Generation = generation
+          VideoGeneration = videoGeneration
           Preview = preview
           Bake = bake
           Outline = outline

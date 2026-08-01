@@ -84,6 +84,23 @@ module ExportAndGenerationTests =
             }
 
         [<Fact>]
+        let ``POST generate video reports explicit provider configuration when disabled`` () =
+            task {
+                let! projectId = createProjectWithBlock "Generate video disabled"
+                let! getResp = fixture.Client.GetAsync($"/projects/{projectId}")
+                let! getBody = getResp.Content.ReadAsStringAsync()
+                let blockId = JsonDocument.Parse(getBody).RootElement.GetProperty("blocks").EnumerateArray() |> Seq.head |> fun el -> el.GetProperty("id").GetGuid()
+                let body = """{"prompt":"gentle camera move","frames":33}"""
+                use content = new StringContent(body, Encoding.UTF8, "application/json")
+
+                let! response = fixture.Client.PostAsync($"/projects/{projectId}/blocks/{blockId}/video/generate", content)
+                let! responseBody = response.Content.ReadAsStringAsync()
+
+                response.StatusCode |> should equal HttpStatusCode.BadRequest
+                responseBody.Contains("LMVS_VIDEO_PROVIDER=sdcpp") |> should equal true
+            }
+
+        [<Fact>]
         let ``POST style pack import returns dominant colors`` () =
             task {
                 TestMocks.installColorStub()
@@ -195,6 +212,9 @@ module ExportAndGenerationTests =
                 body.Contains("manifestPath") |> should equal true
                 body.Contains("localAiProvider") |> should equal true
                 body.Contains("configuredModel") |> should equal true
+                body.Contains("imageProvider") |> should equal true
+                body.Contains("imageModel") |> should equal true
+                body.Contains("videoProvider") |> should equal true
             }
 
         [<Fact>]
@@ -216,6 +236,9 @@ module ExportAndGenerationTests =
                 let doc = JsonDocument.Parse body
                 doc.RootElement.GetProperty("openapi").GetString() |> should startWith "3."
                 doc.RootElement.GetProperty("paths").EnumerateObject() |> Seq.length |> should be (greaterThan 5)
+                doc.RootElement.GetProperty("paths").TryGetProperty("/projects/{projectId}/blocks/{blockId}/video/generate")
+                |> fst
+                |> should equal true
             }
 
         [<Fact>]

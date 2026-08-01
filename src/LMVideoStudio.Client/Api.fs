@@ -357,6 +357,30 @@ let generateBlockThumbnail (projectId: Guid) (blockId: Guid) (prompt: string opt
             return Error text
     }
 
+let generateBlockVideo (projectId: Guid) (blockId: Guid) (prompt: string option) =
+    async {
+        let fields =
+            [ "width", Encode.int 832
+              "height", Encode.int 480
+              "frames", Encode.int 33
+              "fps", Encode.int 16
+              "steps", Encode.int 28
+              "seed", Encode.int 42 ]
+            @ (prompt
+               |> Option.filter (not << System.String.IsNullOrWhiteSpace)
+               |> Option.map (fun value -> [ "prompt", Encode.string value ])
+               |> Option.defaultValue [])
+
+        let body = Encode.object fields |> Encode.toString 0 |> Some
+        let! status, text =
+            fetchAsync $"{hostBase()}/projects/{projectId}/blocks/{blockId}/video/generate" "POST" body
+
+        if status >= 200 && status < 300 then
+            return! decodeProjectFromResponse text projectId
+        else
+            return Error text
+    }
+
 let updateBlock
     (projectId: Guid)
     (blockId: Guid)
