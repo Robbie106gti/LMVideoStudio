@@ -30,6 +30,8 @@
 
     <Compile Include="PythonWorkerProvider.fs" />
 
+    <Compile Include="LocalMediaClient.fs" />
+
     <Compile Include="MediaGenerationProvider.fs" />
 
     <Compile Include="SdCppVideoProvider.fs" />

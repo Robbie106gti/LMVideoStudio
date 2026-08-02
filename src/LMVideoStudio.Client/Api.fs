@@ -49,7 +49,10 @@ type ModelStatusDto =
       ModelCount: int option
       WorkerReachable: bool
       ManifestPath: string
-      ManifestExists: bool }
+      ManifestExists: bool
+      LocalMediaProvider: string option
+      LocalMediaModel: string option
+      LocalMediaReady: bool option }
 
 type JobEventDto =
     { JobId: Guid
@@ -696,7 +699,10 @@ let getModelStatus () =
                       ModelCount = get.Optional.Field "modelCount" Decode.int
                       WorkerReachable = get.Required.Field "workerReachable" Decode.bool
                       ManifestPath = get.Required.Field "manifestPath" Decode.string
-                      ManifestExists = get.Required.Field "manifestExists" Decode.bool })
+                      ManifestExists = get.Required.Field "manifestExists" Decode.bool
+                      LocalMediaProvider = get.Optional.Field "localMediaProvider" Decode.string
+                      LocalMediaModel = get.Optional.Field "localMediaModel" Decode.string
+                      LocalMediaReady = get.Optional.Field "localMediaReady" Decode.bool })
 
             match Decode.fromString decoder text with
             | Ok dto -> return Ok dto

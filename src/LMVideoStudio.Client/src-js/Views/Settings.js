@@ -108,7 +108,7 @@ export function Settings_view(model, dispatch) {
         children: "Settings",
     })), delay(() => {
         let value_8;
-        return append(singleton(createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_8 = "Generate thumbnails uses the verified Lemonade image model or worker fallback. Wan clips use a separately configured local sd.cpp server. Ken Burns preview and bake export use CPU FFmpeg.", ["children", value_8])])))), delay(() => {
+        return append(singleton(createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_8 = "Images default to the Agent System Kit loopback local-media service. If it is unavailable, generation stops clearly; select Lemonade or worker explicitly for compatibility. Wan clips remain separately configured.", ["children", value_8])])))), delay(() => {
             let elems_1, elems;
             return append(model.ShowFirstRunBanner ? singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-accent/40 bg-accent/10 p-4 space-y-3"], (elems_1 = [createElement("p", {
                 className: "text-sm",
@@ -158,11 +158,13 @@ export function Settings_view(model, dispatch) {
                     className: "text-sm font-semibold",
                     children: "Model catalog",
                 }), defaultArg(map((m) => {
-                    let elems_4;
+                    let elems_4, matchValue_1, matchValue_2, matchValue_3, profile, provider, profile_1, provider_1;
                     return createElement("div", createObj(ofArray([["className", "text-sm space-y-1 text-slate-400"], (elems_4 = [createElement("div", {
                         children: m.ManifestExists ? "Manifest: present" : "Manifest: missing",
                     }), createElement("div", {
                         children: m.LocalAiReachable ? (`Local AI registry (${m.LocalAiProvider}): reachable`) : (`Local AI registry (${m.LocalAiProvider}): offline`),
+                    }), createElement("div", {
+                        children: (matchValue_1 = m.LocalMediaProvider, (matchValue_2 = m.LocalMediaModel, (matchValue_3 = m.LocalMediaReady, (matchValue_1 != null) ? ((matchValue_2 != null) ? ((matchValue_3 != null) ? (matchValue_3 ? ((profile = matchValue_2, (provider = matchValue_1, `Default local media: ${provider}/${profile} ready`))) : ((profile_1 = matchValue_2, (provider_1 = matchValue_1, `Default local media: ${provider_1}/${profile_1} unavailable — no fallback`)))) : ((profile_1 = matchValue_2, (provider_1 = matchValue_1, `Default local media: ${provider_1}/${profile_1} unavailable — no fallback`)))) : "Default local media: not reported") : "Default local media: not reported"))),
                     }), createElement("div", {
                         className: "truncate",
                         title: m.ManifestPath,
@@ -193,11 +195,11 @@ export function Settings_view(model, dispatch) {
                         dispatch(new SettingsMsg(6, []));
                     },
                 })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_5))])])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_6))])])))), delay(() => {
-                    let elems_9, value_114, elems_7, elems_8;
+                    let elems_9, value_116, elems_7, elems_8;
                     return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-3"], (elems_9 = [createElement("h2", {
                         className: "text-sm font-semibold",
                         children: "Error reporting",
-                    }), createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_114 = "Crash and API errors are saved locally under %LOCALAPPDATA%\\LMVideoStudio\\reports. With consent, reports are sent to the developer webhook configured in config/error-reporting.json.", ["children", value_114])]))), createElement("label", createObj(ofArray([["className", "flex items-center gap-2 text-sm"], (elems_7 = [createElement("input", {
+                    }), createElement("p", createObj(ofArray([["className", "text-sm text-slate-400"], (value_116 = "Crash and API errors are saved locally under %LOCALAPPDATA%\\LMVideoStudio\\reports. With consent, reports are sent to the developer webhook configured in config/error-reporting.json.", ["children", value_116])]))), createElement("label", createObj(ofArray([["className", "flex items-center gap-2 text-sm"], (elems_7 = [createElement("input", {
                         type: "checkbox",
                         checked: model.ErrorReportingConsent,
                         onChange: (ev) => {
@@ -226,8 +228,8 @@ export function Settings_view(model, dispatch) {
                             className: "text-sm font-semibold",
                             children: "Image prompt quick buttons",
                         })), delay(() => {
-                            let value_151;
-                            return append(singleton(createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_151 = "Custom shortcuts appear in the block inspector next to built-in shot presets (establishing, close-up, etc.). Stored locally in this browser.", ["children", value_151])])))), delay(() => {
+                            let value_153;
+                            return append(singleton(createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_153 = "Custom shortcuts appear in the block inspector next to built-in shot presets (establishing, close-up, etc.). Stored locally in this browser.", ["children", value_153])])))), delay(() => {
                                 let elems_10;
                                 return append(singleton(createElement("div", createObj(ofArray([["className", "flex flex-wrap gap-1.5"], (elems_10 = map_1((qb) => createElement("span", {
                                     className: "px-2 py-1 rounded-md bg-surface border border-surface-border text-xs text-slate-400",
@@ -239,14 +241,14 @@ export function Settings_view(model, dispatch) {
                                         className: "text-xs text-slate-500",
                                         children: "No custom quick buttons yet.",
                                     })) : singleton(createElement("ul", createObj(ofArray([["className", "space-y-2 text-sm"], (elems_13 = map_1((qb_1) => {
-                                        let elems_12, elems_11, value_179;
+                                        let elems_12, elems_11, value_181;
                                         return createElement("li", createObj(ofArray([["className", "flex items-start justify-between gap-2 rounded-md border border-surface-border px-3 py-2"], (elems_12 = [createElement("div", createObj(singleton_1((elems_11 = [createElement("div", {
                                             className: "font-medium text-slate-200",
                                             children: qb_1.Label,
                                         }), createElement("p", {
                                             className: "text-xs text-slate-500 mt-0.5 line-clamp-2",
                                             children: qb_1.Prompt,
-                                        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_11))])))), createElement("button", createObj(ofArray([(value_179 = "shrink-0 px-2 py-1 rounded-md border border-surface-border text-xs hover:border-red-400 hover:text-red-300", ["className", value_179]), ["children", "Remove"], ["onClick", (_arg_7) => {
+                                        })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_11))])))), createElement("button", createObj(ofArray([(value_181 = "shrink-0 px-2 py-1 rounded-md border border-surface-border text-xs hover:border-red-400 hover:text-red-300", ["className", value_181]), ["children", "Remove"], ["onClick", (_arg_7) => {
                                             dispatch(new SettingsMsg(18, [qb_1.Label]));
                                         }]])))], ["children", Interop_reactApi.Children.toArray(Array.from(elems_12))])])));
                                     }, model.QuickButtonsCustom), ["children", Interop_reactApi.Children.toArray(Array.from(elems_13))])])))), delay(() => {
@@ -266,8 +268,8 @@ export function Settings_view(model, dispatch) {
                                                 dispatch(new SettingsMsg(16, [ev_2.target.value]));
                                             },
                                         })], ["children", Interop_reactApi.Children.toArray(Array.from(elems_14))])])))), delay(() => {
-                                            let value_203;
-                                            return singleton(createElement("button", createObj(ofArray([(value_203 = "px-3 py-2 rounded-md border border-accent text-accent text-sm hover:bg-accent/10 disabled:opacity-50", ["className", value_203]), ["disabled", isNullOrWhiteSpace(model.QuickButtonLabelDraft) ? true : isNullOrWhiteSpace(model.QuickButtonPromptDraft)], ["children", "Add quick button"], ["onClick", (_arg_8) => {
+                                            let value_205;
+                                            return singleton(createElement("button", createObj(ofArray([(value_205 = "px-3 py-2 rounded-md border border-accent text-accent text-sm hover:bg-accent/10 disabled:opacity-50", ["className", value_205]), ["disabled", isNullOrWhiteSpace(model.QuickButtonLabelDraft) ? true : isNullOrWhiteSpace(model.QuickButtonPromptDraft)], ["children", "Add quick button"], ["onClick", (_arg_8) => {
                                                 dispatch(new SettingsMsg(17, []));
                                             }]]))));
                                         }));
@@ -275,14 +277,14 @@ export function Settings_view(model, dispatch) {
                                 }));
                             }));
                         })))), ["children", Interop_reactApi.Children.toArray(Array.from(elems_15))])])))), delay(() => {
-                            let elems_19, value_219, elems_18;
+                            let elems_19, value_221, elems_18;
                             return append(singleton(createElement("div", createObj(ofArray([["className", "rounded-lg border border-surface-border p-4 space-y-3"], (elems_19 = [createElement("h2", {
                                 className: "text-sm font-semibold text-slate-300",
                                 children: "Social upload (OAuth)",
-                            }), createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_219 = "Optional direct upload to YouTube and Meta (Facebook Page). Copy-to-clipboard and open-upload assist work without OAuth. Configure config/social-oauth.json from the example file.", ["children", value_219])]))), defaultArg(map((dto) => {
-                                let value_223;
+                            }), createElement("p", createObj(ofArray([["className", "text-xs text-slate-500"], (value_221 = "Optional direct upload to YouTube and Meta (Facebook Page). Copy-to-clipboard and open-upload assist work without OAuth. Configure config/social-oauth.json from the example file.", ["children", value_221])]))), defaultArg(map((dto) => {
+                                let value_225;
                                 if (!dto.Configured) {
-                                    return createElement("p", createObj(ofArray([["className", "text-xs text-amber-400/90"], (value_223 = "OAuth apps not configured — copy config/social-oauth.json.example to config/social-oauth.json and add your client IDs.", ["children", value_223])])));
+                                    return createElement("p", createObj(ofArray([["className", "text-xs text-amber-400/90"], (value_225 = "OAuth apps not configured — copy config/social-oauth.json.example to config/social-oauth.json and add your client IDs.", ["children", value_225])])));
                                 }
                                 else {
                                     return defaultOf();
@@ -292,28 +294,28 @@ export function Settings_view(model, dispatch) {
                                 children: "Loading connection status…",
                             })), createElement("div", createObj(ofArray([["className", "grid gap-2 sm:grid-cols-2"], (elems_18 = toList(delay(() => map_1((tupledArg) => {
                                 let elems_17, elems_16;
-                                const provider = tupledArg[0];
-                                const account = bind((dto_1) => tryFind((a) => (a.Provider === provider), dto_1.Accounts), model.ConnectedAccounts);
+                                const provider_2 = tupledArg[0];
+                                const account = bind((dto_1) => tryFind((a) => (a.Provider === provider_2), dto_1.Accounts), model.ConnectedAccounts);
                                 const connected = defaultArg(map((a_1) => a_1.Connected, account), false);
-                                const name_112 = defaultArg(bind((a_2) => orElse(a_2.AccountName, a_2.PageName), account), "Not connected");
-                                const busy = equals(model.OAuthBusy, provider);
+                                const name_114 = defaultArg(bind((a_2) => orElse(a_2.AccountName, a_2.PageName), account), "Not connected");
+                                const busy = equals(model.OAuthBusy, provider_2);
                                 return createElement("div", createObj(ofArray([["className", "rounded-md border border-surface-border p-3 space-y-2"], (elems_17 = [createElement("div", {
                                     className: "text-sm font-medium text-slate-200",
                                     children: tupledArg[1],
                                 }), createElement("p", {
                                     className: "text-xs text-slate-500 truncate",
-                                    children: connected ? (`Connected: ${name_112}`) : "Not connected",
+                                    children: connected ? (`Connected: ${name_114}`) : "Not connected",
                                 }), createElement("div", createObj(ofArray([["className", "flex gap-2"], (elems_16 = toList(delay(() => {
-                                    let value_253;
+                                    let value_255;
                                     return append(connected ? singleton(createElement("button", {
                                         className: "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent disabled:opacity-50",
                                         disabled: busy,
                                         children: busy ? "Working…" : "Disconnect",
                                         onClick: (_arg_9) => {
-                                            dispatch(new SettingsMsg(14, [provider]));
+                                            dispatch(new SettingsMsg(14, [provider_2]));
                                         },
-                                    })) : singleton(createElement("button", createObj(ofArray([(value_253 = "px-3 py-1.5 rounded-md border border-accent text-accent text-xs hover:bg-accent/10 disabled:opacity-50", ["className", value_253]), ["disabled", busy], ["children", busy ? "Opening…" : "Connect"], ["onClick", (_arg_10) => {
-                                        dispatch(new SettingsMsg(13, [provider]));
+                                    })) : singleton(createElement("button", createObj(ofArray([(value_255 = "px-3 py-1.5 rounded-md border border-accent text-accent text-xs hover:bg-accent/10 disabled:opacity-50", ["className", value_255]), ["disabled", busy], ["children", busy ? "Opening…" : "Connect"], ["onClick", (_arg_10) => {
+                                        dispatch(new SettingsMsg(13, [provider_2]));
                                     }]])))), delay(() => singleton(createElement("button", {
                                         className: "px-3 py-1.5 rounded-md border border-surface-border text-xs hover:border-accent",
                                         children: "Refresh",

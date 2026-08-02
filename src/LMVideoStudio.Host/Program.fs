@@ -341,6 +341,9 @@ module Program =
                                        imageProvider = image.SelectedProvider
                                        imageModel = services.Media.Config.LemonadeModel
                                        imageReady = image.Ready
+                                       localMediaProvider = services.Media.Config.LocalMedia.ProviderId
+                                       localMediaModel = services.Media.Config.LocalMedia.ModelId
+                                       localMediaReady = image.LocalMediaReachable
                                        videoProvider = videoProvider
                                        videoReady = video.Ready
                                        videoSupportedModes = video.SupportedModes |}
@@ -1250,6 +1253,8 @@ module Program =
                     Mode = MediaGenerationProvider.ImageProviderMode.Worker }
             else
                 MediaGenerationProvider.configFromEnvironment ()
+
+        let mediaConfig = { mediaConfig with LocalMedia = { mediaConfig.LocalMedia with OutputRoot = store.ProjectsRoot } }
 
         let media = MediaGenerationProvider.MediaGenerationProvider(mediaConfig, worker)
 

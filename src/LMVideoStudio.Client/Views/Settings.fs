@@ -173,7 +173,7 @@ module Settings =
 
                     prop.className "text-sm text-slate-400"
 
-                    prop.text "Generate thumbnails uses the verified Lemonade image model or worker fallback. Wan clips use a separately configured local sd.cpp server. Ken Burns preview and bake export use CPU FFmpeg."
+                    prop.text "Images default to the Agent System Kit loopback local-media service. If it is unavailable, generation stops clearly; select Lemonade or worker explicitly for compatibility. Wan clips remain separately configured."
 
                 ]
 
@@ -374,6 +374,17 @@ module Settings =
 
                                             else $"Local AI registry ({m.LocalAiProvider}): offline"
 
+                                        )
+
+                                    ]
+
+                                    Html.div [
+
+                                        prop.text (
+                                            match m.LocalMediaProvider, m.LocalMediaModel, m.LocalMediaReady with
+                                            | Some provider, Some profile, Some true -> $"Default local media: {provider}/{profile} ready"
+                                            | Some provider, Some profile, _ -> $"Default local media: {provider}/{profile} unavailable — no fallback"
+                                            | _ -> "Default local media: not reported"
                                         )
 
                                     ]

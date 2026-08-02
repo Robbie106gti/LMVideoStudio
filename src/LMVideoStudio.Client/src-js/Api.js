@@ -92,7 +92,7 @@ export function SystemStatusDto_$reflection() {
 }
 
 export class ModelStatusDto extends Record {
-    constructor(LocalAiReachable, LocalAiProvider, ConfiguredModel, ConfiguredModelAvailable, ModelCount, WorkerReachable, ManifestPath, ManifestExists) {
+    constructor(LocalAiReachable, LocalAiProvider, ConfiguredModel, ConfiguredModelAvailable, ModelCount, WorkerReachable, ManifestPath, ManifestExists, LocalMediaProvider, LocalMediaModel, LocalMediaReady) {
         super();
         this.LocalAiReachable = LocalAiReachable;
         this.LocalAiProvider = LocalAiProvider;
@@ -102,11 +102,14 @@ export class ModelStatusDto extends Record {
         this.WorkerReachable = WorkerReachable;
         this.ManifestPath = ManifestPath;
         this.ManifestExists = ManifestExists;
+        this.LocalMediaProvider = LocalMediaProvider;
+        this.LocalMediaModel = LocalMediaModel;
+        this.LocalMediaReady = LocalMediaReady;
     }
 }
 
 export function ModelStatusDto_$reflection() {
-    return record_type("LMVideoStudio.Client.Api.ModelStatusDto", [], ModelStatusDto, () => [["LocalAiReachable", bool_type], ["LocalAiProvider", string_type], ["ConfiguredModel", option_type(string_type)], ["ConfiguredModelAvailable", option_type(bool_type)], ["ModelCount", option_type(int32_type)], ["WorkerReachable", bool_type], ["ManifestPath", string_type], ["ManifestExists", bool_type]]);
+    return record_type("LMVideoStudio.Client.Api.ModelStatusDto", [], ModelStatusDto, () => [["LocalAiReachable", bool_type], ["LocalAiProvider", string_type], ["ConfiguredModel", option_type(string_type)], ["ConfiguredModelAvailable", option_type(bool_type)], ["ModelCount", option_type(int32_type)], ["WorkerReachable", bool_type], ["ManifestPath", string_type], ["ManifestExists", bool_type], ["LocalMediaProvider", option_type(string_type)], ["LocalMediaModel", option_type(string_type)], ["LocalMediaReady", option_type(bool_type)]]);
 }
 
 export class JobEventDto extends Record {
@@ -663,11 +666,11 @@ export function getModelStatus() {
         const text = _arg[1];
         const status = _arg[0] | 0;
         if ((status >= 200) && (status < 300)) {
-            const matchValue = fromString((path_8, v) => object((get$) => {
-                let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8;
+            const matchValue = fromString((path_11, v) => object((get$) => {
+                let objectArg, objectArg_1, objectArg_2, objectArg_3, objectArg_4, objectArg_5, objectArg_6, objectArg_7, objectArg_8, objectArg_9, objectArg_10, objectArg_11;
                 const legacyReachable = defaultArg((objectArg = get$.Optional, objectArg.Field("ollamaReachable", bool)), false);
-                return new ModelStatusDto(defaultArg((objectArg_1 = get$.Optional, objectArg_1.Field("localAiReachable", bool)), legacyReachable), defaultArg((objectArg_2 = get$.Optional, objectArg_2.Field("localAiProvider", string)), "ollama"), (objectArg_3 = get$.Optional, objectArg_3.Field("configuredModel", string)), (objectArg_4 = get$.Optional, objectArg_4.Field("configuredModelAvailable", bool)), (objectArg_5 = get$.Optional, objectArg_5.Field("modelCount", uncurry2(int))), (objectArg_6 = get$.Required, objectArg_6.Field("workerReachable", bool)), (objectArg_7 = get$.Required, objectArg_7.Field("manifestPath", string)), (objectArg_8 = get$.Required, objectArg_8.Field("manifestExists", bool)));
-            }, path_8, v), text);
+                return new ModelStatusDto(defaultArg((objectArg_1 = get$.Optional, objectArg_1.Field("localAiReachable", bool)), legacyReachable), defaultArg((objectArg_2 = get$.Optional, objectArg_2.Field("localAiProvider", string)), "ollama"), (objectArg_3 = get$.Optional, objectArg_3.Field("configuredModel", string)), (objectArg_4 = get$.Optional, objectArg_4.Field("configuredModelAvailable", bool)), (objectArg_5 = get$.Optional, objectArg_5.Field("modelCount", uncurry2(int))), (objectArg_6 = get$.Required, objectArg_6.Field("workerReachable", bool)), (objectArg_7 = get$.Required, objectArg_7.Field("manifestPath", string)), (objectArg_8 = get$.Required, objectArg_8.Field("manifestExists", bool)), (objectArg_9 = get$.Optional, objectArg_9.Field("localMediaProvider", string)), (objectArg_10 = get$.Optional, objectArg_10.Field("localMediaModel", string)), (objectArg_11 = get$.Optional, objectArg_11.Field("localMediaReady", bool)));
+            }, path_11, v), text);
             return (matchValue.tag === 1) ? singleton.Return(new FSharpResult$2(1, [matchValue.fields[0]])) : singleton.Return(new FSharpResult$2(0, [matchValue.fields[0]]));
         }
         else {

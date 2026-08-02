@@ -230,11 +230,20 @@ module BlockGeneration =
                             events.Publish(JobEvent.create jobId phase "block" msg JobStatus.Failed)
                             return Error msg
                         | Some block ->
-                            let! health = worker.HealthCheck()
+                            let! health =
+                                if media.Config.Mode = MediaGenerationProvider.ImageProviderMode.LocalMedia then media.HealthCheck()
+                                else task { return Unchecked.defaultof<MediaGenerationProvider.ImageProviderHealth> }
+                            let! workerHealth =
+                                if media.Config.Mode = MediaGenerationProvider.ImageProviderMode.LocalMedia then task { return Unchecked.defaultof<PythonWorkerProvider.WorkerHealth> }
+                                else worker.HealthCheck()
 
-                            if not health.Reachable then
+                            if media.Config.Mode = MediaGenerationProvider.ImageProviderMode.LocalMedia && not health.Ready then
+                                let msg = health.Error |> Option.defaultValue "Local media service unavailable; no compatibility fallback selected"
+                                events.Publish(JobEvent.create jobId phase "local-media" msg JobStatus.Failed)
+                                return Error msg
+                            elif media.Config.Mode <> MediaGenerationProvider.ImageProviderMode.LocalMedia && not workerHealth.Reachable then
                                 let msg =
-                                    health.Error
+                                    workerHealth.Error
                                     |> Option.defaultValue "Python worker unreachable at :8765"
 
                                 events.Publish(JobEvent.create jobId phase "worker" msg JobStatus.Failed)
@@ -277,6 +286,11 @@ module BlockGeneration =
                                         )
 
                                     let generateVariant seed i refData =
+                                        let localOutput =
+                                            if media.Config.Mode = MediaGenerationProvider.ImageProviderMode.LocalMedia then Some $"{projectId:N}/assets/local_media_{blockId:N}_{i}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.png" else None
+                                        let onLocalState state =
+                                            let status = if state = "failed" then JobStatus.Failed elif state = "cancelled" then JobStatus.Cancelled else JobStatus.Running
+                                            events.Publish(JobEvent.create jobId JobPhase.ImageGenerate $"local-media-{state}" $"Local media job {state}" status)
                                         gpu.RunJob(
                                             GpuJobKind.ImageGenerate,
                                             fun () ->
@@ -287,14 +301,20 @@ module BlockGeneration =
                                                         prompt,
                                                         seed = seed,
                                                         imageBase64 = b64,
-                                                        strength = referenceStrength
+                                                        strength = referenceStrength,
+                                                        ?localOutput = localOutput,
+                                                        ?idempotencyKey = localOutput,
+                                                        onLocalState = onLocalState
                                                     )
                                                 | None ->
                                                     media.GenerateForProfile(
                                                         profile,
                                                         prompt,
                                                         seed = seed,
-                                                        strength = referenceStrength
+                                                        strength = referenceStrength,
+                                                        ?localOutput = localOutput,
+                                                        ?idempotencyKey = localOutput,
+                                                        onLocalState = onLocalState
                                                     )
                                         )
 
