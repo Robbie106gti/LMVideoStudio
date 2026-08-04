@@ -777,7 +777,7 @@ module FeatureTddTests =
         let ``Radeon finishing script exposes native 4K profile`` () =
             let repoRoot = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", ".."))
             let psi = ProcessStartInfo("pwsh")
-            for value in [ "-NoProfile"; "-File"; Path.Combine(repoRoot, "scripts", "radeon-finish.ps1"); "-InputPath"; "input.webm"; "-OutputPath"; "output.mp4"; "-Profile"; "4k"; "-SourceFps"; "12"; "-PlanOnly" ] do psi.ArgumentList.Add value
+            for value in [ "-NoProfile"; "-File"; Path.Combine(repoRoot, "scripts", "radeon-finish.ps1"); "-InputPath"; "input.webm"; "-OutputPath"; "output.mp4"; "-Profile"; "4k"; "-SourceFps"; "12"; "-FrameGeneration"; "-PlanOnly" ] do psi.ArgumentList.Add value
             psi.RedirectStandardOutput <- true
             psi.UseShellExecute <- false
             use proc = Process.Start psi
@@ -789,4 +789,5 @@ module FeatureTddTests =
             plan.RootElement.GetProperty("source_height").GetInt32() |> should equal 704
             plan.RootElement.GetProperty("output_width").GetInt32() |> should equal 3840
             plan.RootElement.GetProperty("output_height").GetInt32() |> should equal 2160
-            plan.RootElement.GetProperty("output_fps").GetInt32() |> should equal 12
+            plan.RootElement.GetProperty("frame_generation_input_height").GetInt32() |> should equal 720
+            plan.RootElement.GetProperty("output_fps").GetInt32() |> should equal 24

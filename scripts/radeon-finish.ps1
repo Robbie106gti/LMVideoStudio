@@ -38,6 +38,7 @@ $paddedHeight = if ($Profile -eq "4k") { 720 } else { 360 }
 $outputWidth = if ($Profile -eq "4k") { 3840 } else { 1920 }
 $outputHeight = if ($Profile -eq "4k") { 2160 } else { 1080 }
 $paddingY = [int](($paddedHeight - $renderHeight) / 2)
+$frameGenerationHeight = if ($FrameGeneration -and $Profile -eq "4k") { $paddedHeight } else { $renderHeight }
 $targetFps = if ($FrameGeneration) { $SourceFps * 2 } else { $SourceFps }
 
 function Resolve-Executable {
@@ -85,6 +86,7 @@ $plan = [ordered]@{
     profile = $Profile
     source_width = $renderWidth
     source_height = $renderHeight
+    frame_generation_input_height = $frameGenerationHeight
     source_fps = $SourceFps
     output_width = $outputWidth
     output_height = $outputHeight
@@ -144,12 +146,19 @@ $sceneCutFrames = [Collections.Generic.HashSet[int]]::new()
 
 try {
     $sourcePattern = Join-Path $sourceDirectory "frame-%04d.rgba"
-    $videoFilter =
+    $baseVideoFilter =
         if ($Stabilize) {
-            "deshake=rx=16:ry=16:edge=mirror,deflicker=size=5:mode=am,scale=${renderWidth}:${renderHeight}:flags=lanczos,format=rgba"
+            "deshake=rx=16:ry=16:edge=mirror,deflicker=size=5:mode=am,scale=${renderWidth}:${renderHeight}:flags=lanczos"
         }
         else {
-            "deflicker=size=5:mode=am,scale=${renderWidth}:${renderHeight}:flags=lanczos,format=rgba"
+            "deflicker=size=5:mode=am,scale=${renderWidth}:${renderHeight}:flags=lanczos"
+        }
+    $videoFilter =
+        if ($frameGenerationHeight -eq $paddedHeight -and $renderHeight -ne $paddedHeight) {
+            "$baseVideoFilter,pad=${renderWidth}:${paddedHeight}:0:${paddingY}:color=black,format=rgba"
+        }
+        else {
+            "$baseVideoFilter,format=rgba"
         }
 
     $extractArgs = @(
@@ -168,7 +177,7 @@ try {
         throw "Finishing requires at least two decoded source frames."
     }
 
-    $expectedBytes = $renderWidth * $renderHeight * 4
+    $expectedBytes = $renderWidth * $frameGenerationHeight * 4
 
     foreach ($frame in $sourceFrames) {
         if ($frame.Length -ne $expectedBytes) {
@@ -232,9 +241,9 @@ try {
     $padArgs = @(
         "-y", "-hide_banner", "-loglevel", "error",
         "-f", "image2", "-framerate", $targetFps.ToString([Globalization.CultureInfo]::InvariantCulture),
-        "-video_size", "${renderWidth}x${renderHeight}", "-pixel_format", "rgba", "-vcodec", "rawvideo",
+        "-video_size", "${renderWidth}x${frameGenerationHeight}", "-pixel_format", "rgba", "-vcodec", "rawvideo",
         "-i", $padInputPattern, "-frames:v", $framesToUpscale.Count.ToString([Globalization.CultureInfo]::InvariantCulture),
-        "-vf", "pad=${renderWidth}:${paddedHeight}:0:${paddingY}:color=black,format=rgba",
+        "-vf", $(if ($frameGenerationHeight -eq $paddedHeight) { "format=rgba" } else { "pad=${renderWidth}:${paddedHeight}:0:${paddingY}:color=black,format=rgba" }),
         "-f", "image2", "-vcodec", "rawvideo", $paddedPattern
     )
     $null = Invoke-Checked -FilePath $resolvedFfmpeg -Arguments $padArgs -Label "16:9 source padding"

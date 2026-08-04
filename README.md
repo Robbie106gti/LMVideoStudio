@@ -90,7 +90,7 @@ Final bake now consumes a block's generated `bakeVideoPath` when it exists inste
 3. AMD FSR 4 ML 3x upscaling to 3840x2160;
 4. AMF H.264 encoding with CPU fallback.
 
-Optional frame generation runs before padding and doubles the selected source rate: 12 to 24 fps for the 4K profile or 24 to 48 fps for the legacy profile. It uses scene-jump detection and holds a real frame instead of interpolating across a cut, but remains opt-in because thin cables and similar geometry can produce doubled edges.
+Optional frame generation doubles the selected source rate: 12 to 24 fps for the 4K profile or 24 to 48 fps for the legacy profile. The 4K path pads 1280x704 sources to the sidecar's exact 1280x720 contract before interpolation; the legacy path interpolates before its later 640x352-to-640x360 padding. Both use scene-jump detection and hold a real frame instead of interpolating across a cut, but remain opt-in because thin cables and similar geometry can produce doubled edges.
 
 The app does not download or install AMD's SDK/runtime and does not copy its managed DLLs. Configure only locally qualified, AMD-signed sidecars. `auto` preserves the source clip if they are absent or fail; `required` fails explicitly.
 
