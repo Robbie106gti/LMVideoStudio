@@ -22,7 +22,7 @@ module BlockVideoGeneration =
     type BlockVideoGenerationService
         (
             store: ProjectStore.ProjectStore,
-            provider: SdCppVideoProvider.SdCppVideoProvider,
+            provider: SdCppVideoProvider.IVideoProvider,
             gpu: GpuQueueService,
             events: JobEventHub,
             enabled: bool
@@ -31,7 +31,7 @@ module BlockVideoGeneration =
         member _.Generate(projectId: Guid, blockId: Guid, options: GenerateVideoOptions) =
             task {
                 if not enabled then
-                    return Error "AI video generation is disabled. Set LMVS_VIDEO_PROVIDER=sdcpp and start the qualified loopback Wan service."
+                    return Error "AI video generation is disabled. Set LMVS_VIDEO_PROVIDER=local-media or sdcpp and start the selected loopback service."
                 elif options.Width <= 0 || options.Height <= 0 || options.Fps <= 0 || options.Steps < 0 then
                     return Error "Video width, height, and fps must be positive; steps must be zero (automatic) or positive"
                 else
@@ -79,7 +79,8 @@ module BlockVideoGeneration =
                                 return Error error
                             | Ok result ->
                                 try
-                                    let relative = $"assets/video/gen_{blockId:N}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.webm"
+                                    let extension = if result.OutputFormat = "mp4" then "mp4" else "webm"
+                                    let relative = $"assets/video/gen_{blockId:N}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.{extension}"
                                     let destination = Path.Combine(store.ProjectFolder projectId, relative.Replace('/', Path.DirectorySeparatorChar))
                                     Directory.CreateDirectory(Path.GetDirectoryName destination) |> ignore
                                     File.WriteAllBytes(destination, Convert.FromBase64String result.VideoBase64)

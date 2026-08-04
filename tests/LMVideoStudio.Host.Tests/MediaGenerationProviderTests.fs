@@ -3,6 +3,7 @@ namespace LMVideoStudio.Host.Tests
 open System
 open System.Net
 open System.Net.Http
+open System.IO
 open System.Text.Json
 open Xunit
 open FsUnit.Xunit
@@ -182,6 +183,59 @@ module LocalMediaClientTests =
             let! cancelled = client.Cancel "job-1"
             match cancelled with | Ok job -> job.State |> should equal "cancelled" | Error error -> failwith error
             paths |> Seq.toList |> should equal [ "GET /health"; "GET /v1/media/capabilities"; "POST /v1/media/jobs"; "GET /v1/media/jobs/job-1"; "POST /v1/media/jobs/job-1/cancel" ]
+        }
+
+    [<Fact>]
+    let ``Local media submits explicit video operation and generation controls`` () =
+        task {
+            let mutable body = ""
+            let handler =
+                TestMocks.StubHttpHandler(fun req ->
+                    body <- req.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                    TestMocks.jsonResponse HttpStatusCode.Accepted """{"job_id":"video-1","state":"running","output":"lmvs/video.mp4","error_code":null}""")
+            use http = new HttpClient(handler, disposeHandler = true)
+            use client = LocalMediaClient.Client({ BaseUrl = "http://127.0.0.1:18761"; ProviderId = "comfyui"; ModelId = "video.wan2.2-ti2v-5b"; OutputRoot = "I:/AI/Outputs" }, http, TimeSpan.Zero)
+            let! submitted = client.SubmitMedia("video-key", "video.generate", "ocean sunrise", "lmvs/video.mp4", 512, 288, 20, 42, frames = 49, fps = 24)
+            match submitted with | Ok job -> job.JobId |> should equal "video-1" | Error error -> failwith error
+            use doc = JsonDocument.Parse body
+            doc.RootElement.GetProperty("operation").GetString() |> should equal "video.generate"
+            doc.RootElement.GetProperty("input").GetProperty("frames").GetInt32() |> should equal 49
+            doc.RootElement.GetProperty("model_id").GetString() |> should equal "video.wan2.2-ti2v-5b"
+        }
+
+module LocalMediaVideoProviderTests =
+    [<Fact>]
+    let ``Local media video provider saves and returns the shared MP4 result`` () =
+        task {
+            let root = Path.Combine(Path.GetTempPath(), "lmvs-media-test-" + Guid.NewGuid().ToString("N"))
+            Directory.CreateDirectory root |> ignore
+            let mutable relative = ""
+            try
+                let handler =
+                    TestMocks.StubHttpHandler(fun req ->
+                        match req.Method.Method, req.RequestUri.AbsolutePath with
+                        | "GET", "/health" -> TestMocks.jsonResponse HttpStatusCode.OK """{"status":"ok"}"""
+                        | "GET", "/v1/media/capabilities" -> TestMocks.jsonResponse HttpStatusCode.OK """{"providers":[{"provider_id":"comfyui","models":[{"model_id":"video.wan2.2-ti2v-5b","qualified":true,"status":"available"}]}]}"""
+                        | "POST", "/v1/media/jobs" ->
+                            let body = req.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                            use doc = JsonDocument.Parse body
+                            relative <- doc.RootElement.GetProperty("output").GetProperty("path").GetString()
+                            let full = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar))
+                            Directory.CreateDirectory(Path.GetDirectoryName full) |> ignore
+                            File.WriteAllBytes(full, [| 0uy; 0uy; 0uy; 24uy; byte 'f'; byte 't'; byte 'y'; byte 'p'; 0uy; 0uy; 0uy; 0uy |])
+                            TestMocks.jsonResponse HttpStatusCode.Accepted $"""{{"job_id":"video-1","state":"completed","output":"{relative}","error_code":null}}"""
+                        | _ -> TestMocks.jsonResponse HttpStatusCode.NotFound "{}")
+                use http = new HttpClient(handler, disposeHandler = true)
+                use provider = new LocalMediaVideoProvider.LocalMediaVideoProvider({ BaseUrl = "http://127.0.0.1:18761"; ProviderId = "comfyui"; ModelId = "video.wan2.2-ti2v-5b"; OutputRoot = root }, http, TimeSpan.Zero)
+                let! result = provider.Generate({ Prompt = "ocean"; Width = 512; Height = 288; Frames = 49; Fps = 24; Steps = 20; Seed = 42; InitImageBase64 = None })
+                match result with
+                | Error error -> failwith error
+                | Ok video ->
+                    video.OutputFormat |> should equal "mp4"
+                    video.FrameCount |> should equal 49
+                    String.IsNullOrWhiteSpace relative |> should equal false
+            finally
+                if Directory.Exists root then Directory.Delete(root, true)
         }
 
 module SdCppVideoProviderTests =

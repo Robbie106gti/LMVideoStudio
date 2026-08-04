@@ -61,7 +61,7 @@ module MediaGenerationProvider =
           LemonadeModel = environmentValue "LMVS_IMAGE_MODEL" "user.Z-Image-Turbo-Q6"
           LocalMedia =
             { BaseUrl = environmentValue "LMVS_LOCAL_MEDIA_BASE_URL" "http://127.0.0.1:18761"
-              ProviderId = environmentValue "LMVS_LOCAL_MEDIA_PROVIDER" "stable_diffusion_cpp"
+              ProviderId = environmentValue "LMVS_LOCAL_MEDIA_PROVIDER" "lemonade"
               ModelId = environmentValue "LMVS_LOCAL_MEDIA_MODEL" "image.z-image"
               OutputRoot = "" } }
 

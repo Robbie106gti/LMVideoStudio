@@ -97,7 +97,7 @@ module ExportAndGenerationTests =
                 let! responseBody = response.Content.ReadAsStringAsync()
 
                 response.StatusCode |> should equal HttpStatusCode.BadRequest
-                responseBody.Contains("LMVS_VIDEO_PROVIDER=sdcpp") |> should equal true
+                responseBody.Contains("LMVS_VIDEO_PROVIDER=local-media") |> should equal true
             }
 
         [<Fact>]

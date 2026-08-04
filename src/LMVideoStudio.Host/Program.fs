@@ -34,7 +34,7 @@ module Program =
           LocalAi: LocalAiProvider.LocalAiProvider
           Worker: PythonWorkerProvider.PythonWorkerProvider
           Media: MediaGenerationProvider.MediaGenerationProvider
-          Video: SdCppVideoProvider.SdCppVideoProvider
+          Video: SdCppVideoProvider.IVideoProvider
           Generation: BlockGeneration.BlockGenerationService
           VideoGeneration: BlockVideoGeneration.BlockVideoGenerationService
           Preview: ExportJobs.MockupPreviewService
@@ -309,13 +309,13 @@ module Program =
                         let! status = services.Models.GetStatus()
                         let! image = services.Media.HealthCheck()
                         let videoProvider =
-                            if String.Equals(Environment.GetEnvironmentVariable "LMVS_VIDEO_PROVIDER", "sdcpp", StringComparison.OrdinalIgnoreCase) then
-                                "sdcpp"
-                            else
-                                "disabled"
+                            match Environment.GetEnvironmentVariable "LMVS_VIDEO_PROVIDER" with
+                            | value when String.Equals(value, "sdcpp", StringComparison.OrdinalIgnoreCase) -> "sdcpp"
+                            | value when String.Equals(value, "local-media", StringComparison.OrdinalIgnoreCase) -> "local-media"
+                            | _ -> "disabled"
 
                         let! video =
-                            if videoProvider = "sdcpp" then
+                            if videoProvider <> "disabled" then
                                 services.Video.HealthCheck()
                             else
                                 task {
@@ -1254,23 +1254,40 @@ module Program =
             else
                 MediaGenerationProvider.configFromEnvironment ()
 
-        let mediaConfig = { mediaConfig with LocalMedia = { mediaConfig.LocalMedia with OutputRoot = store.ProjectsRoot } }
+        let sharedMediaOutputRoot =
+            match Environment.GetEnvironmentVariable "LMVS_LOCAL_MEDIA_OUTPUT_ROOT" with
+            | value when not (String.IsNullOrWhiteSpace value) -> value.Trim()
+            | _ -> store.ProjectsRoot
+
+        let mediaConfig = { mediaConfig with LocalMedia = { mediaConfig.LocalMedia with OutputRoot = sharedMediaOutputRoot } }
 
         let media = MediaGenerationProvider.MediaGenerationProvider(mediaConfig, worker)
+
+        let videoMode =
+            match Environment.GetEnvironmentVariable "LMVS_VIDEO_PROVIDER" with
+            | value when String.Equals(value, "sdcpp", StringComparison.OrdinalIgnoreCase) -> "sdcpp"
+            | value when String.Equals(value, "local-media", StringComparison.OrdinalIgnoreCase) -> "local-media"
+            | _ -> "disabled"
 
         let videoBaseUrl =
             match Environment.GetEnvironmentVariable "LMVS_VIDEO_BASE_URL" with
             | value when not (String.IsNullOrWhiteSpace value) -> value.Trim()
+            | _ when videoMode = "local-media" -> "http://127.0.0.1:18761"
             | _ -> "http://127.0.0.1:1234"
 
         let videoEnabled =
-            String.Equals(
-                Environment.GetEnvironmentVariable "LMVS_VIDEO_PROVIDER",
-                "sdcpp",
-                StringComparison.OrdinalIgnoreCase
-            )
+            videoMode <> "disabled"
 
-        let videoProvider = SdCppVideoProvider.SdCppVideoProvider(videoBaseUrl)
+        let videoProvider: SdCppVideoProvider.IVideoProvider =
+            if videoMode = "local-media" then
+                LocalMediaVideoProvider.LocalMediaVideoProvider(
+                    { BaseUrl = videoBaseUrl
+                      ProviderId = "comfyui"
+                      ModelId = "video.wan2.2-ti2v-5b"
+                      OutputRoot = sharedMediaOutputRoot }
+                ) :> SdCppVideoProvider.IVideoProvider
+            else
+                SdCppVideoProvider.SdCppVideoProvider(videoBaseUrl) :> SdCppVideoProvider.IVideoProvider
 
         let gpuQueue = GpuQueueService(SingleFlightGpuQueue(), worker, repoRoot)
 

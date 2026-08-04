@@ -36,6 +36,8 @@
 
     <Compile Include="SdCppVideoProvider.fs" />
 
+    <Compile Include="LocalMediaVideoProvider.fs" />
+
     <Compile Include="GpuQueue.fs" />
 
     <Compile Include="ExportJobs.fs" />

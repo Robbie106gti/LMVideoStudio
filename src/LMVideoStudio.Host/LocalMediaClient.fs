@@ -5,6 +5,7 @@ open System.Net.Http
 open System.Text
 open System.Text.Json
 open System.Threading.Tasks
+open System.Collections.Generic
 
 module LocalMediaClient =
     type Config = { BaseUrl: string; ProviderId: string; ModelId: string; OutputRoot: string }
@@ -63,16 +64,26 @@ module LocalMediaClient =
                                 return if available then { Ready = true; Error = None } else { Ready = false; Error = Some $"Local media profile '{config.ModelId}' is unavailable or unqualified" }
                 with ex -> return { Ready = false; Error = Some ex.Message }
             }
-        member _.Submit(key: string, prompt: string, output: string) : Task<Result<Job,string>> =
+        member _.SubmitMedia(key: string, operation: string, prompt: string, output: string, width: int, height: int, steps: int, seed: int, ?frames: int, ?fps: int) : Task<Result<Job,string>> =
             task {
                 try
-                    let payload = JsonSerializer.Serialize {| idempotency_key = key; provider_id = config.ProviderId; model_id = config.ModelId; operation = "image.generate"; input = {| prompt = prompt |}; output = {| path = output |} |}
+                    let input = Dictionary<string, obj>()
+                    input["prompt"] <- prompt
+                    input["width"] <- width
+                    input["height"] <- height
+                    input["steps"] <- steps
+                    input["seed"] <- seed
+                    frames |> Option.iter (fun value -> input["frames"] <- value)
+                    fps |> Option.iter (fun value -> input["fps"] <- value)
+                    let payload = JsonSerializer.Serialize {| idempotency_key = key; provider_id = config.ProviderId; model_id = config.ModelId; operation = operation; input = input; output = {| path = output |} |}
                     use content = new StringContent(payload, Encoding.UTF8, "application/json")
                     use! response = http.PostAsync($"{url}/v1/media/jobs", content)
                     let! body = response.Content.ReadAsStringAsync()
                     return if (int response.StatusCode) = 202 then Ok(parseJob body) else Error $"Local media submit failed: HTTP {(int response.StatusCode)}"
                 with ex -> return Error $"Local media submit failed: {ex.Message}"
             }
+        member this.Submit(key: string, prompt: string, output: string) : Task<Result<Job,string>> =
+            this.SubmitMedia(key, "image.generate", prompt, output, 1024, 1024, 9, 42)
         member _.Get(id: string) : Task<Result<Job,string>> =
             task {
                 try
@@ -91,8 +102,10 @@ module LocalMediaClient =
                 with ex -> return Error $"Local media cancel failed: {ex.Message}"
             }
         member this.SubmitAndPoll(key: string, prompt: string, output: string, onState: string -> unit) : Task<Result<Job,string>> =
+            this.SubmitAndPollMedia(key, "image.generate", prompt, output, 1024, 1024, 9, 42, onState)
+        member this.SubmitAndPollMedia(key: string, operation: string, prompt: string, output: string, width: int, height: int, steps: int, seed: int, onState: string -> unit, ?frames: int, ?fps: int) : Task<Result<Job,string>> =
             task {
-                let! submitted = this.Submit(key, prompt, output)
+                let! submitted = this.SubmitMedia(key, operation, prompt, output, width, height, steps, seed, ?frames = frames, ?fps = fps)
                 match submitted with
                 | Error error -> return Error error
                 | Ok initial ->

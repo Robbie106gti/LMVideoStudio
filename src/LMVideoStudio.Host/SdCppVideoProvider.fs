@@ -31,6 +31,10 @@ module SdCppVideoProvider =
           FrameCount: int
           Fps: int }
 
+    type IVideoProvider =
+        abstract member HealthCheck: unit -> Task<VideoHealth>
+        abstract member Generate: GenerateVideoRequest -> Task<Result<GenerateVideoResult, string>>
+
     let normalizeFrameCount requested =
         if requested < 1 then invalidArg "Frames" "Video frames must be positive"
         1 + 4 * ((requested - 1) / 4)
@@ -206,3 +210,7 @@ module SdCppVideoProvider =
 
         interface IDisposable with
             member _.Dispose() = http.Dispose()
+
+        interface IVideoProvider with
+            member this.HealthCheck() = this.HealthCheck()
+            member this.Generate(request) = this.Generate(request)

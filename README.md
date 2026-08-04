@@ -49,11 +49,14 @@ Image generation defaults to `auto`: the host selects Lemonade only when its hea
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `LMVS_IMAGE_PROVIDER` | `auto` | `auto`, `lemonade`, or compatibility `worker` |
+| `LMVS_IMAGE_PROVIDER` | `local-media` | Shared prompt API; `auto`, `lemonade`, and `worker` remain explicit compatibility choices |
 | `LMVS_IMAGE_BASE_URL` | `http://127.0.0.1:13305` | Lemonade loopback service |
-| `LMVS_IMAGE_MODEL` | `user.Z-Image-Turbo-Q6` | Exact downloaded Lemonade image model |
-| `LMVS_VIDEO_PROVIDER` | unset (disabled) | Set to `sdcpp` only for a qualified Wan server |
-| `LMVS_VIDEO_BASE_URL` | `http://127.0.0.1:1234` | Separate stable-diffusion.cpp loopback service |
+| `LMVS_IMAGE_MODEL` | `user.Z-Image-Turbo-Q6` | Exact downloaded Lemonade image model for direct Lemonade mode |
+| `LMVS_LOCAL_MEDIA_BASE_URL` | `http://127.0.0.1:18761` | Shared Agent System Kit image/video job API |
+| `LMVS_LOCAL_MEDIA_PROVIDER` | `lemonade` | Explicit shared image provider |
+| `LMVS_LOCAL_MEDIA_OUTPUT_ROOT` | project store root | Must match the shared service output root so completed media can be retrieved |
+| `LMVS_VIDEO_PROVIDER` | unset (disabled) | Set `local-media` for the shared WAN 2.2 API or `sdcpp` for the legacy qualified server |
+| `LMVS_VIDEO_BASE_URL` | provider-dependent | Defaults to `http://127.0.0.1:18761` for local media and `:1234` for sdcpp |
 | `LMVS_VIDEO_TIMEOUT_MINUTES` | `30` | GPU queue timeout for video generation |
 | `LMVS_RADEON_FINISHING` | `off` | `auto` uses the optional AMD finishing runner; `required` fails the bake when it cannot run |
 | `LMVS_FSR_FRAME_GENERATION` | unset (off) | Set to `true` to opt into 24-to-48-fps interpolation; thin geometry can ghost |
@@ -61,7 +64,7 @@ Image generation defaults to `auto`: the host selects Lemonade only when its hea
 | `LMVS_FSR_UPSCALE_EXE` | unset | Qualified 640x360-to-1920x1080 FSR 4 ML sidecar |
 | `LMVS_VIDEO_ENCODER` | `auto` | Generated-video normalization tries `h264_amf`, then falls back to `libx264`; set `cpu` to skip AMF |
 
-Wan video is intentionally not routed through Lemonade because its installed API has no verified video role. Start a separate stable-diffusion.cpp server with Wan2.2 TI2V 5B, then require `vid_gen` from `GET /sdcpp/v1/capabilities` before enabling it:
+WAN video can be routed through the shared local-media API and its explicit ComfyUI profile; Lemonade remains image-only. Set `LMVS_VIDEO_PROVIDER=local-media`, start ComfyUI and the shared media host, and point `LMVS_LOCAL_MEDIA_OUTPUT_ROOT` at the host's output root. The legacy stable-diffusion.cpp path remains available explicitly:
 
 ```powershell
 $env:LMVS_VIDEO_PROVIDER = "sdcpp"
