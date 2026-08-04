@@ -64,7 +64,7 @@ module LocalMediaClient =
                                 return if available then { Ready = true; Error = None } else { Ready = false; Error = Some $"Local media profile '{config.ModelId}' is unavailable or unqualified" }
                 with ex -> return { Ready = false; Error = Some ex.Message }
             }
-        member _.SubmitMedia(key: string, operation: string, prompt: string, output: string, width: int, height: int, steps: int, seed: int, ?frames: int, ?fps: int) : Task<Result<Job,string>> =
+        member _.SubmitMedia(key: string, operation: string, prompt: string, output: string, width: int, height: int, steps: int, seed: int, ?frames: int, ?fps: int, ?initImage: string) : Task<Result<Job,string>> =
             task {
                 try
                     let input = Dictionary<string, obj>()
@@ -75,6 +75,7 @@ module LocalMediaClient =
                     input["seed"] <- seed
                     frames |> Option.iter (fun value -> input["frames"] <- value)
                     fps |> Option.iter (fun value -> input["fps"] <- value)
+                    initImage |> Option.iter (fun value -> input["init_image"] <- value)
                     let payload = JsonSerializer.Serialize {| idempotency_key = key; provider_id = config.ProviderId; model_id = config.ModelId; operation = operation; input = input; output = {| path = output |} |}
                     use content = new StringContent(payload, Encoding.UTF8, "application/json")
                     use! response = http.PostAsync($"{url}/v1/media/jobs", content)
@@ -103,9 +104,9 @@ module LocalMediaClient =
             }
         member this.SubmitAndPoll(key: string, prompt: string, output: string, onState: string -> unit) : Task<Result<Job,string>> =
             this.SubmitAndPollMedia(key, "image.generate", prompt, output, 1024, 1024, 9, 42, onState)
-        member this.SubmitAndPollMedia(key: string, operation: string, prompt: string, output: string, width: int, height: int, steps: int, seed: int, onState: string -> unit, ?frames: int, ?fps: int) : Task<Result<Job,string>> =
+        member this.SubmitAndPollMedia(key: string, operation: string, prompt: string, output: string, width: int, height: int, steps: int, seed: int, onState: string -> unit, ?frames: int, ?fps: int, ?initImage: string) : Task<Result<Job,string>> =
             task {
-                let! submitted = this.SubmitMedia(key, operation, prompt, output, width, height, steps, seed, ?frames = frames, ?fps = fps)
+                let! submitted = this.SubmitMedia(key, operation, prompt, output, width, height, steps, seed, ?frames = frames, ?fps = fps, ?initImage = initImage)
                 match submitted with
                 | Error error -> return Error error
                 | Ok initial ->

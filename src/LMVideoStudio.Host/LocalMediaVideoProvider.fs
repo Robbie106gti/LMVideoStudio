@@ -24,21 +24,24 @@ module LocalMediaVideoProvider =
         member _.Generate(request: SdCppVideoProvider.GenerateVideoRequest) : Task<Result<SdCppVideoProvider.GenerateVideoResult, string>> =
             task {
                 let frames = SdCppVideoProvider.normalizeFrameCount request.Frames
-                let relative = $"lmvs/{Guid.NewGuid():N}.mp4"
+                let relative = $"lmvs/{Guid.NewGuid():N}.webm"
                 match containedOutput relative with
                 | None -> return Error "Local media output root is missing or invalid"
                 | Some full ->
-                    let steps = if request.Steps > 0 then request.Steps else 20
-                    let! completed = client.SubmitAndPollMedia(Guid.NewGuid().ToString("N"), "video.generate", request.Prompt, relative, request.Width, request.Height, steps, request.Seed, ignore, frames = frames, fps = request.Fps)
+                    let steps = if request.Steps > 0 then request.Steps else 9
+                    let! completed = client.SubmitAndPollMedia(Guid.NewGuid().ToString("N"), "video.generate", request.Prompt, relative, request.Width, request.Height, steps, request.Seed, ignore, frames = frames, fps = request.Fps, ?initImage = request.InitImageBase64)
                     match completed with
                     | Error error -> return Error error
                     | Ok job when job.Output <> relative -> return Error "Local media returned an unexpected output path"
                     | Ok _ when not (File.Exists full) -> return Error "Local media video output is missing"
                     | Ok _ ->
                         let bytes = File.ReadAllBytes full
-                        if bytes.Length < 12 || bytes[4..7] <> [| byte 'f'; byte 't'; byte 'y'; byte 'p' |] then return Error "Local media returned an invalid MP4"
+                        let isWebM = bytes.Length >= 4 && bytes[0..3] = [| 0x1Auy; 0x45uy; 0xDFuy; 0xA3uy |]
+                        let isMp4 = bytes.Length >= 12 && bytes[4..7] = [| byte 'f'; byte 't'; byte 'y'; byte 'p' |]
+                        if not isWebM && not isMp4 then return Error "Local media returned an invalid video"
                         else
-                            let result: SdCppVideoProvider.GenerateVideoResult = { VideoBase64 = Convert.ToBase64String bytes; MimeType = "video/mp4"; OutputFormat = "mp4"; FrameCount = frames; Fps = request.Fps }
+                            let format, mimeType = if isWebM then "webm", "video/webm" else "mp4", "video/mp4"
+                            let result: SdCppVideoProvider.GenerateVideoResult = { VideoBase64 = Convert.ToBase64String bytes; MimeType = mimeType; OutputFormat = format; FrameCount = frames; Fps = request.Fps }
                             return Ok result
             }
 

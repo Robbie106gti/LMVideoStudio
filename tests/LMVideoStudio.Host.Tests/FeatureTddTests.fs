@@ -772,3 +772,21 @@ module FeatureTddTests =
                   "pad_to_16_9"
                   "fsr4_ml_upscale"
                   "amf_encode_with_cpu_fallback" ]
+
+        [<Fact>]
+        let ``Radeon finishing script exposes native 4K profile`` () =
+            let repoRoot = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", ".."))
+            let psi = ProcessStartInfo("pwsh")
+            for value in [ "-NoProfile"; "-File"; Path.Combine(repoRoot, "scripts", "radeon-finish.ps1"); "-InputPath"; "input.webm"; "-OutputPath"; "output.mp4"; "-Profile"; "4k"; "-SourceFps"; "12"; "-PlanOnly" ] do psi.ArgumentList.Add value
+            psi.RedirectStandardOutput <- true
+            psi.UseShellExecute <- false
+            use proc = Process.Start psi
+            let stdout = proc.StandardOutput.ReadToEnd()
+            proc.WaitForExit 30000 |> ignore
+            proc.ExitCode |> should equal 0
+            use plan = JsonDocument.Parse stdout
+            plan.RootElement.GetProperty("source_width").GetInt32() |> should equal 1280
+            plan.RootElement.GetProperty("source_height").GetInt32() |> should equal 704
+            plan.RootElement.GetProperty("output_width").GetInt32() |> should equal 3840
+            plan.RootElement.GetProperty("output_height").GetInt32() |> should equal 2160
+            plan.RootElement.GetProperty("output_fps").GetInt32() |> should equal 12

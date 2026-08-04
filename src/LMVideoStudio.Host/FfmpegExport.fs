@@ -410,6 +410,12 @@ module FfmpegExport =
                     | value when String.Equals(value, "true", StringComparison.OrdinalIgnoreCase) -> true
                     | "1" -> true
                     | _ -> false
+                let radeonProfile =
+                    match Environment.GetEnvironmentVariable "LMVS_RADEON_PROFILE" with
+                    | value when String.Equals(value, "1080p", StringComparison.OrdinalIgnoreCase) -> "1080p"
+                    | _ -> "4k"
+                let sourceFps = if radeonProfile = "4k" then "12" else "24"
+                let stabilize = radeonProfile = "4k"
                 let scriptPath = Path.Combine(repoRoot, "scripts", "radeon-finish.ps1")
 
                 if not (OperatingSystem.IsWindows()) then
@@ -429,8 +435,11 @@ module FfmpegExport =
                           "-OutputPath"; outputPath
                           "-FrameGenerationExe"; frameGenerationExe
                           "-UpscaleExe"; upscaleExe
+                          "-Profile"; radeonProfile
+                          "-SourceFps"; sourceFps
                           "-Encoder"; "auto" ]
                         @ (if frameGenerationEnabled then [ "-FrameGeneration" ] else [])
+                        @ (if stabilize then [ "-Stabilize" ] else [])
 
                     let runOpts =
                         { TimeoutMs = 600_000

@@ -582,11 +582,11 @@ module Program =
 
                             let options: BlockVideoGeneration.GenerateVideoOptions =
                                 { Prompt = prompt
-                                  Width = intValue "width" 640
-                                  Height = intValue "height" 352
-                                  Frames = intValue "frames" 121
-                                  Fps = intValue "fps" 24
-                                  Steps = intValue "steps" 0
+                                  Width = intValue "width" 1280
+                                  Height = intValue "height" 704
+                                  Frames = intValue "frames" 61
+                                  Fps = intValue "fps" 12
+                                  Steps = intValue "steps" 9
                                   Seed = intValue "seed" 42 }
 
                             match! services.VideoGeneration.Generate(projectId, blockId, options) with
@@ -1280,10 +1280,18 @@ module Program =
 
         let videoProvider: SdCppVideoProvider.IVideoProvider =
             if videoMode = "local-media" then
+                let localVideoProvider =
+                    match Environment.GetEnvironmentVariable "LMVS_LOCAL_MEDIA_VIDEO_PROVIDER" with
+                    | value when not (String.IsNullOrWhiteSpace value) -> value.Trim()
+                    | _ -> "stable_diffusion_cpp_video"
+                let localVideoModel =
+                    match Environment.GetEnvironmentVariable "LMVS_LOCAL_MEDIA_VIDEO_MODEL" with
+                    | value when not (String.IsNullOrWhiteSpace value) -> value.Trim()
+                    | _ -> "video.fastwan2.2-ti2v-5b"
                 LocalMediaVideoProvider.LocalMediaVideoProvider(
                     { BaseUrl = videoBaseUrl
-                      ProviderId = "comfyui"
-                      ModelId = "video.wan2.2-ti2v-5b"
+                      ProviderId = localVideoProvider
+                      ModelId = localVideoModel
                       OutputRoot = sharedMediaOutputRoot }
                 ) :> SdCppVideoProvider.IVideoProvider
             else

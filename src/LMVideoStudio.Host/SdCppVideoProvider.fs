@@ -118,7 +118,7 @@ module SdCppVideoProvider =
                         health.ModelName
                         |> Option.exists (fun name -> name.Contains("FastWan", StringComparison.OrdinalIgnoreCase))
 
-                    let steps = if request.Steps > 0 then request.Steps else if fastWan then 3 else 36
+                    let steps = if request.Steps > 0 then request.Steps else if fastWan then 9 else 36
                     let scheduler = if fastWan then "lcm" else "smoothstep"
                     let flowShift = if fastWan then 3.0 else 5.0
                     let cfg = if fastWan then 1.0 else 5.0

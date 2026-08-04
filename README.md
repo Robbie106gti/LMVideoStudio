@@ -55,16 +55,19 @@ Image generation defaults to `auto`: the host selects Lemonade only when its hea
 | `LMVS_LOCAL_MEDIA_BASE_URL` | `http://127.0.0.1:18761` | Shared Agent System Kit image/video job API |
 | `LMVS_LOCAL_MEDIA_PROVIDER` | `lemonade` | Explicit shared image provider |
 | `LMVS_LOCAL_MEDIA_OUTPUT_ROOT` | project store root | Must match the shared service output root so completed media can be retrieved |
+| `LMVS_LOCAL_MEDIA_VIDEO_PROVIDER` | `stable_diffusion_cpp_video` | Explicit shared FastWan video provider |
+| `LMVS_LOCAL_MEDIA_VIDEO_MODEL` | `video.fastwan2.2-ti2v-5b` | Qualified logical FastWan profile |
 | `LMVS_VIDEO_PROVIDER` | unset (disabled) | Set `local-media` for the shared WAN 2.2 API or `sdcpp` for the legacy qualified server |
 | `LMVS_VIDEO_BASE_URL` | provider-dependent | Defaults to `http://127.0.0.1:18761` for local media and `:1234` for sdcpp |
 | `LMVS_VIDEO_TIMEOUT_MINUTES` | `30` | GPU queue timeout for video generation |
 | `LMVS_RADEON_FINISHING` | `off` | `auto` uses the optional AMD finishing runner; `required` fails the bake when it cannot run |
-| `LMVS_FSR_FRAME_GENERATION` | unset (off) | Set to `true` to opt into 24-to-48-fps interpolation; thin geometry can ghost |
-| `LMVS_FSR_FRAMEGEN_EXE` | unset | Required only when frame generation is enabled; qualified 640x352 FSR 4 sidecar |
-| `LMVS_FSR_UPSCALE_EXE` | unset | Qualified 640x360-to-1920x1080 FSR 4 ML sidecar |
+| `LMVS_RADEON_PROFILE` | `4k` | Stabilized 1280x704 input, 1280x720 padding, and 3840x2160 FSR output; select `1080p` only for the legacy sidecars |
+| `LMVS_FSR_FRAME_GENERATION` | unset (off) | Set to `true` with a profile-matched sidecar to double the source frame rate |
+| `LMVS_FSR_FRAMEGEN_EXE` | unset | Required only when frame generation is enabled; must match the selected Radeon profile |
+| `LMVS_FSR_UPSCALE_EXE` | unset | Profile-matched FSR 4 ML upscaling sidecar |
 | `LMVS_VIDEO_ENCODER` | `auto` | Generated-video normalization tries `h264_amf`, then falls back to `libx264`; set `cpu` to skip AMF |
 
-WAN video can be routed through the shared local-media API and its explicit ComfyUI profile; Lemonade remains image-only. Set `LMVS_VIDEO_PROVIDER=local-media`, start ComfyUI and the shared media host, and point `LMVS_LOCAL_MEDIA_OUTPUT_ROOT` at the host's output root. The legacy stable-diffusion.cpp path remains available explicitly:
+Wan video can be routed through the shared local-media API and its qualified FastWan stable-diffusion.cpp profile; Lemonade remains image-only and ComfyUI remains an explicit alternative for workflow experiments. Set `LMVS_VIDEO_PROVIDER=local-media`, start the FastWan server and shared media host, and point `LMVS_LOCAL_MEDIA_OUTPUT_ROOT` at the host's output root. The legacy direct stable-diffusion.cpp path remains available explicitly:
 
 ```powershell
 $env:LMVS_VIDEO_PROVIDER = "sdcpp"
@@ -72,35 +75,36 @@ $env:LMVS_VIDEO_BASE_URL = "http://127.0.0.1:1234"
 .\scripts\dev.ps1
 ```
 
-The timeline’s “Generate Wan video from thumbnail” action creates a 121-frame 640x352 WebM at 24 fps (five seconds) and stores it on the block. Sampling is model-aware: a capability response whose `model.name` contains `FastWan` uses the verified three-step LCM, CFG 1, flow-shift 3 profile; other Wan models use 36-step SmoothStep, CFG 5, flow-shift 5. Both use 0.60 image strength to preserve a stable camera and subject geometry. Explicit positive `steps` in the API still overrides the selected default.
+The timeline’s “Generate Wan video from thumbnail” action creates a 61-frame 1280x704 WebM at 12 fps (five seconds) and stores it on the block. Sampling is model-aware: a capability response whose `model.name` contains `FastWan` uses the approved nine-step LCM, CFG 1, flow-shift 3 profile; other Wan models use 36-step SmoothStep, CFG 5, flow-shift 5. Both use 0.60 image strength to preserve a stable camera and subject geometry. Explicit positive `steps` in the API still overrides the selected default. The 12-fps source is intended for stabilization and reliable 2x frame interpolation to 24 fps during finishing.
 
-The measured fast profile used `FastWan2.2-TI2V-5B-q6_k.gguf` plus the Wan 2.2 TI2V 5B tiny decoder `taew2_2.safetensors`. The server must advertise `vid_gen` and its actual model name; LMVideoStudio does not download weights or own the external server lifecycle. The portable, checksum-pinned model plan and dry-run setup helper live in Agent System Kit’s `local-media-models` skill.
+The measured quality profile used the FastWan Q8 GGUF plus the Wan 2.2 TI2V 5B tiny decoder; Q6 remains the lower-VRAM alternative. The server must advertise `vid_gen` and its actual model name; LMVideoStudio does not download weights or own the external server lifecycle. The portable, checksum-pinned model plan and dry-run setup helper live in Agent System Kit’s `local-media-models` skill.
 
 Final bake now consumes a block's generated `bakeVideoPath` when it exists instead of replacing it with a Ken Burns animation of the thumbnail. Generated clips are normalized to the bake dimensions and frame rate. On Windows, normalization tries AMD AMF H.264 first and automatically retries with CPU `libx264` when AMF is unavailable.
 
 #### Optional Radeon FSR finishing
 
-`scripts/radeon-finish.ps1` implements the qualified 640x352-at-24-fps finishing profile:
+`scripts/radeon-finish.ps1` implements two explicit finishing profiles: the original 640x352-at-24-fps to 1080p path and the native 1280x704-at-12-fps to 4K path. The 4K profile:
 
-1. deflicker, with capped stabilization available only as an explicit switch;
-2. add four safe pixels above and below to form an exact 640x360 16:9 source;
-3. AMD FSR 4 ML 3x upscaling to 1920x1080;
+1. deflicker and capped stabilization (enabled automatically by LMVideoStudio for this profile);
+2. add eight safe pixels above and below to form an exact 1280x720 16:9 source;
+3. AMD FSR 4 ML 3x upscaling to 3840x2160;
 4. AMF H.264 encoding with CPU fallback.
 
-Optional frame generation runs before padding and doubles 24 fps to 48 fps. It uses scene-jump detection and holds a real frame instead of interpolating across a cut, but remains opt-in because thin cables and similar geometry can produce doubled edges.
+Optional frame generation runs before padding and doubles the selected source rate: 12 to 24 fps for the 4K profile or 24 to 48 fps for the legacy profile. It uses scene-jump detection and holds a real frame instead of interpolating across a cut, but remains opt-in because thin cables and similar geometry can produce doubled edges.
 
 The app does not download or install AMD's SDK/runtime and does not copy its managed DLLs. Configure only locally qualified, AMD-signed sidecars. `auto` preserves the source clip if they are absent or fail; `required` fails explicitly.
 
 ```powershell
 $env:LMVS_RADEON_FINISHING = "auto"
-$env:LMVS_FSR_UPSCALE_EXE = "C:\path\to\qualified\fsr-upscale-640x360-to-1920x1080.exe"
+$env:LMVS_RADEON_PROFILE = "4k"
+$env:LMVS_FSR_UPSCALE_EXE = "C:\path\to\qualified\fsr-upscale-1280x720-to-3840x2160.exe"
 
-# Optional 48-fps mode:
+# Optional profile-matched 2x frame generation:
 $env:LMVS_FSR_FRAME_GENERATION = "true"
-$env:LMVS_FSR_FRAMEGEN_EXE = "C:\path\to\qualified\fsr-framegen-640x352.exe"
+$env:LMVS_FSR_FRAMEGEN_EXE = "C:\path\to\qualified\fsr-framegen-for-selected-profile.exe"
 
-# Inspect the fixed profile without touching input, output, or services.
-.\scripts\radeon-finish.ps1 -InputPath input.webm -OutputPath output.mp4 -PlanOnly
+# Inspect the 4K profile without touching input, output, or services.
+.\scripts\radeon-finish.ps1 -InputPath input.webm -OutputPath output.mp4 -Profile 4k -SourceFps 12 -Stabilize -PlanOnly
 ```
 
 The FSR sidecars use synthetic flat depth and motion metadata because Wan does not expose engine depth or motion-vector buffers. Per-frame upscaler resets prioritize deterministic output. A future persistent sidecar can retain the same contract while removing per-frame process-launch overhead.

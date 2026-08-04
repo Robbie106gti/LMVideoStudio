@@ -10,6 +10,9 @@ param(
     [string]$UpscaleExe = $env:LMVS_FSR_UPSCALE_EXE,
     [string]$FfmpegPath = "ffmpeg.exe",
 
+    [ValidateSet("1080p", "4k")]
+    [string]$Profile = "1080p",
+
     [ValidateRange(1, 120)]
     [int]$SourceFps = 24,
 
@@ -29,11 +32,12 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-$renderWidth = 640
-$renderHeight = 352
-$paddedHeight = 360
-$outputWidth = 1920
-$outputHeight = 1080
+$renderWidth = if ($Profile -eq "4k") { 1280 } else { 640 }
+$renderHeight = if ($Profile -eq "4k") { 704 } else { 352 }
+$paddedHeight = if ($Profile -eq "4k") { 720 } else { 360 }
+$outputWidth = if ($Profile -eq "4k") { 3840 } else { 1920 }
+$outputHeight = if ($Profile -eq "4k") { 2160 } else { 1080 }
+$paddingY = [int](($paddedHeight - $renderHeight) / 2)
 $targetFps = if ($FrameGeneration) { $SourceFps * 2 } else { $SourceFps }
 
 function Resolve-Executable {
@@ -78,6 +82,7 @@ function Invoke-Checked {
 $plan = [ordered]@{
     input = $InputPath
     output = $OutputPath
+    profile = $Profile
     source_width = $renderWidth
     source_height = $renderHeight
     source_fps = $SourceFps
@@ -229,7 +234,7 @@ try {
         "-f", "image2", "-framerate", $targetFps.ToString([Globalization.CultureInfo]::InvariantCulture),
         "-video_size", "${renderWidth}x${renderHeight}", "-pixel_format", "rgba", "-vcodec", "rawvideo",
         "-i", $padInputPattern, "-frames:v", $framesToUpscale.Count.ToString([Globalization.CultureInfo]::InvariantCulture),
-        "-vf", "pad=${renderWidth}:${paddedHeight}:0:4:color=black,format=rgba",
+        "-vf", "pad=${renderWidth}:${paddedHeight}:0:${paddingY}:color=black,format=rgba",
         "-f", "image2", "-vcodec", "rawvideo", $paddedPattern
     )
     $null = Invoke-Checked -FilePath $resolvedFfmpeg -Arguments $padArgs -Label "16:9 source padding"
