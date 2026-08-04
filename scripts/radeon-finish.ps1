@@ -40,6 +40,10 @@ $outputHeight = if ($Profile -eq "4k") { 2160 } else { 1080 }
 $paddingY = [int](($paddedHeight - $renderHeight) / 2)
 $frameGenerationHeight = if ($FrameGeneration -and $Profile -eq "4k") { $paddedHeight } else { $renderHeight }
 $targetFps = if ($FrameGeneration) { $SourceFps * 2 } else { $SourceFps }
+$sourceFrameTimeMs = 1000.0 / $SourceFps
+$outputFrameTimeMs = 1000.0 / $targetFps
+$sourceFrameTimeArg = $sourceFrameTimeMs.ToString("0.######", [Globalization.CultureInfo]::InvariantCulture)
+$outputFrameTimeArg = $outputFrameTimeMs.ToString("0.######", [Globalization.CultureInfo]::InvariantCulture)
 
 function Resolve-Executable {
     param([string]$Value, [string]$Label)
@@ -88,9 +92,11 @@ $plan = [ordered]@{
     source_height = $renderHeight
     frame_generation_input_height = $frameGenerationHeight
     source_fps = $SourceFps
+    frame_generation_frame_time_ms = $sourceFrameTimeMs
     output_width = $outputWidth
     output_height = $outputHeight
     output_fps = $targetFps
+    upscale_frame_time_ms = $outputFrameTimeMs
     scene_threshold = $SceneThreshold
     encoder = $Encoder
     frame_generation = [bool]$FrameGeneration
@@ -222,7 +228,12 @@ try {
                 Copy-Item -LiteralPath $sourceFrames[$index].FullName -Destination $oddOutput
             }
             else {
-                & $resolvedFrameGeneration $sourceFrames[$index].FullName $sourceFrames[$index + 1].FullName $oddOutput 2>&1 | Out-Null
+                & $resolvedFrameGeneration $sourceFrames[$index].FullName $sourceFrames[$index + 1].FullName $oddOutput $sourceFrameTimeArg 2>&1 | Out-Null
+
+                if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $oddOutput -PathType Leaf)) {
+                    Remove-Item -LiteralPath $oddOutput -Force -ErrorAction SilentlyContinue
+                    & $resolvedFrameGeneration $sourceFrames[$index].FullName $sourceFrames[$index + 1].FullName $oddOutput 2>&1 | Out-Null
+                }
 
                 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $oddOutput -PathType Leaf)) {
                     throw "FSR frame generation failed between source frames $index and $($index + 1)."
@@ -255,7 +266,12 @@ try {
 
     foreach ($frame in $paddedFrames) {
         $upscaledPath = Join-Path $upscaledDirectory $frame.Name
-        & $resolvedUpscale $frame.FullName $upscaledPath 1 2>&1 | Out-Null
+        & $resolvedUpscale $frame.FullName $upscaledPath 1 $outputFrameTimeArg 2>&1 | Out-Null
+
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $upscaledPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $upscaledPath -Force -ErrorAction SilentlyContinue
+            & $resolvedUpscale $frame.FullName $upscaledPath 1 2>&1 | Out-Null
+        }
 
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $upscaledPath -PathType Leaf)) {
             throw "FSR ML upscaling failed for $($frame.Name)."

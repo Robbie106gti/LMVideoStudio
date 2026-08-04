@@ -791,3 +791,7 @@ module FeatureTddTests =
             plan.RootElement.GetProperty("output_height").GetInt32() |> should equal 2160
             plan.RootElement.GetProperty("frame_generation_input_height").GetInt32() |> should equal 720
             plan.RootElement.GetProperty("output_fps").GetInt32() |> should equal 24
+            Math.Round(plan.RootElement.GetProperty("frame_generation_frame_time_ms").GetDouble(), 3)
+            |> should equal 83.333
+            Math.Round(plan.RootElement.GetProperty("upscale_frame_time_ms").GetDouble(), 3)
+            |> should equal 41.667
